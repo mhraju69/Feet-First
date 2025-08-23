@@ -67,3 +67,40 @@ class LoginSerializer(serializers.Serializer):
             "access": str(refresh.access_token),
         }  
     
+class SurveySerializer(serializers.ModelSerializer):
+    # POST/PUT এর জন্য list হিসেবে source field
+    source = serializers.ListField(
+        child=serializers.ChoiceField(choices=OnboardingSurvey.SOURCE_CHOICES),
+        write_only=True
+    )
+    # GET এর জন্য list হিসেবে দেখাবে
+    source_display = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        model = OnboardingSurvey
+        fields = [
+            'id', 'source', 'source_display', 'product_preference',
+            'foot_problems', 'created_at', 'user'
+        ]
+        read_only_fields = ['id', 'created_at', 'user', 'source_display']
+
+    def get_source_display(self, obj):
+        if obj.source:
+            return obj.source.split(',')
+        return []
+
+    def create(self, validated_data):
+        user = self.context['request'].user
+
+        # Duplicate survey check
+        if OnboardingSurvey.objects.filter(user=user).exists():
+            raise serializers.ValidationError("You have already submitted the survey.")
+
+        # Convert list to comma-separated string
+        source_list = validated_data.pop('source', [])
+        validated_data['source'] = ','.join(source_list)
+
+        # Attach user
+        validated_data['user'] = user
+
+        return super().create(validated_data)
