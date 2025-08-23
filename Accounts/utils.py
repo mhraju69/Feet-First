@@ -3,18 +3,26 @@ from .models import *
 from django.core.mail import send_mail
 from django.conf import settings
 
-def send_otp(email):
+def send_otp(email,task=None):
     if not email:
         raise ValueError("Email is required.")
     try:
         user = User.objects.get(email=email)
     except User.DoesNotExist:
         return False
+    
+    exists = OTP.objects.filter(user=user).exists()
+    if  exists:
+        OTP.objects.filter(user=user).delete()
+
     otp = OTP.generate_otp(user)
-    subject = 'FeetFirst Account Verification'
-    message = (
-        f'Your OTP Code For FeetFirst Account Verification is: {otp.otp}\n'
-    )
+    subject = 'Feet First OTP Verification'
+    message = f"""
+        Your OTP Code From Feet First for {task} is: {otp.otp}
+        This OTP is valid for 10 minutes.
+        If you did not request this, please ignore this email.
+        """
+
     send_mail(
             subject,
             message,
@@ -23,3 +31,11 @@ def send_otp(email):
             fail_silently=False,
         )
     return True
+
+
+def verify_otp(email, otp_code):
+    otp = OTP.objects.filter(user__email=email, otp=otp_code).first()
+    if otp:
+        otp.delete()
+        return True
+    return False
