@@ -38,3 +38,32 @@ class UserUpdateSerializer(serializers.ModelSerializer):
 
         instance.save()
         return instance
+
+class LoginSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    password = serializers.CharField(write_only=True)
+
+    def validate(self, data):
+        email = data.get("email")
+        password = data.get("password")
+
+        if not email or not password:
+            raise serializers.ValidationError("Both email and password are required.")
+
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            raise serializers.ValidationError("Invalid email or password.")
+
+        if not user.check_password(password):
+            raise serializers.ValidationError("Invalid email or password.")
+
+        # Generate JWT tokens
+        refresh = RefreshToken.for_user(user)
+
+        return {
+            "user": UserSerializer(user).data,
+            "refresh": str(refresh),
+            "access": str(refresh.access_token),
+        }  
+    
