@@ -4,7 +4,7 @@ from rest_framework import generics
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, permissions
-
+from .utils import *
 # Create your views here.
 
 class UserCreateView(generics.CreateAPIView):
@@ -46,11 +46,15 @@ class VerifyOTP(APIView):
             )
 
         try:
-            otp = OTP.objects.get(user__email=email, otp=otp_code)
+            isvalid = verify_otp(email, otp_code)
+            if not isvalid:
+                return Response(
+                    {"success": False, "error": "Invalid OTP or email."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
             user = User.objects.get(email=email)
             user.is_active = True
             user.save()
-            otp.delete() 
             return Response(
                 {"success": True, "message": "OTP verified successfully."},
                 status=status.HTTP_200_OK
@@ -60,3 +64,4 @@ class VerifyOTP(APIView):
                 {"success": False, "error": "Invalid OTP or email."},
                 status=status.HTTP_400_BAD_REQUEST
             )
+        
