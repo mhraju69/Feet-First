@@ -89,3 +89,27 @@ class Reset_password(APIView):
             return Response({"success": True}, status=200)
         except User.DoesNotExist:
             return Response({"error": "User not found"}, status=404)
+
+class Get_otp(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        email = request.data.get('email')
+        task = request.data.get('task', '')
+        if not email:
+            return Response(
+                {"error": "Email is required."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        success = send_otp(email, task)
+
+        if success:
+            return Response(
+                {"success": True, "message": f"OTP sent successfully for {task}."},
+                status=status.HTTP_200_OK
+            )
+        else:
+            return Response(
+                {"error": "User not found."},
+                status=status.HTTP_404_NOT_FOUND
+            )
