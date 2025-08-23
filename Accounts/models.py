@@ -61,3 +61,24 @@ class User(AbstractBaseUser, PermissionsMixin):
     def has_module_perms(self, app_label):
         "Does the user have permissions to view the app `app_label`?"
         return True
+
+class OTP(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        related_name='user_otp',  
+        on_delete=models.CASCADE
+    )
+    otp = models.CharField(max_length=6)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Your OTP is: {self.otp}. Please keep it secure and do not share it with anyone."
+
+    @staticmethod
+    def generate_otp(user):
+        import random
+        otp_code = ''.join(random.choices('0123456789', k=6))
+        otp = OTP.objects.create(user=user, otp=otp_code)
+        otp.save()
+        return otp
+  
