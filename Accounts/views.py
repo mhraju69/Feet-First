@@ -9,3 +9,11 @@ from rest_framework import status, permissions
 
 class UserCreateView(generics.CreateAPIView):
     serializer_class = UserSerializer
+
+class UserUpdateView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = User.objects.all()
+    serializer_class = UserUpdateSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_object(self):
+        return self.request.user
