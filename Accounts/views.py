@@ -31,3 +31,32 @@ class SurveyListCreateView(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
     queryset = OnboardingSurvey.objects.all()
     serializer_class = SurveySerializer
+
+
+
+class VerifyOTP(APIView):
+    def post(self, request):
+        email = request.data.get('email')
+        otp_code = request.data.get('otp_code')
+
+        if not email or not otp_code:
+            return Response(
+                {"error": "Email and OTP code are required."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            otp = OTP.objects.get(user__email=email, otp=otp_code)
+            user = User.objects.get(email=email)
+            user.is_active = True
+            user.save()
+            otp.delete() 
+            return Response(
+                {"success": True, "message": "OTP verified successfully."},
+                status=status.HTTP_200_OK
+            )
+        except OTP.DoesNotExist:
+            return Response(
+                {"success": False, "error": "Invalid OTP or email."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
