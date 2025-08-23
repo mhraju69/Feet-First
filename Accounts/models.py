@@ -82,3 +82,34 @@ class OTP(models.Model):
         otp.save()
         return otp
   
+class OnboardingSurvey(models.Model):
+
+    # Foreign key to the user
+    user =  models.OneToOneField(User, on_delete=models.CASCADE, related_name="survey")
+
+    # Step 2: How did you hear about FeetFirst?
+    SOURCE_CHOICES = [
+        ("social_media", "Through social media (Instagram, Facebook, etc.)"),
+        ("partner_store", "In a partner store"),
+        ("scan_event", "During a scan event"),
+        ("word_of_mouth", "By word of mouth (friend’s suggestion)"),
+        ("other", "Other"),
+    ]
+    source = MultiSelectField(choices=SOURCE_CHOICES, max_length=200)  # 👈 multiple choices allowed
+
+    # Step 3: Which products do you use the most?
+    PRODUCT_CHOICES = [
+        ("man", "Man"),
+        ("woman", "Woman"),
+    ]
+    product_preference = models.CharField(max_length=10, choices=PRODUCT_CHOICES)
+
+    # Step 4: Free text for foot/shoe problems
+    foot_problems = models.TextField(blank=True, null=True)
+
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Survey of {self.user.email if self.user else 'Unknown User'}"
+
