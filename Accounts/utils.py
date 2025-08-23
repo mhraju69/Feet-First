@@ -32,7 +32,6 @@ def send_otp(email,task=None):
         )
     return True
 
-
 def verify_otp(email, otp_code):
     otp = OTP.objects.filter(user__email=email, otp=otp_code).first()
     if otp:
