@@ -32,8 +32,6 @@ class SurveyListCreateView(generics.ListCreateAPIView):
     queryset = OnboardingSurvey.objects.all()
     serializer_class = SurveySerializer
 
-
-
 class VerifyOTP(APIView):
     def post(self, request):
         email = request.data.get('email')
@@ -65,3 +63,29 @@ class VerifyOTP(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
+class Reset_password(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):   
+        email = request.data.get('email')
+        otp_code = request.data.get('otp_code')
+        new_password = request.data.get('new_password')
+
+        if not email or not new_password:
+            return Response(
+                {"error": "Email and new password are required."},
+                status=400
+            )
+
+       
+        if otp_code:
+            if not verify_otp(email, otp_code):  
+                return Response({"error": "Invalid OTP"}, status=400)
+
+        try:
+            user = User.objects.get(email=email)
+            user.set_password(new_password)
+            user.save()
+            return Response({"success": True}, status=200)
+        except User.DoesNotExist:
+            return Response({"error": "User not found"}, status=404)
