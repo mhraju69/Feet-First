@@ -122,3 +122,12 @@ class AddressListCreateView(generics.ListCreateAPIView):
         return self.queryset.filter(user=self.request.user)
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
+
+class AddressDetailView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = AddressSerializer
+    queryset = Address.objects.all()
+
+    def get_queryset(self):
+        return self.queryset.filter(user=self.request.user)
+
