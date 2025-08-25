@@ -22,3 +22,14 @@ class SubcategoryListView(generics.ListAPIView):
     filterset_fields = {'category'}
     ordering = ['name'] 
     queryset = SubCategory.objects.all()
+
+
+class ProductListView(generics.ListAPIView):
+    serializer_class = ProductSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    
+    filter_backends = [DjangoFilterBackend, OrderingFilter]
+    filterset_fields = {'subcategory'}
+    ordering = ['-created_at'] 
+    
+    queryset = Product.objects.all()
