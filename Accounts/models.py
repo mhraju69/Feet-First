@@ -113,3 +113,26 @@ class OnboardingSurvey(models.Model):
     def __str__(self):
         return f"Survey of {self.user.email if self.user else 'Unknown User'}"
 
+class Address(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        on_delete=models.CASCADE, 
+        related_name="addresses"
+    )
+    street_address = models.CharField(max_length=255)
+    apartment_address = models.CharField(max_length=255, blank=True, null=True)
+    city = models.CharField(max_length=100)
+    state = models.CharField(max_length=100, blank=True, null=True)
+    postal_code = models.CharField(max_length=20)
+    country = models.CharField(max_length=100)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Address"
+        verbose_name_plural = "Addresses"
+        ordering = [ "-created_at"]
+
+    def __str__(self):
+        return f"{self.street_address}, {self.city}, {self.country}"
+
