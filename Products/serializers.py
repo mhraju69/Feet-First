@@ -6,5 +6,9 @@ class ProductSerializer(serializers.ModelSerializer):
         model = Product
         fields = '__all__'
 
+class SubCategorySerializer(serializers.ModelSerializer):
+    # product = ProductSerializer(many=True, read_only=True)
+    class Meta:
+        model = SubCategory
+        fields = '__all__'
 
-        
