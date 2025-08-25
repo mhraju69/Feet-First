@@ -9,4 +9,6 @@ urlpatterns = [
     path("login/", LoginView.as_view(), name="login"),
     path('user-update/',UserUpdateView.as_view()),
     path("surveys/", SurveyListCreateView.as_view(), name="survey-list-create"),
+    path("addresses/", AddressListCreateView.as_view(), name="address-list-create"),
+    path("addresses/<int:pk>/", AddressDetailView.as_view(), name="address-detail"),
 ]
