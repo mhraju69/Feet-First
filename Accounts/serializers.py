@@ -104,3 +104,10 @@ class SurveySerializer(serializers.ModelSerializer):
         validated_data['user'] = user
 
         return super().create(validated_data)
+
+class AddressSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Address
+        fields = '__all__'
+        read_only_fields = ["id", "created_at", "updated_at", "user"]
+

@@ -135,4 +135,3 @@ class Address(models.Model):
 
     def __str__(self):
         return f"{self.street_address}, {self.city}, {self.country}"
-
