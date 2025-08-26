@@ -19,7 +19,7 @@ class UserManager(BaseUserManager):
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
         extra_fields.setdefault('is_active', True)
-        
+        extra_fields.setdefault('role', 'admin')
         if extra_fields.get('is_staff') is not True:
             raise ValueError('Superuser must have is_staff=True.')
         if extra_fields.get('is_superuser') is not True:
@@ -28,12 +28,13 @@ class UserManager(BaseUserManager):
         return self.create_user(email, password, **extra_fields)
 
 class User(AbstractBaseUser, PermissionsMixin):
-    name = models.CharField(max_length=200, blank=True, null=True)
-    email = models.EmailField(
-        verbose_name="email address",
-        max_length=255,
-        unique=True,
+    ROLE = (
+        ('customer', 'Customer'),
+        ('admin', 'Admin'),
     )
+    name = models.CharField(max_length=200, blank=True, null=True)
+    email = models.EmailField(verbose_name="email address",max_length=255,unique=True,)
+    role = models.CharField(max_length=10, choices=ROLE, default='customer')
     image = models.ImageField(upload_to='profile_images/', blank=True, null=True)
     date_of_birth = models.DateField(blank=True, null=True)
     language = models.CharField(max_length=10, choices=[('german', 'German'),('italian', 'Italian'),],default='german')
