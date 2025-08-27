@@ -2,6 +2,8 @@ from rest_framework import serializers
 from .models import *
 
 class ProductSerializer(serializers.ModelSerializer):
+    sizes = serializers.StringRelatedField(many=True)
+    widths = serializers.StringRelatedField(many=True)
     class Meta:
         model = Product
         fields = '__all__'
