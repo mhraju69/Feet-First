@@ -36,8 +36,8 @@ ALLOWED_HOSTS = ['*']
 # Application definition
 
 INSTALLED_APPS = [
-    'jazzmin',
     'unfold',
+    'jazzmin',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -92,7 +92,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
     }
-}
+}   
 
 
 # Password validation
@@ -154,7 +154,11 @@ AUTH_USER_MODEL = 'Accounts.User'  # Set custom user model
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
-        )
+        ),
+    "DEFAULT_FILTER_BACKENDS": [
+        "django_filters.rest_framework.DjangoFilterBackend",
+        'rest_framework.filters.OrderingFilter',
+        ]
     }
 
 SIMPLE_JWT = {
@@ -166,10 +170,9 @@ SIMPLE_JWT = {
 
 UNFOLD = {
     "MODE": "dark",
-    "SITE_TITLE": "My Admin",
-    "SITE_HEADER": "My Dashboard",
+    "SITE_TITLE": "Feet First Admin",   
+    "SITE_HEADER": "Admin Dashboard",
 }
-
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
@@ -178,3 +181,4 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'drzraju@gmail.com'
 EMAIL_HOST_PASSWORD = 'rhod rlwj vhkn etrb'
 DEFAULT_FROM_EMAIL = 'drzraju@gmail.com'
+
