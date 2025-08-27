@@ -8,7 +8,7 @@ class UserAdmin(ModelAdmin ):
     search_fields = ('email', 'name')
     list_filter = ('is_active', 'is_superuser')
     actions = ['delete_selected']
-    
+    readonly_fields = ('password',)
 
 admin.site.register(User,UserAdmin)
 admin.site.register(OTP)
