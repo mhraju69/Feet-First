@@ -11,7 +11,6 @@ class CategoryListView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = CategorySerializer
     filter_backends = [OrderingFilter]
-    ordering = ['name']
     queryset = Category.objects.all()
 
 
@@ -20,7 +19,6 @@ class SubcategoryListView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
     filter_backends = [DjangoFilterBackend, OrderingFilter]
     filterset_fields = {'category'}
-    ordering = ['name'] 
     queryset = SubCategory.objects.all()
 
 
@@ -33,3 +31,11 @@ class ProductListView(generics.ListAPIView):
     ordering = ['-created_at'] 
     
     queryset = Product.objects.all()
+
+class PDFFileUploadView(generics.CreateAPIView):
+    queryset = PdfFile.objects.all()
+    serializer_class = PdfFileSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user) 
