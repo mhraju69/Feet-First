@@ -6,7 +6,13 @@ class AvailableSize(models.Model):
     details = models.TextField(blank=True, null=True)
     def __str__(self):
         return self.size 
-    
+
+class AvailableWidth(models.Model):
+    width = models.CharField(max_length=20, unique=True)
+    details = models.TextField(blank=True, null=True)
+    def __str__(self):
+        return self.width
+
 class Category(models.Model):
     name_de = models.CharField(max_length=200)
     name_it= models.CharField(max_length=200)
