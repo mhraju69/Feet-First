@@ -19,4 +19,9 @@ class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
         fields = '__all__'
-        
+
+class PdfFileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PdfFile
+        fields = ['id', 'user', 'pdf_file', 'uploaded_at']
+        read_only_fields = ['id', 'uploaded_at', 'user']
