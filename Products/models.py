@@ -10,15 +10,14 @@ class Category(models.Model):
     def __str__(self):
         return self.name_de
     
-class SubCategory(models.Model):
-    name = models.CharField(max_length=200)
-    description = models.TextField()
+class SubCategory(models.Model):    
+    name_de = models.CharField(max_length=200)
+    name_it= models.CharField(max_length=200)
     image = models.ImageField(upload_to='category_images/',default='category_images/default.jpg')
     category = models.ForeignKey(Category, on_delete=models.CASCADE,related_name='subcategory')
-    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return self.name
+        return self.name_de 
     
 class Product(models.Model):
     name = models.CharField(max_length=255)
