@@ -11,7 +11,7 @@ class UserAdmin(ModelAdmin ):
     readonly_fields = ('password',)
 
 admin.site.register(User,UserAdmin)
-admin.site.register(OTP)
-admin.site.register(OnboardingSurvey)
+admin.site.register(OTP,ModelAdmin)
+admin.site.register(OnboardingSurvey,ModelAdmin)
 
     
