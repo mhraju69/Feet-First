@@ -105,7 +105,7 @@ class Get_otp(APIView):
 
         if success:
             return Response(
-                {"success": True, "message": f"OTP sent successfully for {task}."},
+                {"success": True, "message": f"OTP sent successfully for {task or 'Verification'}."},
                 status=status.HTTP_200_OK
             )
         else:

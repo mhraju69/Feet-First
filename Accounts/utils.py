@@ -18,7 +18,7 @@ def send_otp(email,task=None):
     otp = OTP.generate_otp(user)
     subject = 'Feet First OTP Verification'
     message = f"""
-        Your OTP Code From Feet First for {task} is: {otp.otp}
+        Your OTP Code From Feet First for {task or  "Verification"} is: {otp.otp}
         This OTP is valid for 10 minutes.
         If you did not request this, please ignore this email.
         """
