@@ -38,12 +38,9 @@ def send_otp(email,task=None):
 def verify_otp(email, otp_code):
     otp = OTP.objects.filter(user__email=email, otp=otp_code).first()
 
-    if not otp:
+    if not otp or otp.created_at + timedelta(minutes=3) < timezone.now():
+        otp.delete()    
         return False
-
-    if otp.created_at + timedelta(minutes=3) < timezone.now():
-        otp.delete()
-        return {"success": False, "message": "OTP has expired"}
 
     otp.delete()
     return True

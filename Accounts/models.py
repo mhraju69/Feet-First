@@ -30,6 +30,7 @@ class UserManager(BaseUserManager):
 class User(AbstractBaseUser, PermissionsMixin):
     ROLE = (
         ('customer', 'Customer'),
+        ('partner', 'Partner'),
         ('admin', 'Admin'),
     )
     name = models.CharField(max_length=200, blank=True, null=True)
