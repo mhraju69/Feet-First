@@ -47,7 +47,7 @@ class VerifyOTP(APIView):
             isvalid = verify_otp(email, otp_code)
             if not isvalid:
                 return Response(
-                    {"success": False, "error": "Invalid OTP or email."},
+                    {"success": False, "error": "Invalid OTP or OTP has expired."},
                     status=status.HTTP_400_BAD_REQUEST
                 )
             user = User.objects.get(email=email)

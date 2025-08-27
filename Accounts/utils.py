@@ -2,7 +2,9 @@
 from .models import *
 from django.core.mail import send_mail
 from django.conf import settings
-
+from datetime import timedelta
+from django.utils import timezone
+from django.core.exceptions import ValidationError
 def send_otp(email,task=None):
     if not email:
         raise ValueError("Email is required.")
@@ -32,9 +34,17 @@ def send_otp(email,task=None):
         )
     return True
 
+
 def verify_otp(email, otp_code):
     otp = OTP.objects.filter(user__email=email, otp=otp_code).first()
-    if otp:
+
+    if not otp:
+        return False
+
+    if otp.created_at + timedelta(minutes=3) < timezone.now():
         otp.delete()
-        return True
-    return False
+        return {"success": False, "message": "OTP has expired"}
+
+    otp.delete()
+    return True
+
