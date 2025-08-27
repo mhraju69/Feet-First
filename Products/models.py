@@ -1,7 +1,12 @@
 from django.db import models
 
 # Create your models here.
-
+class AvailableSize(models.Model):
+    size = models.CharField(max_length=10, unique=True)
+    details = models.TextField(blank=True, null=True)
+    def __str__(self):
+        return self.size 
+    
 class Category(models.Model):
     name_de = models.CharField(max_length=200)
     name_it= models.CharField(max_length=200)
