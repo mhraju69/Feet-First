@@ -38,10 +38,13 @@ def send_otp(email,task=None):
 def verify_otp(email, otp_code):
     otp = OTP.objects.filter(user__email=email, otp=otp_code).first()
 
-    if not otp or otp.created_at + timedelta(minutes=3) < timezone.now():
-        otp.delete()    
+    if not otp:
         return False
 
+    if otp.created_at + timedelta(minutes=3) < timezone.now():
+        otp.delete()
+        return False
+    
     otp.delete()
     return True
 

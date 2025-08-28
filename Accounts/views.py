@@ -1,10 +1,12 @@
+from .utils import *
 from .models import *
 from .serializers import *
 from rest_framework import generics
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, permissions
-from .utils import *
+from rest_framework_simplejwt.tokens import RefreshToken, AccessToken, TokenError
+
 # Create your views here.
 
 class UserCreateView(generics.CreateAPIView):
@@ -131,3 +133,23 @@ class AddressDetailView(generics.RetrieveUpdateDestroyAPIView):
     def get_queryset(self):
         return self.queryset.filter(user=self.request.user)
 
+class LogoutView(APIView):
+    def post(self, request):
+        try:
+            refresh_token = request.data.get("refresh")
+            access_token = request.data.get("access")
+
+            if refresh_token:
+                token = RefreshToken(refresh_token)
+                token.blacklist()  # destroys refresh token
+
+            if access_token:
+                token = AccessToken(access_token)
+                token.blacklist()  # optional: destroys access token immediately
+
+            return Response({"detail": "Successfully logged out."}, status=status.HTTP_200_OK)
+
+        except TokenError:
+            return Response({"detail": "Invalid or expired token."}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            return Response({"detail": "Something went wrong."}, status=status.HTTP_400_BAD_REQUEST)
