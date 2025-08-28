@@ -135,6 +135,13 @@ class Get_otp(APIView):
                 {"error": "Email is required."},
                 status=status.HTTP_400_BAD_REQUEST
             )
+        otp = OTP.objects.filter(user__email=email).first()
+        if otp and not otp.is_expired():
+            return Response(
+                {"error": "An OTP has already send. Please check your email."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         success = send_otp(email, task)
 
         if success:

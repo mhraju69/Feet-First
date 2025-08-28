@@ -28,7 +28,7 @@ def send_otp(email, task=None):
     html_content = render_to_string("email/otp_email.html", {
         "otp": otp.otp,
         "task": task or "Verification",
-        "user": user.name,
+        "user": user.name or user.email,
     })
 
     # Plain text fallback (for clients that don’t support HTML)
@@ -50,11 +50,6 @@ def verify_otp(email, otp_code):
 
     if not otp:
         return False
-
-    if otp.created_at + timedelta(minutes=3) < timezone.now():
-        otp.delete()
-        return False
-    
     otp.delete()
     return True
 
