@@ -1,8 +1,10 @@
+import random
 from django.db import models
-from django.contrib.auth.models import BaseUserManager, AbstractBaseUser, PermissionsMixin
+from datetime import timedelta
 from django.conf import settings
+from django.utils import timezone
 from multiselectfield import MultiSelectField
-
+from django.contrib.auth.models import BaseUserManager, AbstractBaseUser, PermissionsMixin
 
 class UserManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
@@ -72,17 +74,36 @@ class OTP(models.Model):
     )
     otp = models.CharField(max_length=6)
     created_at = models.DateTimeField(auto_now_add=True)
+    attempt_count = models.IntegerField(default=0)  
+    last_tried = models.DateTimeField(null=True, blank=True)  
 
     def __str__(self):
         return f"Your OTP is: {self.otp}. Please keep it secure and do not share it with anyone."
 
     @staticmethod
     def generate_otp(user):
-        import random
-        otp_code = ''.join(random.choices('0123456789', k=4))
-        otp = OTP.objects.create(user=user, otp=otp_code)
-        otp.save()
-        return otp
+        otp_code = str(random.randint(100000, 999999))
+        return OTP.objects.create(user=user, otp=otp_code)
+
+    def is_expired(self):
+        return self.created_at + timedelta(minutes=10) < timezone.now()
+
+    def can_try(self):
+        """Return True if user can try now"""
+        if self.attempt_count < 3:
+            return True
+        if self.last_tried + timedelta(minutes=1) < timezone.now():
+            # reset count after 1 min
+            self.attempt_count = 0
+            self.save()
+            return True
+        return False
+
+    def record_attempt(self):
+        """Update attempt_count and last_tried"""
+        self.attempt_count += 1
+        self.last_tried = timezone.now()
+        self.save() 
   
 class OnboardingSurvey(models.Model):
 
