@@ -47,55 +47,14 @@ class VerifyOTP(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        try:
-            otp_obj = OTP.objects.filter(user__email=email).latest('created_at')
-        except OTP.DoesNotExist:
-            return Response(
-                {"success": False, "error": "Invalid OTP or email."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        result = verify_otp(email, otp_code)
 
-        # Check if OTP is expired
-        if otp_obj.is_expired():
-            return Response(
-                {"success": False, "error": "OTP has expired."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        # Check if user can try
-        if otp_obj.attempt_count >= 3:
-            # Lock for 1 minute
-            if otp_obj.last_tried and otp_obj.last_tried + timedelta(minutes=1) > timezone.now():
-                remaining = int((otp_obj.last_tried + timedelta(minutes=1) - timezone.now()).seconds)
-                return Response(
-                    {"success": False, "error": f"Too many attempts. Try again in {remaining} seconds."},
-                    status=status.HTTP_403_FORBIDDEN
-                )
-            else:
-                otp_obj.attempt_count = 0  # reset after 1 min
-
-        # Verify OTP
-        if not verify_otp(email, otp_code):
-            otp_obj.attempt_count += 1
-            otp_obj.last_tried = timezone.now()
-            otp_obj.save()
-            return Response(
-                {"success": False, "error": f"Invalid OTP. You have {3 - otp_obj.attempt_count} attempts left."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        # OTP verified successfully
-        user = otp_obj.user
-        user.is_active = True
-        user.save()
-
-        # Delete OTP after success
-        otp_obj.delete()
-
-        return Response(
-            {"success": True, "message": "OTP verified successfully."},
-            status=status.HTTP_200_OK
-        )
+        if result['success']:
+            return Response({"success": True, "message": result['message']}, status=status.HTTP_200_OK)
+        else:
+            # 403 for lock, 400 for invalid/expired
+            status_code = status.HTTP_403_FORBIDDEN if "Too many attempts" in result['message'] else status.HTTP_400_BAD_REQUEST
+            return Response({"success": False, "error": result['message']}, status=status_code)
 
 class Reset_password(APIView):
     permission_classes = [permissions.AllowAny]
@@ -170,4 +129,3 @@ class LogoutView(APIView):
         except Exception as e:
             return Response({"error": "Invalid token"}, status=status.HTTP_400_BAD_REQUEST)
         
-
