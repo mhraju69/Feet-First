@@ -79,7 +79,7 @@ class OTP(models.Model):
     @staticmethod
     def generate_otp(user):
         import random
-        otp_code = ''.join(random.choices('0123456789', k=6))
+        otp_code = ''.join(random.choices('0123456789', k=4))
         otp = OTP.objects.create(user=user, otp=otp_code)
         otp.save()
         return otp

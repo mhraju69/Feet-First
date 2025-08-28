@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Feet First OTP Verification</title>
+    <style>
+        /* Base styles */
+        body, table, td, a {
+            -webkit-text-size-adjust: 100%;
+            -ms-text-size-adjust: 100%;
+        }
+        table, td {
+            mso-table-lspace: 0pt;
+            mso-table-rspace: 0pt;
+            border-collapse: collapse;
+        }
+        img {
+            -ms-interpolation-mode: bicubic;
+            border: 0;
+            height: auto;
+            line-height: 100%;
+            outline: none;
+            text-decoration: none;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f7f9fc;
+            margin: 0;
+            padding: 0;
+            color: #333333;
+        }
+        .email-container {
+            background-color: #ffffff;
+            margin: 0 auto;
+            width: 100%;
+            max-width: 600px;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+        }
+        .header {
+            background: rgb(0,71,171);
+            background: linear-gradient(159deg, rgba(0,71,171,1) 0%, rgba(28,169,201,1) 100%);
+            padding: 30px 20px;
+            text-align: center;
+            
+        }
+        .header a{
+            color: white;
+        }
+        .logo {
+            color: white;
+            font-size: 28px;
+            font-weight: bold;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .content {
+            padding: 40px 30px;
+        }
+        .otp-container {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 30px 0;
+            text-align: center;
+            border: 1px dashed #e2e8f0;
+        }
+        .otp-code {
+            font-size: 42px;
+            font-weight: bold;
+            letter-spacing: 8px;
+            color: #2d3748;
+            margin: 15px 0;
+            font-family: monospace;
+        }
+        .task-text {
+            font-size: 18px;
+            color: #4a5568;
+            margin-bottom: 10px;
+        }
+        .footer {
+            background-color: #f1f5f9;
+            padding: 25px 30px;
+            text-align: center;
+            font-size: 14px;
+            color: #718096;
+        }
+        .divider {
+            height: 1px;
+            background-color: #e2e8f0;
+            margin: 25px 0;
+        }
+        .text-center {
+            text-align: center;
+        }
+        .warning {
+            background-color: #fff5f5;
+            border-left: 4px solid #fc8181;
+            padding: 12px 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .social-links a {
+            margin: 0 10px;
+            text-decoration: none;
+            color: #4a5568;
+        }
+        @media only screen and (max-width: 600px) {
+            .content {
+                padding: 30px 20px;
+            }
+            .otp-code {
+                font-size: 32px;
+                letter-spacing: 5px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <center class="container">
+        <table class="email-container" width="100%" cellpadding="0" cellspacing="0" border="0">
+            <!-- Header -->
+            <tr>
+                <td class="header">
+                    <a href="#" class="logo">FEET FIRST</a>
+                </td>
+            </tr>
+            
+            <!-- Content -->
+            <tr>
+                <td class="content">
+                    <h2 style="margin-top: 0; color: #2d3748;">Hello, {{ user }}!</h2>
+                    
+                    <p class="task-text">Your OTP code for <strong>{{ task }}</strong> is:</p>
+                    
+                    <div class="otp-container">
+                        <div class="otp-code">{{ otp }}</div>
+                        <p style="margin: 0; color: #718096; font-size: 14px;">This code will expire in 3 minutes</p>
+                    </div>
+                    
+                    <p style="color: #718096; line-height: 1.6;">For security reasons, please do not share this code with anyone. Feet First will never ask you for your password or verification code.</p>
+                    
+                    <div class="warning">
+                        <strong>Security tip:</strong> If you didn't request this code, please ignore this email or contact our support team if you have concerns.
+                    </div>
+                </td>
+            </tr>
+            
+            <tr>
+                <td>
+                    <div class="divider"></div>
+                </td>
+            </tr>
+            
+            <!-- Footer -->
+            <tr>
+                <td class="footer">
+                    <p style="margin: 0 0 15px 0;">© 2023 Feet First. All rights reserved.</p>
+                    
+                    <p style="margin: 0 0 15px 0; font-size: 13px;">
+                        <a href="#" style="color: #4a5568; text-decoration: none;">Privacy Policy</a> | 
+                        <a href="#" style="color: #4a5568; text-decoration: none;">Terms of Service</a> | 
+                        <a href="#" style="color: #4a5568; text-decoration: none;">Unsubscribe</a>
+                    </p>
+                    
+                    <div class="social-links">
+                        <a href="#">Instagram</a> • 
+                        <a href="#">Twitter</a> • 
+                        <a href="#">Facebook</a>
+                    </div>
+                </td>
+            </tr>
+        </table>
+    </center>
+</body>
+</html>
