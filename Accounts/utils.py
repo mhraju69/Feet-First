@@ -14,7 +14,13 @@ def send_otp(email, task=None):
     try:
         user = User.objects.get(email=email)
     except User.DoesNotExist:
-        return False
+        return {"success": False, "message": "User not found."}
+    
+
+    otp = OTP.objects.filter(user__email=email).first()
+    if otp and not otp.is_expired():
+        return {"success": False, "message": "An OTP has already sent. Please check your email."}
+    
 
     # Remove old OTP if exists
     OTP.objects.filter(user=user).delete()
@@ -42,7 +48,8 @@ def send_otp(email, task=None):
     msg.attach_alternative(html_content, "text/html")
     msg.send()
 
-    return True
+    return {"success": True, "message": f"OTP sent successfully for {task or 'Verification'}."}
+
 
 
 def verify_otp(email, otp_code):

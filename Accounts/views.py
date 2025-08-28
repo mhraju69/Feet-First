@@ -135,25 +135,13 @@ class Get_otp(APIView):
                 {"error": "Email is required."},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        otp = OTP.objects.filter(user__email=email).first()
-        if otp and not otp.is_expired():
-            return Response(
-                {"error": "An OTP has already send. Please check your email."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        
+        res = send_otp(email, task)
 
-        success = send_otp(email, task)
-
-        if success:
-            return Response(
-                {"success": True, "message": f"OTP sent successfully for {task or 'Verification'}."},
-                status=status.HTTP_200_OK
-            )
+        if res['success']:
+            return Response({"success": True, "message": res['message']}, status=status.HTTP_200_OK)
         else:
-            return Response(
-                {"error": "User not found."},
-                status=status.HTTP_404_NOT_FOUND
-            )
+            return Response({"error": res['message']}, status=status.HTTP_400_BAD_REQUEST)
         
 class AddressListCreateView(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
