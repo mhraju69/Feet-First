@@ -1,4 +1,3 @@
-
 from .models import *
 from django.core.mail import send_mail
 from django.conf import settings
@@ -49,18 +48,6 @@ def send_otp(email, task=None):
     msg.send()
 
     return {"success": True, "message": f"OTP sent successfully for {task or 'Verification'}."}
-
-
-
-# utils.py
-def verify_otp(email, otp_code):
-    otp = OTP.objects.filter(user__email=email, otp=otp_code).first()
-    if not otp:
-        return {"success": False, "message": "Invalid OTP"}
-
-    # OTP valid হলে delete
-    otp.delete()
-    return {"success": True, "message": "OTP verified successfully"}
 
 
 def verify_otp(email, otp_code, max_attempts=3, lock_minutes=1):
