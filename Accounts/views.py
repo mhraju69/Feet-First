@@ -56,10 +56,10 @@ class VerifyOTP(APIView):
             status_code = status.HTTP_403_FORBIDDEN if "Too many attempts" in result['message'] else status.HTTP_400_BAD_REQUEST
             return Response({"success": False, "error": result['message']}, status=status_code)
 
-class Reset_password(APIView):
+class ResetPassword(APIView):
     permission_classes = [permissions.AllowAny]
 
-    def post(self, request):   
+    def post(self, request):
         email = request.data.get('email')
         otp_code = request.data.get('otp_code')
         new_password = request.data.get('new_password')
@@ -70,20 +70,20 @@ class Reset_password(APIView):
                 status=400
             )
 
-       
         if otp_code:
-            if not verify_otp(email, otp_code):  
-                return Response({"error": "Invalid OTP"}, status=400)
+            result = verify_otp(email, otp_code)
+            if not result['success']:
+                return Response({"error": result['message']}, status=400)
 
         try:
             user = User.objects.get(email=email)
             user.set_password(new_password)
             user.save()
-            return Response({"success": True}, status=200)
+            return Response({"success": True, "message": "Password reset successfully"}, status=200)
         except User.DoesNotExist:
             return Response({"error": "User not found"}, status=404)
 
-class Get_otp(APIView):
+class GetOtp(APIView):
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):

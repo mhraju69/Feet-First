@@ -52,17 +52,16 @@ def send_otp(email, task=None):
 
 
 
+# utils.py
 def verify_otp(email, otp_code):
     otp = OTP.objects.filter(user__email=email, otp=otp_code).first()
-
     if not otp:
-        return False
-    otp.delete()
-    return True
+        return {"success": False, "message": "Invalid OTP"}
 
-# utils.py
-from datetime import timedelta
-from django.utils import timezone
+    # OTP valid হলে delete
+    otp.delete()
+    return {"success": True, "message": "OTP verified successfully"}
+
 
 def verify_otp(email, otp_code, max_attempts=3, lock_minutes=1):
     try:
