@@ -114,20 +114,27 @@ class AddressSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created_at", "updated_at", "user"]
 
 class ChangePasswordSerializer(serializers.Serializer):
-    old_pass = serializers.CharField(write_only=True)
-    new_pass1 = serializers.CharField(write_only=True)
-    new_pass2 = serializers.CharField(write_only=True)
+    old_password = serializers.CharField(required=True, write_only=True)
+    new_password = serializers.CharField(required=True, write_only=True)
+    confirm_password = serializers.CharField(required=True, write_only=True)
 
-    def validate(self, data):
+    def validate_old_password(self, value):
         user = self.context['request'].user
-        if not user.check_password(data['old_pass']):
-            raise serializers.ValidationError({"old_pass": "Incorrect password"})
-        if data['new_pass1'] != data['new_pass2']:
-            raise serializers.ValidationError({"new_pass2": "Passwords doesn't match"})
-        return data
+        if not user.check_password(value):
+            raise serializers.ValidationError("Old password is incorrect.")
+        return value
+
+    def validate(self, attrs):
+        if attrs['new_password'] != attrs['confirm_password']:
+            raise serializers.ValidationError(
+                {"confirm_password": "New password fields didn't match."}
+            )
+        return attrs
 
     def save(self, **kwargs):
         user = self.context['request'].user
-        user.set_password(self.validated_data['new_pass1'])
+        user.set_password(self.validated_data['new_password'])
         user.save()
         return user
+
+
