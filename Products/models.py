@@ -36,11 +36,11 @@ class Product(models.Model):
     name_de = models.CharField(max_length=200)
     name_it= models.CharField(max_length=200)
 
-    german_description = models.TextField(blank=True, null=True)
-    intalian_description = models.TextField(blank=True, null=True)
+    details_de = models.TextField(blank=True, null=True)
+    details_it = models.TextField(blank=True, null=True)
 
     price = models.DecimalField(max_digits=10, decimal_places=2)
-    discount = models.DecimalField(max_digits=5, decimal_places=2, default=0)  # percentage discount
+    discount = models.DecimalField(max_digits=5, decimal_places=2, default=0)  
     stock_quantity = models.PositiveIntegerField(default=0)
     is_active = models.BooleanField(default=True)
     brand = models.CharField(max_length=255, blank=True, null=True)

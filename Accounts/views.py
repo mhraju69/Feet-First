@@ -1,8 +1,6 @@
 from .utils import *
 from .models import *
 from .serializers import *
-from datetime import timedelta
-from django.utils import timezone
 from rest_framework import generics
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -129,15 +127,6 @@ class LogoutView(APIView):
         except Exception as e:
             return Response({"error": "Invalid token"}, status=status.HTTP_400_BAD_REQUEST)
         
-# views.py
-from rest_framework import generics, permissions
-from .serializers import ChangePasswordSerializer
-
-from rest_framework import generics, permissions, status
-from rest_framework.response import Response
-from .serializers import ChangePasswordSerializer
-
-
 class ChangePasswordView(generics.UpdateAPIView):
     serializer_class = ChangePasswordSerializer
     permission_classes = [permissions.IsAuthenticated]
