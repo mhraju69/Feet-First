@@ -5,6 +5,7 @@ from rest_framework import generics
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, permissions
+from rest_framework.exceptions import ValidationError
 from rest_framework_simplejwt.tokens import RefreshToken
 
 # Create your views here.
@@ -33,6 +34,10 @@ class SurveyListCreateView(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
     queryset = OnboardingSurvey.objects.all()
     serializer_class = SurveySerializer
+    def perform_create(self, serializer):
+        if hasattr(self.request.user, "survey"):
+            raise ValidationError({"detail": "You have already submitted a survey."})
+        serializer.save(user=self.request.user)
 
 class VerifyOTP(APIView):
     def post(self, request):
