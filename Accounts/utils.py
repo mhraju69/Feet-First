@@ -1,10 +1,10 @@
 from .models import *
-from django.core.mail import send_mail
-from django.conf import settings
 from datetime import timedelta
+from django.conf import settings
 from django.utils import timezone
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
+from rest_framework_simplejwt.token_blacklist.models import *
 
 def send_otp(email, task=None):
     if not email:
@@ -83,3 +83,29 @@ def verify_otp(email, otp_code, max_attempts=3, lock_minutes=1):
     otp_obj.delete()
 
     return {"success": True, "message": "OTP verified successfully."}
+
+
+import logging
+from celery import shared_task
+
+logger = logging.getLogger(__name__)
+
+@shared_task
+def cleanup_expired_tokens():
+    """
+    Remove expired tokens from both OutstandingToken and BlacklistedToken tables.
+    """
+    now = timezone.now()
+
+    # Remove expired BlacklistedTokens
+    expired_blacklist = BlacklistedToken.objects.filter(token__expires_at__lt=now)
+    blacklist_count = expired_blacklist.count()
+    expired_blacklist.delete()
+
+    # Remove expired OutstandingTokens
+    expired_outstanding = OutstandingToken.objects.filter(expires_at__lt=now)
+    outstanding_count = expired_outstanding.count()
+    expired_outstanding.delete()
+
+    logger.info(f"Expired cleanup done: {blacklist_count} blacklisted tokens removed, "
+                f"{outstanding_count} outstanding tokens removed.")

@@ -131,7 +131,9 @@ SIMPLE_JWT = {
     'REFRESH_TOKEN_LIFETIME': timedelta(days=30)
 }
 
-
+CRONJOBS = [
+    ('* * * * *', 'Accounts.cron.demo_task'),
+]
 
 UNFOLD = {
     "MODE": "dark",

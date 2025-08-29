@@ -7,7 +7,6 @@ class UserAdmin(ModelAdmin ):
     list_display = ('email', 'name',  'role','date_of_birth', 'is_active')
     search_fields = ('email', 'name')
     list_filter = ('is_active', 'is_superuser')
-    readonly_fields = ('password',)
 
 class OtpAdmin(ModelAdmin):
     list_display = ('user', 'otp', 'created_at')
