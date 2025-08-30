@@ -3,7 +3,6 @@ from django.db import models
 from datetime import timedelta
 from django.conf import settings
 from django.utils import timezone
-from multiselectfield import MultiSelectField
 from django.contrib.auth.models import BaseUserManager, AbstractBaseUser, PermissionsMixin
 
 class UserManager(BaseUserManager):
@@ -35,19 +34,20 @@ class User(AbstractBaseUser, PermissionsMixin):
         ('partner', 'Partner'),
         ('admin', 'Admin'),
     )
-    name = models.CharField(max_length=200, blank=True, null=True)
-    email = models.EmailField(verbose_name="email address",max_length=255,unique=True,)
-    role = models.CharField(max_length=10, choices=ROLE, default='customer')
+    name = models.CharField(max_length=200, blank=True, null=True,verbose_name="User Name")
+    email = models.EmailField(max_length=255,unique=True,verbose_name="User Email")
+    role = models.CharField(max_length=10, choices=ROLE, default='customer',verbose_name="User Role")
     image = models.ImageField(upload_to='profile_images/', blank=True, null=True)
     phone = models.CharField(max_length=20, blank=True, null=True)
     date_of_birth = models.DateField(blank=True, null=True)
-    language = models.CharField(max_length=10, choices=[('german', 'German'),('italian', 'Italian'),],default='german')
-    is_active = models.BooleanField(default=False)
-    is_staff = models.BooleanField(default=False)  
-    is_superuser = models.BooleanField(default=False)  
+    language = models.CharField(max_length=10, choices=[('german', 'German'),('italian', 'Italian'),],default='german',verbose_name="User Language")
+    is_active = models.BooleanField(default=False,verbose_name="Active User")
+    is_staff = models.BooleanField(default=False,verbose_name="Staff User")  
+    is_superuser = models.BooleanField(default=False,verbose_name="Super User")  
     objects = UserManager()
-    date_joined = models.DateTimeField(auto_now_add=True)
+    date_joined = models.DateTimeField(auto_now_add=True, verbose_name="Joineing Date")
     last_login = models.DateTimeField(auto_now=True)
+    suspend = models.BooleanField(default=False,verbose_name="Suspend User")
     class Meta:
         verbose_name = 'User'
         verbose_name_plural = 'Users'
@@ -73,13 +73,13 @@ class OTP(models.Model):
         related_name='user_otp',  
         on_delete=models.CASCADE
     )
-    otp = models.CharField(max_length=6)
+    otp = models.CharField(max_length=6,verbose_name="OTP Code")
     created_at = models.DateTimeField(auto_now_add=True)
     attempt_count = models.IntegerField(default=0)  
     last_tried = models.DateTimeField(null=True, blank=True)  
 
     def __str__(self):
-        return f"Your OTP is: {self.otp}. Please keep it secure and do not share it with anyone."
+        return f"OTP for: {self.user}."
 
     @staticmethod
     def generate_otp(user):
@@ -127,7 +127,7 @@ class OnboardingSurvey(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"Survey of {self.user.email if self.user else 'Unknown User'}"
+        return f"Survey of {self.user.email}"
 
 class Address(models.Model):
     user = models.ForeignKey(

@@ -1,7 +1,10 @@
+import logging
 from .models import *
+from celery import shared_task
 from datetime import timedelta
 from django.conf import settings
 from django.utils import timezone
+logger = logging.getLogger(__name__)
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 from rest_framework_simplejwt.token_blacklist.models import *
@@ -85,11 +88,6 @@ def verify_otp(email, otp_code, max_attempts=3, lock_minutes=1):
     return {"success": True, "message": "OTP verified successfully."}
 
 
-import logging
-from celery import shared_task
-
-logger = logging.getLogger(__name__)
-
 @shared_task
 def cleanup_expired_tokens():
     """
@@ -109,3 +107,4 @@ def cleanup_expired_tokens():
 
     logger.info(f"Expired cleanup done: {blacklist_count} blacklisted tokens removed, "
                 f"{outstanding_count} outstanding tokens removed.")
+    

@@ -3,7 +3,7 @@ from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from rest_framework_simplejwt.tokens import RefreshToken
 User = get_user_model()
-from .utils import send_otp
+from .utils import *
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -54,11 +54,15 @@ class LoginSerializer(serializers.Serializer):
             user = User.objects.get(email=email)
         except User.DoesNotExist:
             raise serializers.ValidationError("Invalid email or password.")
-
+        if user.suspend:
+            raise serializers.ValidationError("Your account has been temporarily suspended. Please contact support for more information.")
         if not user.check_password(password):
             raise serializers.ValidationError("Invalid email or password.")
         if not user.is_active:
-            raise serializers.ValidationError("Your account is inactive.Please contact support.")
+            otp = user.user_otp.first()
+            if otp and otp.is_expired():
+                send_otp(user.email, 'login')
+            raise serializers.ValidationError("Your account is inactive.Please check your email and active with otp.")
 
         # Generate JWT tokens
         refresh = RefreshToken.for_user(user)
@@ -77,8 +81,6 @@ class SurveySerializer(serializers.ModelSerializer):
         fields = '__all__'
         read_only_fields = ["id", "created_at", "user"]
             
-        
-
 class AddressSerializer(serializers.ModelSerializer):
     class Meta:
         model = Address

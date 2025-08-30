@@ -14,7 +14,7 @@ class OtpAdmin(ModelAdmin):
     list_display = ('user', 'otp', 'created_at')
     search_fields = ('user__email', 'otp')
     list_filter = ('created_at',)
-    readonly_fields = ('otp','user')
+    readonly_fields = ('user','otp', 'attempt_count','last_tried','created_at',)
 
 class SurvayAdmin(ModelAdmin):
     list_display = ('user', 'formatted_sources', 'product_preference', 'truncated_foot_problems', 'created_at')
@@ -24,6 +24,9 @@ class SurvayAdmin(ModelAdmin):
 
     # Specify fields for the detail page (exclude non-editable from fields list)
     fields = ('user','formatted_sources', 'product_preference', 'foot_problems', 'created_at')
+
+    search_fields = ('user__email', 'sources', )
+    list_filter = ('product_preference',)    
 
     def formatted_sources(self, obj):
         # Display sources as badges
