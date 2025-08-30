@@ -1,6 +1,7 @@
 from .models import *
 from django.contrib import admin
 from unfold.admin import ModelAdmin
+from django.utils.html import format_html
 # Register your models here.
 class SurvayAdmin(ModelAdmin):
     list_display = ('user', 'formatted_sources', 'product_preference', 'truncated_foot_problems', 'created_at')

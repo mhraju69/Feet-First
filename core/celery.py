@@ -17,6 +17,10 @@ app.conf.beat_schedule.update({
         "task": "Accounts.utils.cleanup_expired_tokens",
         "schedule": crontab(hour=0, minute=0),  # Daily at 12:00 AM
     },
+    "cleanup-expired-otps": {
+        "task": "Accounts.utils.cleanup_expired_otps",
+        "schedule": schedule(3600.0),  # Every 60 minutes
+    },
 })
 
 app.conf.timezone = "UTC"

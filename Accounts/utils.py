@@ -108,3 +108,13 @@ def cleanup_expired_tokens():
     logger.info(f"Expired cleanup done: {blacklist_count} blacklisted tokens removed, "
                 f"{outstanding_count} outstanding tokens removed.")
     
+@shared_task
+def cleanup_expired_otps():
+    """
+    Remove expired OTP entries from the database.
+    """
+    now = timezone.now()
+    expired_otps = OTP.objects.filter(created_at__lt=now - timedelta(minutes=10))
+    count = expired_otps.count()
+    expired_otps.delete()
+    logger.info(f"Expired OTP cleanup done: {count} OTPs removed.")
