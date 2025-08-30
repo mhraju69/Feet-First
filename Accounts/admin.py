@@ -45,4 +45,3 @@ class SurvayAdmin(ModelAdmin):
 
 admin.site.register(User,UserAdmin)
 admin.site.register(OTP,OtpAdmin)
-admin.site.register(OnboardingSurvey,SurvayAdmin)

@@ -72,15 +72,7 @@ class LoginSerializer(serializers.Serializer):
             "refresh": str(refresh),
             "access": str(refresh.access_token),
         }  
-    
-class SurveySerializer(serializers.ModelSerializer):
-    # GET এর জন্য list হিসেবে দেখাবে
-    
-    class Meta:
-        model = OnboardingSurvey
-        fields = '__all__'
-        read_only_fields = ["id", "created_at", "user"]
-            
+        
 class AddressSerializer(serializers.ModelSerializer):
     class Meta:
         model = Address
