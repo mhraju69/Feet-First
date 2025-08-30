@@ -31,6 +31,7 @@ INSTALLED_APPS = [
     'Products',
     'django_filters',
     'rest_framework_simplejwt.token_blacklist',
+    'Surveys',
     ]
 
 MIDDLEWARE = [
