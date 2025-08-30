@@ -9,6 +9,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api-auth/', include('Accounts.urls')),
     path('api-products/', include('Products.urls')),
+    path('api-surveys/', include('Surveys.urls')),
     path("accounts/", include("django.contrib.auth.urls")),  
     path('', RedirectView.as_view(url='/admin/', permanent=False)),
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),

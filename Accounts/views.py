@@ -30,15 +30,6 @@ class LoginView(APIView):
             return Response(serializer.validated_data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-class SurveyListCreateView(generics.ListCreateAPIView):
-    permission_classes = [permissions.IsAuthenticated]
-    queryset = OnboardingSurvey.objects.all()
-    serializer_class = SurveySerializer
-    def perform_create(self, serializer):
-        if hasattr(self.request.user, "survey"):
-            raise ValidationError({"detail": "You have already submitted a survey."})
-        serializer.save(user=self.request.user)
-
 class VerifyOTP(APIView):
     def post(self, request):
         email = request.data.get('email')
