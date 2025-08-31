@@ -9,7 +9,9 @@ urlpatterns = [
     path("logout/", LogoutView.as_view(), name="logout"),
     path('signup/',UserCreateView.as_view(), name="signup"),
     path('verify-otp/',VerifyOTP.as_view(), name="verify_otp"),
+    path("google/callback/", SocialAuthCallbackView.as_view()),
     path("change-password/", ChangePasswordView.as_view(), name="change-password"),
     path("addresses/", AddressListCreateView.as_view(), name="address-list-create"),
     path("addresses/<int:pk>/", AddressDetailView.as_view(), name="address-detail"),
+    path("google/", login, name="user-profile"),
 ]

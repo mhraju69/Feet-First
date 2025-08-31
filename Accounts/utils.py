@@ -118,3 +118,4 @@ def cleanup_expired_otps():
     count = expired_otps.count()
     expired_otps.delete()
     logger.info(f"Expired OTP cleanup done: {count} OTPs removed.")
+

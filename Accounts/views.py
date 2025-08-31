@@ -1,3 +1,5 @@
+from django.shortcuts import render
+import requests
 from .utils import *
 from .models import *
 from .serializers import *
@@ -7,6 +9,7 @@ from rest_framework.response import Response
 from rest_framework import status, permissions
 from rest_framework.exceptions import ValidationError
 from rest_framework_simplejwt.tokens import RefreshToken
+from django.contrib.auth.hashers import make_password
 
 # Create your views here.
 
@@ -136,4 +139,69 @@ class ChangePasswordView(generics.UpdateAPIView):
         serializer.save()
         return Response({"detail": "Password updated successfully."}, status=status.HTTP_200_OK)
 
+def login(request):
+        return render(request, "google.html",{
+            'google_client_id': settings.GOOGLE_OAUTH_CLIENT_ID,
+            'google_callback_uri': settings.GOOGLE_OAUTH_CALLBACK_URL,
+        })
 
+class SocialAuthCallbackView(APIView):
+    def get(self, request):
+        code = request.GET["code"]  
+        if not code:
+            return Response({"error": "No code provided"}, status=400)
+
+        # Step 1: Exchange code for access_token
+        token_url = "https://oauth2.googleapis.com/token"
+        data = {
+            "code": code,
+            "client_id": settings.GOOGLE_OAUTH_CLIENT_ID,
+            "client_secret": settings.GOOGLE_OAUTH_CLIENT_SECRET,
+            "redirect_uri": settings.GOOGLE_OAUTH_CALLBACK_URL,
+            "grant_type": "authorization_code",
+        }
+
+        token_res = requests.post(token_url, data=data)
+        if token_res.status_code != 200:
+            return Response({"error": "Failed to get token"}, status=400)
+
+        token_json = token_res.json()
+        access_token = token_json.get("access_token")
+
+        # Step 2: Get user info from Google
+        userinfo_res = requests.get(
+            "https://www.googleapis.com/oauth2/v2/userinfo",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        if userinfo_res.status_code != 200:
+            return Response({"error": "Failed to fetch user info"}, status=400)
+
+        user_info = userinfo_res.json()
+        email = user_info.get("email")
+        name = user_info.get("name")
+        profile_image = user_info.get("picture")
+
+        # সমাধান: সঠিকভাবে get_or_create ব্যবহার
+        user, created = User.objects.get_or_create(
+            email=email,  # ইউনিক ফিল্ড হিসেবে email ব্যবহার
+            defaults={
+                'name': name,
+                'password': make_password(None),
+                'is_active': True,
+                'image': profile_image
+
+            }
+        )
+        # if created:
+        #     User.objects.create(user=user)
+        refresh = RefreshToken.for_user(user)
+        return Response({
+            "email": email,
+            "name": name,
+            "image": profile_image, 
+            "hasSubmitted": True,
+            'isNewUser': True if created else False, 
+            "access": str(refresh.access_token),
+            "refresh": str(refresh),
+        }, status=status.HTTP_201_CREATED)

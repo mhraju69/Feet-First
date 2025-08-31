@@ -11,7 +11,7 @@ app.autodiscover_tasks()
 
 from celery.schedules import schedule
 
-# Beat schedule every 10 seconds
+# Beat schedule
 app.conf.beat_schedule.update({
     "cleanup-expired-tokens-daily": {
         "task": "Accounts.utils.cleanup_expired_tokens",

@@ -1,7 +1,6 @@
 from .models import *
 from django.contrib import admin
 from unfold.admin import ModelAdmin
-from django.utils.text import Truncator
 from django.utils.html import format_html
 
 # Register your models here.
