@@ -3,6 +3,7 @@ from django.db import models
 from datetime import timedelta
 from django.conf import settings
 from django.utils import timezone
+from cloudinary_storage.storage import MediaCloudinaryStorage
 from django.contrib.auth.models import BaseUserManager, AbstractBaseUser, PermissionsMixin
 
 class UserManager(BaseUserManager):
@@ -37,7 +38,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     name = models.CharField(max_length=200, blank=True, null=True,verbose_name="User Name")
     email = models.EmailField(max_length=255,unique=True,verbose_name="User Email")
     role = models.CharField(max_length=10, choices=ROLE, default='customer',verbose_name="User Role")
-    image = models.ImageField(upload_to='profile_images/', blank=True, null=True)
+    image = models.ImageField(upload_to='profile_images/', blank=True, null=True,storage=MediaCloudinaryStorage())
     phone = models.CharField(max_length=20, blank=True, null=True)
     date_of_birth = models.DateField(blank=True, null=True)
     language = models.CharField(max_length=10, choices=[('german', 'German'),('italian', 'Italian'),],default='german',verbose_name="User Language")
