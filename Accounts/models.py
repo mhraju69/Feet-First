@@ -118,7 +118,7 @@ class Address(models.Model):
         on_delete=models.CASCADE, 
         related_name="addresses"
     )
-    street_address = models.CharField(max_length=255)
+    street = models.CharField(max_length=255)
     apartment_address = models.CharField(max_length=255, blank=True, null=True)
     city = models.CharField(max_length=100)
     state = models.CharField(max_length=100, blank=True, null=True)

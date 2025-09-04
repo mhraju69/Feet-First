@@ -34,9 +34,29 @@ class SubCategory(models.Model):
         return self.name_de 
     
 class Product(models.Model):
+    CATEGORY_CHOICES = [
+    ("running-shoes", "Running Shoes"),
+    ("cycling-shoes", "Cycling Shoes"),
+    ("hockey-shoes", "Hockey Shoes"),
+    ("ski-boots", "Ski Boots"),
+    ("basketball-shoes", "Basketball Shoes"),
+    ("golf-shoes", "Golf Shoes"),
+    ("football-shoes", "Football Shoes"),
+    ("tennis-shoes", "Tennis Shoes"),
+    ("climbing-shoes", "Climbing Shoes"),
+    ("casual-sneaker", "Casual Sneaker"),
+    ("elegant-shoes", "Elegant Shoes"),
+    ("comfortable-shoes", "Comfortable Shoes"),
+    ("sandals", "Sandals"),
+    ("work-shoes", "Work Shoes"),
+    ("miscellaneous", "Miscellaneous"),
+]
+
+   
     name_de = models.CharField(max_length=200)
     name_it= models.CharField(max_length=200)
 
+    category = models.CharField(max_length=50, choices=CATEGORY_CHOICES)
     details_de = models.TextField(blank=True, null=True)
     details_it = models.TextField(blank=True, null=True)
 
@@ -51,7 +71,6 @@ class Product(models.Model):
     heel_angle = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True)
     arch_support = models.BooleanField(default=False)
     image = models.ImageField(upload_to='products/', blank=True, null=True)
-    subcategory = models.ForeignKey(SubCategory, on_delete=models.SET_NULL, null=True, related_name='products')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

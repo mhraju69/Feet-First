@@ -11,8 +11,9 @@ class WidthAdmin(ModelAdmin):
     search_fields = ('width',)
 
 class ProductAdmin(ModelAdmin):
-    list_display = ('name_de', 'name_it', 'price', 'discount', 'stock_quantity', 'is_active', 'brand', 'subcategory', 'created_at')
-    search_fields = ('name_de', 'name_it', 'brand', 'subcategory','price', 'discount','stock_quantity')
+    list_display = ('name_de', 'name_it', 'price', 'discount', 'stock_quantity', 'is_active', 'brand',"category" ,)
+    search_fields = ('name_de', 'name_it', 'brand', 'category','price', 'discount','stock_quantity',)
+    list_filter = ('is_active', 'category')
 
 class CategoryAdmin(ModelAdmin):
     list_display = ('name_de', 'name_it')
@@ -31,5 +32,5 @@ admin.site.register(Product,ProductAdmin)
 admin.site.register(AvailableSize,SizeAdmin)
 admin.site.register(AvailableWidth,WidthAdmin)
 admin.site.register(PdfFile,PdfFileAdmin)
-admin.site.register(Category,CategoryAdmin)
-admin.site.register(SubCategory,SubCategoryAdmin)
+# admin.site.register(Category,CategoryAdmin)
+# admin.site.register(SubCategory,SubCategoryAdmin)

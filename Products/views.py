@@ -17,17 +17,15 @@ class CategoryListView(generics.ListAPIView):
 class SubcategoryListView(generics.ListAPIView):
     serializer_class = SubCategorySerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
-    filter_backends = [DjangoFilterBackend, OrderingFilter]
-    filterset_fields = {'category'}
     queryset = SubCategory.objects.all()
 
 
 class ProductListView(generics.ListAPIView):
     serializer_class = ProductSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
-    
     filter_backends = [DjangoFilterBackend, OrderingFilter]
-    filterset_fields = {'subcategory'}
+
+    filterset_fields = {'category'}
     ordering = ['-created_at'] 
     
     queryset = Product.objects.all()

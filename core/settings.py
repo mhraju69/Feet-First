@@ -31,6 +31,7 @@ INSTALLED_APPS = [
     'Products',
     'django_filters',
     'Surveys',
+    'Contact',
     "cloudinary",
     "cloudinary_storage",
     'rest_framework_simplejwt.token_blacklist',
