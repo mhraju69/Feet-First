@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth import get_user_model
 User = get_user_model()
+from cloudinary_storage.storage import MediaCloudinaryStorage,RawMediaCloudinaryStorage
 
 # Create your models here.
 class AvailableSize(models.Model):
@@ -16,17 +17,17 @@ class AvailableWidth(models.Model):
         return self.width
 
 class Category(models.Model):
-    name_de = models.CharField(max_length=200)
-    name_it= models.CharField(max_length=200)
-    image = models.ImageField(upload_to='category_images/',default='category_images/default.jpg')
+    name_de = models.CharField(max_length=200,verbose_name='Name (German)')
+    name_it= models.CharField(max_length=200,verbose_name='Name (Italian)')
+    image = models.ImageField(upload_to='category_images/',default='category_images/default.jpg',storage=MediaCloudinaryStorage())
 
     def __str__(self):
         return self.name_de
     
 class SubCategory(models.Model):    
-    name_de = models.CharField(max_length=200)
-    name_it= models.CharField(max_length=200)
-    image = models.ImageField(upload_to='category_images/',default='category_images/default.jpg')
+    name_de = models.CharField(max_length=200,verbose_name='Name (German)')
+    name_it= models.CharField(max_length=200,verbose_name='Name (Italian)')
+    image = models.ImageField(upload_to='category_images/',default='category_images/default.jpg',storage=MediaCloudinaryStorage())
     category = models.ForeignKey(Category, on_delete=models.CASCADE,related_name='subcategory')
 
     def __str__(self):
@@ -59,7 +60,7 @@ class Product(models.Model):
     
 class PdfFile(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="pdf_files")
-    pdf_file = models.FileField(upload_to='foot_scans_pdf/')
+    pdf_file = models.FileField(upload_to='foot_scans_pdf/',storage=RawMediaCloudinaryStorage())
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

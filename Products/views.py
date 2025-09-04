@@ -32,6 +32,12 @@ class ProductListView(generics.ListAPIView):
     
     queryset = Product.objects.all()
 
+class ProductDetailView(generics.RetrieveAPIView):
+    serializer_class = ProductSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    queryset = Product.objects.all()
+    lookup_field = 'id'
+
 class PDFFileUploadView(generics.CreateAPIView):
     queryset = PdfFile.objects.all()
     serializer_class = PdfFileSerializer

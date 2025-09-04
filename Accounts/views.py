@@ -1,20 +1,28 @@
-from django.shortcuts import render
 import requests
 from .utils import *
 from .models import *
 from .serializers import *
 from rest_framework import generics
+from django.shortcuts import render
+from django.utils.text import slugify
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from django.core.files.base import ContentFile
 from rest_framework import status, permissions
-from rest_framework.exceptions import ValidationError
-from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth.hashers import make_password
+from rest_framework_simplejwt.tokens import RefreshToken
+
 
 # Create your views here.
 
 class UserCreateView(generics.CreateAPIView):
     serializer_class = UserSerializer
+
+class UserListView(generics.ListAPIView):
+    serializer_class = UserSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    def get_queryset(self):
+        return User.objects.filter(email=self.request.user.email)
 
 class UserUpdateView(generics.RetrieveUpdateDestroyAPIView):
     queryset = User.objects.all()
@@ -104,7 +112,7 @@ class AddressListCreateView(generics.ListCreateAPIView):
     serializer_class = AddressSerializer
 
     def get_queryset(self):
-        return self.queryset.filter(user=self.request.user)
+        return Address.objects.filter(user=self.request.user)
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
@@ -139,69 +147,66 @@ class ChangePasswordView(generics.UpdateAPIView):
         serializer.save()
         return Response({"detail": "Password updated successfully."}, status=status.HTTP_200_OK)
 
-def login(request):
-        return render(request, "google.html",{
-            'google_client_id': settings.GOOGLE_OAUTH_CLIENT_ID,
-            'google_callback_uri': settings.GOOGLE_OAUTH_CALLBACK_URL,
-        })
-
 class SocialAuthCallbackView(APIView):
-    def get(self, request):
-        code = request.GET["code"]  
-        if not code:
-            return Response({"error": "No code provided"}, status=400)
+    def post(self, request):
+        access_token = request.data.get('access_token')
+        
+        if not access_token:
+            return Response({'error': 'No access token provided'}, status=400)
+        
+        try:
+            # Token verify করুন
+            token_info_response = requests.get(
+                f'https://www.googleapis.com/oauth2/v1/tokeninfo?access_token={access_token}'
+            )
+            
+            if token_info_response.status_code != 200:
+                return Response({'error': 'Invalid access token'}, status=400)
+            
+            token_info = token_info_response.json()
+            
+            # Check if token is valid for your app
+            if 'error' in token_info:
+                return Response({'error': token_info['error']}, status=400)
+            
+            # Get user info
+            user_info_response = requests.get(
+                'https://www.googleapis.com/oauth2/v2/userinfo',
+                headers={'Authorization': f'Bearer {access_token}'}
+            )
+            
+            user_data = user_info_response.json()
+            profile_image_url = user_data.get("picture")
+            email = user_data.get("email")
+            name = user_data.get("name")
 
-        # Step 1: Exchange code for access_token
-        token_url = "https://oauth2.googleapis.com/token"
-        data = {
-            "code": code,
-            "client_id": settings.GOOGLE_OAUTH_CLIENT_ID,
-            "client_secret": settings.GOOGLE_OAUTH_CLIENT_SECRET,
-            "redirect_uri": settings.GOOGLE_OAUTH_CALLBACK_URL,
-            "grant_type": "authorization_code",
-        }
+            
+            user, created = User.objects.get_or_create(
+                email=email,
+                defaults={
+                    'name': name,
+                    'is_active': True,
+                    'password': make_password(None)  # unusable password
+                }
+            )
+            
+            if created and user_data.get("picture"):
+                img_response = requests.get(profile_image_url)
+                if img_response.status_code == 200:
+                    file_name = f"{slugify(name)}-profile.jpg"
+                    user.image.save(file_name, ContentFile(img_response.content), save=True)
 
-        token_res = requests.post(token_url, data=data)
-        if token_res.status_code != 200:
-            return Response({"error": "Failed to get token"}, status=400)
-
-        token_json = token_res.json()
-        access_token = token_json.get("access_token")
-
-        # Step 2: Get user info from Google
-        userinfo_res = requests.get(
-            "https://www.googleapis.com/oauth2/v2/userinfo",
-            headers={"Authorization": f"Bearer {access_token}"},
-        )
-
-        if userinfo_res.status_code != 200:
-            return Response({"error": "Failed to fetch user info"}, status=400)
-
-        user_info = userinfo_res.json()
-        email = user_info.get("email")
-        name = user_info.get("name")
-        profile_image = user_info.get("picture")
-
-        # সমাধান: সঠিকভাবে get_or_create ব্যবহার
-        user, created = User.objects.get_or_create(
-            email=email,  # ইউনিক ফিল্ড হিসেবে email ব্যবহার
-            defaults={
-                'name': name,
-                'password': make_password(None),
-                'is_active': True,
-                'image': profile_image
-
-            }
-        )
-        # if created:
-        #     User.objects.create(user=user)
-        refresh = RefreshToken.for_user(user)
-        return Response({
-            "email": email,
-            "name": name,
-            "image": profile_image, 
-            "hasSubmitted": True,
-            'isNewUser': True if created else False, 
-            "access": str(refresh.access_token),
-            "refresh": str(refresh),
-        }, status=status.HTTP_201_CREATED)
+            # Generate tokens
+            if user.suspend:   
+                return Response({"error": "User account is disabled.Please contact to support"}, status=403)
+            
+            refresh = RefreshToken.for_user(user)
+            serializers = UserSerializer(user)
+            return Response({
+                'access': str(refresh.access_token),
+                'refresh': str(refresh),
+                'user': serializers.data,
+            })
+            
+        except Exception as e:
+            return Response({'error': str(e)}, status=500)

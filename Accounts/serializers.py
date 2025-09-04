@@ -9,7 +9,7 @@ from .utils import *
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = '__all__'
+        exclude = ['is_superuser', 'is_staff', 'groups', 'user_permissions', 'last_login', 'date_joined']
         extra_kwargs = {'password': {'write_only': True}}
 
     def create(self, validated_data):

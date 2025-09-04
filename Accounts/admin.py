@@ -5,9 +5,9 @@ from django.utils.html import format_html
 
 # Register your models here.
 class UserAdmin(ModelAdmin ):
-    list_display = ('email', 'name',  'role','date_of_birth', 'is_active')
-    search_fields = ('email', 'name')
-    list_filter = ('is_active', 'is_superuser')
+    list_display = ('email', 'name',  'role','date_of_birth', 'is_active','suspend')
+    search_fields = ('email', 'name','phone')
+    list_filter = ('is_active','suspend',  'is_superuser','role')
 
 class OtpAdmin(ModelAdmin):
     list_display = ('user', 'otp', 'created_at')

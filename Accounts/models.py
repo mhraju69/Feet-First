@@ -68,6 +68,11 @@ class User(AbstractBaseUser, PermissionsMixin):
         "Does the user have permissions to view the app `app_label`?"
         return True
 
+    def save(self, *args, **kwargs):
+        if self.suspend:
+            self.is_active = False
+        super().save(*args, **kwargs)
+
 class OTP(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, 
