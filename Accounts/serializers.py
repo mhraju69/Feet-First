@@ -76,7 +76,7 @@ class LoginSerializer(serializers.Serializer):
 class AddressSerializer(serializers.ModelSerializer):
     class Meta:
         model = Address
-        fields = '__all__'
+        exclude = ['created_at', 'updated_at']
         read_only_fields = ["id", "created_at", "updated_at", "user"]
 
 class ChangePasswordSerializer(serializers.Serializer):

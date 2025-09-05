@@ -3,11 +3,7 @@ from django.contrib import admin
 from unfold.admin import ModelAdmin
 from django.utils.html import format_html
 
-from .models import *
-from django.contrib import admin
-from unfold.admin import ModelAdmin
-from django.utils.text import Truncator
-from django.utils.html import format_html
+
 # Register your models here.
 class DeleteAdmin(ModelAdmin):
     list_display = ('email', 'formatted_reason', 'deleted_at')
@@ -74,6 +70,15 @@ class SurvayAdmin(ModelAdmin):
         return Truncator(obj.foot_problems).chars(20)
     truncated_foot_problems.short_description = 'Foot Problems'
 
-admin.site.register(AccountDeletionRequest,DeleteAdmin)
-admin.site.register(User,UserAdmin)
+class AddressAdmin(ModelAdmin):
+    list_display = ('user','first_name','street_address','city','postal_code','country','phone_number','created_at',)
+    list_filter = ('country', 'city', 'postal_code')
+    search_fields = ('user','first_name', 'last_name', 'street_address', 'city', 'postal_code', 'phone_number','country')
+    ordering = ('-created_at',)
+    readonly_fields = ('created_at', 'updated_at')
+
 admin.site.register(OTP,OtpAdmin)
+admin.site.register(User,UserAdmin)
+admin.site.register(Address,AddressAdmin)
+admin.site.register(AccountDeletionRequest,DeleteAdmin)
+    

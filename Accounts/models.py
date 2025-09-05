@@ -121,9 +121,7 @@ class Address(models.Model):
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
     street_address = models.CharField(max_length=255, )
-    address_line2 = models.CharField(
-        max_length=255, blank=True, null=True"
-    )
+    address_line2 = models.CharField(max_length=255, blank=True, null=True)
     postal_code = models.CharField(max_length=20)
     city = models.CharField(max_length=100)
     phone_number = models.CharField(max_length=20)
@@ -132,14 +130,10 @@ class Address(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    def __str__(self):
-        return f"{self.first_name} {self.last_name}, {self.street_address}, {self.city} {self.postal_code}, {self.country}"
-
     class Meta:
         verbose_name = "Address"
         verbose_name_plural = "Addresses"
         ordering = [ "-created_at"]
-
 
 class AccountDeletionRequest(models.Model):
     email = models.EmailField(max_length=255, verbose_name="Email", unique=True)
