@@ -127,7 +127,6 @@ def cleanup_old_deletion_requests():
     """
     threshold_date = timezone.now() - timedelta(days=30)
     deleted_count, _ = AccountDeletionRequest.objects.filter(
-        confirmed=True,
         deleted_at__lte=threshold_date
     ).delete()
     logger.info(f"Deleted {deleted_count} old deletion requests.")  

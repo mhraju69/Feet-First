@@ -138,8 +138,7 @@ class Address(models.Model):
 class AccountDeletionRequest(models.Model):
     email = models.EmailField(max_length=255, verbose_name="Email", unique=True)
     reason = models.JSONField(default=list, blank=True) 
-    confirmed = models.BooleanField(default=False)
-    deleted_at = models.DateTimeField(auto_now_add=True, verbose_name="Deletion Request Date")
+    deleted_at = models.DateTimeField(auto_now_add=True, verbose_name="Deletion Date")
 
     def __str__(self):
         return f"Deletion request by {self.email} - {self.reason}"
@@ -147,7 +146,5 @@ class AccountDeletionRequest(models.Model):
     def save(self, *args, **kwargs):
         # Save the deletion request first
         super().save(*args, **kwargs)
-
-        if self.confirmed:
-            User.objects.filter(email=self.email).delete()
+        User.objects.filter(email=self.email).delete()
 

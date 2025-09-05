@@ -107,4 +107,4 @@ class DeleteSerializer(serializers.ModelSerializer):
     class Meta:
         model = AccountDeletionRequest
         fields = '__all__'
-        read_only_fields = ["id", "confirmed", "deleted_at", "email"]
+        read_only_fields = ["id", "deleted_at", "email"]

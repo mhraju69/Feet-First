@@ -153,10 +153,9 @@ class DeleteRequestView(generics.CreateAPIView):
     # queryset = AccountDeletionRequest.objects.all()
 
     def perform_create(self, serializer):
-        if AccountDeletionRequest.objects.filter(email=self.request.user.email, confirmed=False).exists():
+        if AccountDeletionRequest.objects.filter(email=self.request.user.email).exists():
             raise serializers.ValidationError("You already have a pending deletion request.")
         serializer.save(email=self.request.user.email)
-
 
 class SocialAuthCallbackView(APIView):
     def post(self, request):
