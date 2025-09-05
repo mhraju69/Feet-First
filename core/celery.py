@@ -21,6 +21,10 @@ app.conf.beat_schedule.update({
         "task": "Accounts.utils.cleanup_expired_otps",
         "schedule": schedule(3600.0),  # Every 60 minutes
     },
+    "cleanup-deletion-requests-daily": {
+        "task": "Accounts.utils.cleanup_old_deletion_requests",
+        "schedule": crontab(hour=0, minute=0),  # run daily at midnight
+    },
 })
 
 app.conf.timezone = "UTC"

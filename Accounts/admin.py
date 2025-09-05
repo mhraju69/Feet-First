@@ -10,15 +10,15 @@ from django.utils.text import Truncator
 from django.utils.html import format_html
 # Register your models here.
 class DeleteAdmin(ModelAdmin):
-    list_display = ('user', 'formatted_reason', 'confirmed', 'deleted_at')
+    list_display = ('email', 'formatted_reason', 'confirmed', 'deleted_at')
 
     # Make non-editable and nicely formatted fields readonly
-    readonly_fields = ('user','formatted_reason', 'deleted_at')
+    readonly_fields = ('email','formatted_reason', 'deleted_at')
 
     # Specify fields for the detail page (exclude non-editable from fields list)
-    fields = ('user','formatted_reason', 'deleted_at', 'confirmed')
+    fields = ('email','formatted_reason', 'deleted_at', 'confirmed')
 
-    search_fields = ('user__email', 'reason', )
+    search_fields = ('email', 'reason', )
     list_filter = ('confirmed',)
 
     def formatted_reason(self, obj):

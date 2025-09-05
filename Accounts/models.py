@@ -136,17 +136,18 @@ class Address(models.Model):
         return f"{self.street_address}, {self.city}, {self.country}"
 
 class AccountDeletionRequest(models.Model):
-
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="deletion_requests")
+    email = models.EmailField(max_length=255, verbose_name="Email", unique=True)
     reason = models.JSONField(default=list, blank=True) 
     confirmed = models.BooleanField(default=False)
-    deleted_at = models.DateTimeField(auto_now_add=True,verbose_name="Deletion Request Date")
+    deleted_at = models.DateTimeField(auto_now_add=True, verbose_name="Deletion Request Date")
 
     def __str__(self):
-        return f"Deletion request by {self.user.email} - {self.reason}"
-    
+        return f"Deletion request by {self.email} - {self.reason}"
+
     def save(self, *args, **kwargs):
-        if self.confirmed:
-            self.user.delete()  
+        # Save the deletion request first
         super().save(*args, **kwargs)
+
+        if self.confirmed:
+            User.objects.filter(email=self.email).delete()
 

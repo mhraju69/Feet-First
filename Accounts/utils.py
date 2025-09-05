@@ -119,3 +119,15 @@ def cleanup_expired_otps():
     expired_otps.delete()
     logger.info(f"Expired OTP cleanup done: {count} OTPs removed.")
 
+@shared_task
+def cleanup_old_deletion_requests():
+    """
+    Delete AccountDeletionRequest records that were confirmed
+    more than 30 days ago.
+    """
+    threshold_date = timezone.now() - timedelta(days=30)
+    deleted_count, _ = AccountDeletionRequest.objects.filter(
+        confirmed=True,
+        deleted_at__lte=threshold_date
+    ).delete()
+    logger.info(f"Deleted {deleted_count} old deletion requests.")  
