@@ -8,10 +8,10 @@ from django.utils.text import slugify
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.core.files.base import ContentFile
+from rest_framework.exceptions import NotFound  
 from rest_framework import status, permissions
 from django.contrib.auth.hashers import make_password
 from rest_framework_simplejwt.tokens import RefreshToken
-
 
 # Create your views here.
 
@@ -121,8 +121,16 @@ class AddressDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = AddressSerializer
     queryset = Address.objects.all()
 
-    def get_queryset(self):
-        return self.queryset.filter(user=self.request.user)
+    def get_object(self):
+        pk = self.kwargs.get('pk')  # Get the pk from the URL
+        user = self.request.user
+
+        try:
+            address = Address.objects.get(pk=pk, user=user)
+        except Address.DoesNotExist:
+            raise NotFound("Address not found")
+        
+        return address
 
 class LogoutView(APIView):
     def post(self, request):
