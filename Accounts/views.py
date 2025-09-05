@@ -147,6 +147,17 @@ class ChangePasswordView(generics.UpdateAPIView):
         serializer.save()
         return Response({"detail": "Password updated successfully."}, status=status.HTTP_200_OK)
 
+class DeleteRequestView(generics.CreateAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = DeleteSerializer
+    # queryset = AccountDeletionRequest.objects.all()
+
+    def perform_create(self, serializer):
+        if AccountDeletionRequest.objects.filter(user=self.request.user, confirmed=False).exists():
+            raise serializers.ValidationError("You already have a pending deletion request.")
+        serializer.save(user=self.request.user)
+
+
 class SocialAuthCallbackView(APIView):
     def post(self, request):
         access_token = request.data.get('access_token')
