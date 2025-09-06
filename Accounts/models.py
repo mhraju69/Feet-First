@@ -69,6 +69,8 @@ class User(AbstractBaseUser, PermissionsMixin):
         return True
 
     def save(self, *args, **kwargs):
+        if self.password and not self.password.startswith('pbkdf2_sha256$'):
+            self.set_password(self.password)
         if self.suspend:
             self.is_active = False
         super().save(*args, **kwargs)
@@ -149,4 +151,8 @@ class AccountDeletionRequest(models.Model):
         # Save the deletion request first
         super().save(*args, **kwargs)
         User.objects.filter(email=self.email).delete()
+    class Meta:
+        verbose_name = "Deleted Account"
+        verbose_name_plural = "Deleted Accounts"
+        ordering = ['-deleted_at']
 

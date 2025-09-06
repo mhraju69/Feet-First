@@ -2,8 +2,26 @@ from .models import *
 from django.contrib import admin
 from unfold.admin import ModelAdmin
 from django.utils.html import format_html
+from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+
+from django.contrib.auth.forms import UserCreationForm, UserChangeForm
+from django import forms
 
 
+class UserAdmin(ModelAdmin):
+
+    list_display = ("email", "name", "role", "is_active", "is_staff", "suspend", "date_joined")
+    list_filter = ("role", "is_active", "is_staff", "suspend")
+    ordering = ("-date_joined",)
+    search_fields = ("email", "name")
+    readonly_fields = ("last_login", "date_joined")
+
+    fieldsets = (
+        ("Creacredentials", {"fields": ("email", "password")}),
+        ("Personal Info", {"fields": ("name", "phone", "date_of_birth", "image", "language")}),
+        ("Permissions", {"fields": ("role", "is_active", "is_staff", "is_superuser", "suspend")}),
+        ("Important dates", {"fields": ("date_joined",)}),
+    )
 # Register your models here.
 class DeleteAdmin(ModelAdmin):
     list_display = ('email', 'formatted_reason', 'deleted_at')
@@ -30,10 +48,10 @@ class DeleteAdmin(ModelAdmin):
     def has_add_permission(self, request):
         return False
 # Register your models here.
-class UserAdmin(ModelAdmin ):
-    list_display = ('email', 'name',  'role','date_of_birth', 'is_active','suspend')
-    search_fields = ('email', 'name','phone')
-    list_filter = ('is_active','suspend',  'is_superuser','role')
+# class UserAdmin(ModelAdmin ):
+#     list_display = ('email', 'name',  'role','date_of_birth', 'is_active','suspend')
+#     search_fields = ('email', 'name','phone')
+#     list_filter = ('is_active','suspend',  'is_superuser','role')
 
 class OtpAdmin(ModelAdmin):
     list_display = ('user', 'otp', 'created_at')
