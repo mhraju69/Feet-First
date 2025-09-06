@@ -45,10 +45,16 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_active = models.BooleanField(default=False,verbose_name="Active User")
     is_staff = models.BooleanField(default=False,verbose_name="Staff User")  
     is_superuser = models.BooleanField(default=False,verbose_name="Super User")  
-    objects = UserManager()
-    date_joined = models.DateTimeField(auto_now_add=True, verbose_name="Joineing Date")
+    date_joined = models.DateTimeField(auto_now_add=True, verbose_name="Joining Date")
     last_login = models.DateTimeField(auto_now=True)
     suspend = models.BooleanField(default=False,verbose_name="Suspend User")
+
+    latitude = models.FloatField(blank=True, null=True)
+    longitude = models.FloatField(blank=True, null=True)
+    match_score = models.FloatField(default=0.0)
+    notes = models.TextField(blank=True, null=True)
+
+    objects = UserManager()
     class Meta:
         verbose_name = 'User'
         verbose_name_plural = 'Users'
@@ -60,13 +66,13 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return self.email
-    def has_perm(self, perm, obj=None):
-        "Does the user have a specific permission?"
-        return True
+    # def has_perm(self, perm, obj=None):
+    #     "Does the user have a specific permission?"
+    #     return True
 
-    def has_module_perms(self, app_label):
-        "Does the user have permissions to view the app `app_label`?"
-        return True
+    # def has_module_perms(self, app_label):
+    #     "Does the user have permissions to view the app `app_label`?"
+    #     return True
 
     def save(self, *args, **kwargs):
         if self.password and not self.password.startswith('pbkdf2_sha256$'):
