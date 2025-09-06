@@ -134,6 +134,8 @@ class Address(models.Model):
         verbose_name = "Address"
         verbose_name_plural = "Addresses"
         ordering = [ "-created_at"]
+    def __str__(self):
+        return f"Address of {self.user.email}"
 
 class AccountDeletionRequest(models.Model):
     email = models.EmailField(max_length=255, verbose_name="Email", unique=True)

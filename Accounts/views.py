@@ -3,7 +3,6 @@ from .utils import *
 from .models import *
 from .serializers import *
 from rest_framework import generics
-from django.shortcuts import render
 from django.utils.text import slugify
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -164,7 +163,6 @@ class DeleteRequestView(generics.CreateAPIView):
         if AccountDeletionRequest.objects.filter(email=self.request.user.email, confirmed=False).exists():
             raise serializers.ValidationError("You already have a pending deletion request.")
         serializer.save(email=self.request.user.email)
-
 
 class SocialAuthCallbackView(APIView):
     def post(self, request):

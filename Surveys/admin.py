@@ -29,5 +29,7 @@ class SurvayAdmin(ModelAdmin):
         # Truncate to 30 characters (adjust as needed)
         return Truncator(obj.foot_problems).chars(20)
     truncated_foot_problems.short_description = 'Foot Problems'
+    def has_add_permission(self, request):
+        return False
 
 admin.site.register(OnboardingSurvey,SurvayAdmin)

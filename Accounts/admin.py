@@ -71,11 +71,11 @@ class SurvayAdmin(ModelAdmin):
     truncated_foot_problems.short_description = 'Foot Problems'
 
 class AddressAdmin(ModelAdmin):
-    list_display = ('user','first_name','street_address','city','postal_code','country','phone_number','created_at',)
+    list_display = ('user','first_name','street_address','city','postal_code','country','phone_number')
     list_filter = ('country', 'city', 'postal_code')
     search_fields = ('user','first_name', 'last_name', 'street_address', 'city', 'postal_code', 'phone_number','country')
     ordering = ('-created_at',)
-    readonly_fields = ('created_at', 'updated_at')
+    readonly_fields = ('user','created_at', 'updated_at',)
 
 admin.site.register(OTP,OtpAdmin)
 admin.site.register(User,UserAdmin)

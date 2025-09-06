@@ -8,7 +8,5 @@ class ContactAdmin(ModelAdmin):
     list_filter = ('read',)
     list_per_page = 10
     ordering = ('-created_at',)
-    verbose_name = "Contact Us"
-    verbose_name_plural = "Contact Us"
 
 admin.site.register(ContactUs, ContactAdmin)
