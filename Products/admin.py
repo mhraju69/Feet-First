@@ -1,6 +1,7 @@
-from django.contrib import admin
 from .models import *
+from django.contrib import admin
 from unfold.admin import ModelAdmin
+from django.utils.html import format_html
 # Register your models here.
 class SizeAdmin(ModelAdmin):
     list_display = ('size', 'details')
@@ -22,15 +23,26 @@ class SubCategoryAdmin(ModelAdmin):
 class PdfFileAdmin(ModelAdmin):
     list_display = ('user', 'pdf_file', 'uploaded_at')
     list_filter = ('user',)
-# admin.site.register(Category,CategoryAdmin)
-# admin.site.register(SubCategory,SubCategoryAdmin)
+
+
+class ProductImageInline(admin.TabularInline):
+    model = ProductImage
+    extra = 1  # Number of empty forms to display
+    fields = ['image', 'is_primary', 'image_preview']
+    readonly_fields = ['image_preview']
+    
+    def image_preview(self, obj):
+        if obj.image:
+            return format_html('<img src="{}" style="max-height: 100px; max-width: 100px;" />', obj.image.url)
+        return "No image"
+    image_preview.short_description = 'Preview'
 
 @admin.register(Product)
 class ProductAdmin(ModelAdmin):
     list_display = ('name_de', 'name_it', 'price', 'discount', 'stock_quantity', 'is_active', 'brand', "category")
     search_fields = ('name_de', 'name_it', 'brand', 'category', 'price', 'discount', 'stock_quantity')
     list_filter = ('is_active', 'category')
-
+    inlines = [ProductImageInline]
     # Row-level restriction
     def get_queryset(self, request):
         qs = super().get_queryset(request)
@@ -124,10 +136,8 @@ class OrderAdmin(admin.ModelAdmin):
             return obj.customer == request.user
         return False
     
-
-
-
-    
-admin.site.register(AvailableSize,SizeAdmin)
-admin.site.register(AvailableWidth,WidthAdmin)
+  
+admin.site.register(Size,SizeAdmin)
+admin.site.register(Width,WidthAdmin)
+admin.site.register(Color,ModelAdmin)
 admin.site.register(PdfFile,PdfFileAdmin)

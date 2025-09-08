@@ -31,7 +31,7 @@ class ProductListView(generics.ListAPIView):
     queryset = Product.objects.all()
 
 class ProductDetailView(generics.RetrieveAPIView):
-    serializer_class = ProductSerializer
+    serializer_class = ProductDetailsSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
     queryset = Product.objects.all()
     lookup_field = 'id'

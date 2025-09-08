@@ -1,12 +1,38 @@
 from rest_framework import serializers
 from .models import *
 
+class SubCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Color
+        fields = ['color' ,'code']
+
+class ProductImageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProductImage
+        fields = ['id','image']
+
 class ProductSerializer(serializers.ModelSerializer):
-    sizes = serializers.StringRelatedField(many=True)
-    widths = serializers.StringRelatedField(many=True)
+    image = serializers.SerializerMethodField()  
+
     class Meta:
         model = Product
-        exclude = ['created_at', 'updated_at']
+        fields = ['id','image',"name_de","name_it","price",]
+
+    def get_image(self, obj):
+        primary = obj.images.filter(is_primary=True).first()
+        if primary:
+            return ProductImageSerializer(primary).data
+        return None
+    
+class ProductDetailsSerializer(serializers.ModelSerializer):
+    sizes = serializers.StringRelatedField(many=True)
+    widths = serializers.StringRelatedField(many=True)
+    colors =SubCategorySerializer(many=True)
+    images = ProductImageSerializer(many=True)
+
+    class Meta:
+        model = Product
+        fields = '__all__'
 
 class SubCategorySerializer(serializers.ModelSerializer):
     # product = ProductSerializer(many=True, read_only=True)

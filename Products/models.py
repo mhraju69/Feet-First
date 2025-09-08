@@ -6,17 +6,24 @@ User = get_user_model()
 from cloudinary_storage.storage import MediaCloudinaryStorage,RawMediaCloudinaryStorage
 
 # Create your models here.
-class AvailableSize(models.Model):
+class Size(models.Model):
     size = models.CharField(max_length=10, unique=True)
     details = models.TextField(blank=True, null=True)
     def __str__(self):
-        return self.size 
+        return self.size
 
-class AvailableWidth(models.Model):
+class Width(models.Model):
     width = models.CharField(max_length=20, unique=True)
     details = models.TextField(blank=True, null=True)
     def __str__(self):
         return self.width
+    
+class Color(models.Model):
+    color = models.CharField(max_length=20, unique=True,verbose_name='Primary Color Name')
+    code = models.CharField(max_length=20, unique=True,verbose_name='Color Hex Code')
+    details = models.TextField(blank=True, null=True)
+    def __str__(self):
+        return f"{self.color}"
 
 class Category(models.Model):
     name_de = models.CharField(max_length=200,verbose_name='Name (German)')
@@ -67,11 +74,11 @@ class Product(models.Model):
     discount = models.DecimalField(max_digits=5, decimal_places=2, null=True,blank=True)  
     stock_quantity = models.PositiveIntegerField(default=0)
     brand = models.CharField(max_length=255, blank=True, null=True)
-    sizes = models.ManyToManyField(AvailableSize)
-    widths = models.ManyToManyField(AvailableWidth) 
+    sizes = models.ManyToManyField(Size)
+    widths = models.ManyToManyField(Width)
+    colors = models.ManyToManyField(Color)
     toe_type = models.CharField(max_length=100, blank=True, null=True)
     heel_angle = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True)
-    image = models.ImageField(upload_to='products/', blank=True, null=True,storage=MediaCloudinaryStorage())
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     arch_support = models.BooleanField(default=False)
@@ -79,7 +86,31 @@ class Product(models.Model):
 
     def __str__(self):
         return self.name_de 
+
+
+
+class ProductImage(models.Model):
+    product = models.ForeignKey(Product, related_name='images', on_delete=models.CASCADE)
+    image = models.ImageField(upload_to='products/', storage=MediaCloudinaryStorage())
+    is_primary = models.BooleanField(default=False)
+    order = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
     
+    class Meta:
+        ordering = ['order', 'created_at']
+    
+    def __str__(self):
+        return f"Image for {self.product.name_de}"
+    
+    def save(self, *args, **kwargs):
+        # Ensure only one primary image per product
+        if self.is_primary:
+            ProductImage.objects.filter(product=self.product, is_primary=True).exclude(pk=self.pk).update(is_primary=False)
+        super().save(*args, **kwargs)
+
+
+
+
 class Order(models.Model):
     STATUS_CHOICES = [
         ('pending', 'Pending'),
