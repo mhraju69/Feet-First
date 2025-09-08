@@ -28,29 +28,27 @@
             margin: 0 auto;
         }
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f7f9fc;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #1a1a1a;
             margin: 0;
             padding: 0;
-            color: #333333;
+            color: #ffffff;
+            line-height: 1.6;
         }
         .email-container {
-            background-color: #ffffff;
+            background-color: #2a2a2a;
             margin: 0 auto;
             width: 100%;
             max-width: 600px;
-            border-radius: 12px;
+            border-radius: 20px;
             overflow: hidden;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
         }
         .header {
-            background: rgb(0,71,171);
-            background: linear-gradient(159deg, rgba(0,71,171,1) 0%, rgba(28,169,201,1) 100%);
-            padding: 30px 20px;
+            background: linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%);
+            padding: 40px 30px 20px 30px;
             text-align: center;
-        }
-        .header a{
-            color: white;
+            border-bottom: 1px solid #3a3a3a;
         }
         .logo {
             color: white;
@@ -58,66 +56,164 @@
             font-weight: bold;
             text-decoration: none;
             display: inline-block;
+            margin-bottom: 15px;
+        }
+        .title {
+            font-size: 28px;
+            font-weight: 600;
+            margin: 0;
+            color: #ffffff;
+            letter-spacing: -0.5px;
         }
         .content {
             padding: 40px 30px;
+            text-align: center;
+        }
+        .message {
+            font-size: 16px;
+            color: #b3b3b3;
+            margin-bottom: 30px;
+            line-height: 1.5;
         }
         .otp-container {
-            background-color: #f8f9fa;
-            border-radius: 8px;
-            padding: 20px;
+            background-color: #1a1a1a;
+            border-radius: 16px;
+            padding: 30px;
             margin: 30px 0;
-            text-align: center;
-            border: 1px dashed #e2e8f0;
+            border: 1px solid #3a3a3a;
+        }
+        .otp-label {
+            font-size: 14px;
+            color: #888888;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
         .otp-code {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 25px;
+        }
+        .otp-digit {
+            width: 55px;
+            height: 55px;
+            background-color: #3a3a3a;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: 600;
+            color: #ffffff;
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+        }
+        .otp-text {
             font-size: 42px;
             font-weight: bold;
             letter-spacing: 8px;
-            color: #2d3748;
+            color: #ffffff;
             margin: 15px 0;
             font-family: monospace;
-        }
-        .task-text {
-            font-size: 18px;
-            color: #4a5568;
-            margin-bottom: 10px;
-        }
-        .footer {
-            background-color: #f1f5f9;
-            padding: 25px 30px;
             text-align: center;
+        }
+        .expiry-text {
             font-size: 14px;
             color: #718096;
+            margin: 15px 0 0 0;
+        }
+        .verify-button {
+            background: linear-gradient(135deg, rgba(0,71,171,1) 0%, rgba(28,169,201,1) 100%);
+            color: white;
+            padding: 16px 40px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-block;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 20px rgba(0, 71, 171, 0.3);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 10px;
+        }
+        .verify-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 25px rgba(0, 71, 171, 0.4);
+        }
+        .security-notice {
+            background-color: #2d1b1b;
+            border: 1px solid #4a2626;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 30px 0;
+            text-align: left;
+        }
+        .security-notice h4 {
+            color: #ff6b6b;
+            margin: 0 0 10px 0;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        .security-notice p {
+            color: #cccccc;
+            margin: 0;
+            font-size: 13px;
+            line-height: 1.4;
         }
         .divider {
             height: 1px;
-            background-color: #e2e8f0;
+            background-color: #3a3a3a;
             margin: 25px 0;
         }
-        .text-center {
+        .footer {
+            background-color: #1a1a1a;
+            padding: 30px;
             text-align: center;
-        }
-        .warning {
-            background-color: #fff5f5;
-            border-left: 4px solid #fc8181;
-            padding: 12px 15px;
-            margin: 20px 0;
-            border-radius: 4px;
+            border-top: 1px solid #3a3a3a;
             font-size: 14px;
+            color: #718096;
+        }
+        .footer-links {
+            margin: 15px 0;
+        }
+        .footer-links a {
+            color: #b3b3b3;
+            text-decoration: none;
+            margin: 0 10px;
         }
         .social-links a {
             margin: 0 10px;
             text-decoration: none;
-            color: #4a5568;
+            color: #b3b3b3;
+        }
+        .resend-link {
+            color: #4ade80;
+            text-decoration: underline;
+            font-weight: 500;
+            cursor: pointer;
         }
         @media only screen and (max-width: 600px) {
             .content {
                 padding: 30px 20px;
             }
-            .otp-code {
+            .header {
+                padding: 30px 20px 15px 20px;
+            }
+            .otp-digit {
+                width: 45px;
+                height: 45px;
+                font-size: 20px;
+            }
+            .otp-text {
                 font-size: 32px;
                 letter-spacing: 5px;
+            }
+            .title {
+                font-size: 24px;
             }
         }
     </style>
@@ -129,25 +225,28 @@
             <tr>
                 <td class="header">
                     <a href="#" class="logo">FEET FIRST</a>
+                    <h1 class="title">OTP Verification</h1>
                 </td>
             </tr>
             
             <!-- Content -->
             <tr>
                 <td class="content">
-                    <h2 style="margin-top: 0; color: #2d3748;">Hello, {{ user }}!</h2>
+                    <h2 style="margin-top: 0; color: #ffffff;">Hello, {{ user }}!</h2>
                     
-                    <p class="task-text">Your OTP code for <strong>{{ task }}</strong> is:</p>
+                    <p class="message">Your OTP code for <strong style="color: #ffffff;">{{ task }}</strong> is:</p>
                     
                     <div class="otp-container">
-                        <div class="otp-code">{{ otp }}</div>
-                        <p style="margin: 0; color: #718096; font-size: 14px;">This code will expire in 3 minutes</p>
+                        <div class="otp-label">Verification Code</div>
+                        <div class="otp-text">{{ otp }}</div>
+                        <p class="expiry-text">This code will expire in 3 minutes</p>
                     </div>
                     
-                    <p style="color: #718096; line-height: 1.6;">For security reasons, please do not share this code with anyone. Feet First will never ask you for your password or verification code.</p>
+                    <a href="#" class="verify-button">VERIFY</a>
                     
-                    <div class="warning">
-                        <strong>Security tip:</strong> If you didn't request this code, please ignore this email or contact our support team if you have concerns.
+                    <div class="security-notice">
+                        <h4>🔒 Security Notice</h4>
+                        <p>This code is valid for 3 minutes only. Never share this code with anyone. Feet First will never ask you for your password or verification code. If you didn't request this code, please ignore this email.</p>
                     </div>
                 </td>
             </tr>
@@ -163,10 +262,14 @@
                 <td class="footer">
                     <p style="margin: 0 0 15px 0;">© 2023 Feet First. All rights reserved.</p>
                     
-                    <p style="margin: 0 0 15px 0; font-size: 13px;">
-                        <a href="#" style="color: #4a5568; text-decoration: none;">Privacy Policy</a> | 
-                        <a href="#" style="color: #4a5568; text-decoration: none;">Terms of Service</a> | 
-                        <a href="#" style="color: #4a5568; text-decoration: none;">Unsubscribe</a>
+                    <div class="footer-links">
+                        <a href="#">Privacy Policy</a> | 
+                        <a href="#">Terms of Service</a> | 
+                        <a href="#">Unsubscribe</a>
+                    </div>
+                    
+                    <p style="margin: 15px 0 10px 0; font-size: 13px;">
+                        Didn't receive the code? <a href="#" class="resend-link">Resend</a>
                     </p>
                     
                     <div class="social-links">

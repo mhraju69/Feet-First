@@ -64,7 +64,7 @@ class Product(models.Model):
     details_it = models.TextField(blank=True, null=True,verbose_name='Details (Italian)')
 
     price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    discount = models.DecimalField(max_digits=5, decimal_places=2, default=0)  
+    discount = models.DecimalField(max_digits=5, decimal_places=2, null=True,blank=True)  
     stock_quantity = models.PositiveIntegerField(default=0)
     brand = models.CharField(max_length=255, blank=True, null=True)
     sizes = models.ManyToManyField(AvailableSize)
