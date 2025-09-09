@@ -12,7 +12,8 @@ class ProductImageSerializer(serializers.ModelSerializer):
         fields = ['id','image']
 
 class ProductSerializer(serializers.ModelSerializer):
-    image = serializers.SerializerMethodField()  
+    image = serializers.SerializerMethodField() 
+    
 
     class Meta:
         model = Product
@@ -24,15 +25,24 @@ class ProductSerializer(serializers.ModelSerializer):
             return ProductImageSerializer(primary).data
         return None
     
+    
 class ProductDetailsSerializer(serializers.ModelSerializer):
     sizes = serializers.StringRelatedField(many=True)
     widths = serializers.StringRelatedField(many=True)
     colors =SubCategorySerializer(many=True)
     images = ProductImageSerializer(many=True)
-
+    technical_data = serializers.SerializerMethodField() 
     class Meta:
         model = Product
         fields = '__all__'
+    def get_technical_data(self, obj):
+        data = {}
+        if obj.technical_data:
+            for line in obj.technical_data.splitlines():
+                if ':' in line:
+                    key, value = line.split(':', 1)
+                    data[key.strip()] = value.strip()
+        return data
 
 class SubCategorySerializer(serializers.ModelSerializer):
     # product = ProductSerializer(many=True, read_only=True)

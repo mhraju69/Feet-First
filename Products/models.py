@@ -81,8 +81,11 @@ class Product(models.Model):
     heel_angle = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    technical_data = models.TextField(blank=True, null=True,help_text="Technical data/specifications. Format as key: value, one per line.")
+    further_information = models.TextField(blank=True, help_text="Further information (Weitere Informationen)")
     arch_support = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
+
 
     def __str__(self):
         return self.name_de 
@@ -93,11 +96,10 @@ class ProductImage(models.Model):
     product = models.ForeignKey(Product, related_name='images', on_delete=models.CASCADE)
     image = models.ImageField(upload_to='products/', storage=MediaCloudinaryStorage())
     is_primary = models.BooleanField(default=False)
-    order = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     
     class Meta:
-        ordering = ['order', 'created_at']
+        ordering = ['created_at']
     
     def __str__(self):
         return f"Image for {self.product.name_de}"

@@ -24,7 +24,6 @@ class PdfFileAdmin(ModelAdmin):
     list_display = ('user', 'pdf_file', 'uploaded_at')
     list_filter = ('user',)
 
-
 class ProductImageInline(admin.TabularInline):
     model = ProductImage
     extra = 1  # Number of empty forms to display
@@ -82,7 +81,6 @@ class ProductAdmin(ModelAdmin):
             return obj.partner == request.user
         return False
     
-
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
     list_display = ("order_number", "customer", "partner", "status", "total_amount")
@@ -136,7 +134,7 @@ class OrderAdmin(admin.ModelAdmin):
             return obj.customer == request.user
         return False
     
-  
+
 admin.site.register(Size,SizeAdmin)
 admin.site.register(Width,WidthAdmin)
 admin.site.register(Color,ModelAdmin)
