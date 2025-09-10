@@ -28,12 +28,12 @@ class ProductListView(generics.ListAPIView):
     filterset_fields = {'category'}
     ordering = ['-created_at'] 
     
-    queryset = Product.objects.all()
+    queryset = Product.objects.filter(is_active = True)
 
 class ProductDetailView(generics.RetrieveAPIView):
     serializer_class = ProductDetailsSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
-    queryset = Product.objects.all()
+    queryset = Product.objects.filter(is_active = True)
     lookup_field = 'id'
 
 class PDFFileUploadView(generics.CreateAPIView):
