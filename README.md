@@ -63,7 +63,7 @@ To set up the Feetfirst project locally, follow these steps:
 
 1.  **Clone the repository:**
     ```bash
-    git clone https://your-repository-url.git
+    git clone https://github.com/mhraju69/Feet-First.git
     cd Feetfirst/core
     ```
 
