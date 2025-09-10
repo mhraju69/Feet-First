@@ -1,131 +1,130 @@
 # Feetfirst Project
 
-## Project Overview
+## Overview
 
-Feetfirst is a robust web application built with Django and Django REST Framework, designed to provide a comprehensive backend solution for managing various aspects of a business, including user accounts, product information, customer contacts, and surveys. It leverages a modular architecture, with distinct applications for different functionalities, ensuring scalability and maintainability.
+Feetfirst is a comprehensive web application designed to manage user accounts, product catalogs, customer inquiries, and onboarding surveys. It provides a robust backend for handling various business processes, including secure authentication, product management, and PDF file uploads.
 
 ## Features
 
--   **User Account Management**: Secure user authentication and authorization.
--   **Product Catalog**: Manage product categories, subcategories, and product details.
--   **Contact Management**: Handle customer inquiries and contact information.
+-   **User Account Management**: Secure user authentication, authorization, and profile management.
+-   **Product Catalog**: Efficiently manage product categories, subcategories, and detailed product information.
+-   **Contact Management**: Streamline handling of customer inquiries and contact information.
 -   **Survey System**: Create and manage onboarding surveys for users.
--   **PDF File Uploads**: Securely upload and manage PDF files.
+-   **PDF File Uploads**: Securely upload, store, and manage PDF documents.
 
-## Technologies Used
+## API Endpoints
 
--   **Backend**: Django, Django REST Framework
--   **Database**: (Assumed, typically PostgreSQL or SQLite for development)
--   **Task Queue**: Celery (indicated by `celery.py` and `celerybeat-schedule`)
--   **Containerization**: Docker, Docker Compose
--   **API Testing**: Postman (indicated by Postman collection files)
+The Feetfirst project exposes a set of RESTful APIs to interact with its various functionalities. Below is a consolidated list of the main API endpoints:
+
+### Core Endpoints (`/api/`)
+
+-   `/admin/`: Django Admin interface.
+-   `/api/users/`: Includes all user-related API endpoints.
+-   `/api/products/`: Includes all product-related API endpoints.
+-   `/api/surveys/`: Includes all survey-related API endpoints.
+-   `/api/contactus/`: Endpoint for contact inquiries.
+-   `/api/token/`: Obtain JWT authentication token.
+-   `/api/token/refresh/`: Refresh JWT authentication token.
+
+### Accounts Endpoints (`/api/users/`)
+
+-   `/api/users/`: User list and creation.
+-   `/api/users/update/`: Update user profile.
+-   `/api/users/reset-password/`: Reset user password.
+-   `/api/users/get-otp/`: Get OTP for verification.
+-   `/api/users/login/`: User login.
+-   `/api/users/logout/`: User logout.
+-   `/api/users/signup/`: User registration.
+-   `/api/users/verify-otp/`: Verify OTP.
+-   `/api/users/google/callback/`: Google OAuth callback.
+-   `/api/users/change-password/`: Change user password.
+-   `/api/users/addresses/`: List and create user addresses.
+-   `/api/users/addresses/<int:pk>/`: Retrieve, update, or delete a specific user address.
+-   `/api/users/deletion-request/`: Request account deletion.
+
+### Products Endpoints (`/api/products/`)
+
+-   `/api/products/`: List all products.
+-   `/api/products/<int:id>/`: Retrieve a specific product by ID.
+-   `/api/products/upload-pdf/`: Upload PDF files related to products.
+-   `/api/products/view/`: View product details.
+
+### Surveys Endpoints (`/api/surveys/`)
+
+-   `/api/surveys/onboarding-surveys/`: List and create onboarding surveys.
+
+### Contact Endpoints (`/api/contactus/`)
+
+-   `/api/contactus/`: Handle customer inquiries.
 
 ## Setup Instructions
 
-To get the Feetfirst project up and running on your local machine, follow these steps:
+To set up the Feetfirst project locally, follow these steps:
 
-### Prerequisites
-
--   Docker and Docker Compose installed.
--   Python 3.x (if running without Docker).
--   pip (Python package installer).
-
-### Using Docker (Recommended)
-
-1.  **Clone the repository**:
+1.  **Clone the repository:**
     ```bash
-    git clone <repository_url>
-    cd Feetfirst
-    ```
-
-2.  **Build and run Docker containers**:
-    ```bash
-    docker-compose up --build
-    ```
-    This command will build the Docker images, set up the necessary services (web, database, Celery), and start the application. The application will typically be accessible at `http://localhost:8000`.
-
-3.  **Apply migrations**:
-    Once the containers are running, you might need to apply database migrations. You can do this by executing a command inside the web service container:
-    ```bash
-    docker-compose exec web python manage.py migrate
-    ```
-
-4.  **Create a superuser (optional)**:
-    To access the Django admin panel, create a superuser:
-    ```bash
-    docker-compose exec web python manage.py createsuperuser
-    ```
-    Follow the prompts to create your superuser account.
-
-### Local Setup (Without Docker)
-
-1.  **Clone the repository**:
-    ```bash
-    git clone <repository_url>
+    git clone https://your-repository-url.git
     cd Feetfirst/core
     ```
 
-2.  **Create a virtual environment**:
+2.  **Create a virtual environment (recommended):**
     ```bash
-    python -m venv env
-    .env\Scripts\activate
+    python -m venv venv
+    source venv/Scripts/activate  # On Windows
+    # source venv/bin/activate    # On macOS/Linux
     ```
 
-3.  **Install dependencies**:
+3.  **Install dependencies:**
     ```bash
     pip install -r requirements.txt
     ```
 
-4.  **Apply migrations**:
+4.  **Apply database migrations:**
     ```bash
     python manage.py migrate
     ```
 
-5.  **Run the development server**:
+5.  **Create a superuser (for admin access):**
+    ```bash
+    python manage.py createsuperuser
+    ```
+
+6.  **Run the development server:**
     ```bash
     python manage.py runserver
     ```
+
     The application will be accessible at `http://127.0.0.1:8000/`.
 
-## API Endpoints
+## Docker Setup
 
-The project exposes several API endpoints through Django REST Framework:
+This project includes a `Dockerfile` and `docker-compose.yml` for containerized deployment.
 
--   `/api/accounts/`: User authentication and management.
--   `/api/contact/`: Contact form submission.
--   `/api/products/`: Product listings, details, categories, and subcategories.
--   `/api/surveys/`: User survey submission.
--   `/api/files/upload/`: PDF file uploads.
+1.  **Build Docker images:**
+    ```bash
+    docker-compose build
+    ```
 
-(Note: Specific endpoint paths may vary based on `urls.py` configurations within each app.)
+2.  **Run Docker containers:**
+    ```bash
+    docker-compose up
+    ```
 
-## Usage
-
-Interact with the API using tools like Postman or `curl`. Refer to the Postman collection files in the `postman/` directory for example requests.
-
-## Project Structure
-
-```
-Feetfirst/
-├── core/                 # Main Django project and applications
-│   ├── Accounts/         # User authentication and profiles
-│   ├── Contact/          # Contact form and inquiries
-│   ├── Products/         # Product catalog and management
-│   ├── Surveys/          # User onboarding surveys
-│   ├── core/             # Django project settings, URLs, WSGI, ASGI
-│   ├── Dockerfile        # Dockerfile for the web application
-│   ├── manage.py         # Django management script
-│   ├── requirements.txt  # Python dependencies
-│   └── README.md         # This file
-├── env/                  # Python virtual environment
-├── postman/              # Postman collection and environment files
-└── docker-compose.yml    # Docker Compose configuration
-```
+    The application will be accessible via the exposed port (usually `8000`).
 
 ## Contributing
 
-Contributions are welcome! Please fork the repository and submit pull requests.
+Contributions are highly welcome! If you'd like to contribute, please follow these steps:
+
+1.  Fork the repository.
+2.  Create a new branch for your feature or bug fix.
+3.  Make your changes and ensure tests pass.
+4.  Submit a pull request with a clear description of your changes.
 
 ## License
 
-This project is licensed under the MIT License.
+This project is licensed under the MIT License. See the `LICENSE` file for more details.
+
+## Contact
+
+For any inquiries or support, please contact [Your Contact Information/Email].
