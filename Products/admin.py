@@ -2,6 +2,10 @@ from .models import *
 from django.contrib import admin
 from unfold.admin import ModelAdmin
 from django.utils.html import format_html
+from django import forms
+from unfold.admin import TabularInline
+from django.utils.safestring import mark_safe
+from django.forms.widgets import ClearableFileInput
 # Register your models here.
 class SizeAdmin(ModelAdmin):
     list_display = ('size', 'details')
@@ -10,6 +14,11 @@ class SizeAdmin(ModelAdmin):
 class WidthAdmin(ModelAdmin):
     list_display = ('width', 'details'  )
     search_fields = ('width',)
+
+class ColorAdmin(ModelAdmin):
+    list_display = ('color', 'details'  )
+    search_fields = ('color',)
+
 
 class CategoryAdmin(ModelAdmin):
     list_display = ('name_de', 'name_it')
@@ -24,23 +33,16 @@ class PdfFileAdmin(ModelAdmin):
     list_display = ('user', 'pdf_file', 'uploaded_at')
     list_filter = ('user',)
 
-class ProductImageInline(admin.TabularInline):
+class ProductImageInline(TabularInline):
     model = ProductImage
-    extra = 1  # Number of empty forms to display
-    fields = ['image', 'is_primary', 'image_preview']
-    readonly_fields = ['image_preview']
-    
-    def image_preview(self, obj):
-        if obj.image:
-            return format_html('<img src="{}" style="max-height: 100px; max-width: 100px;" />', obj.image.url)
-        return "No image"
-    image_preview.short_description = 'Preview'
+    extra = 1
+    fields = ["image", "is_primary"]
 
-@admin.register(Product)
 class ProductAdmin(ModelAdmin):
     list_display = ('name_de', 'name_it', 'price', 'discount', 'stock_quantity', 'is_active', 'brand', "category")
-    search_fields = ('name_de', 'name_it', 'brand', 'category', 'price', 'discount', 'stock_quantity')
+    search_fields = ('name_de', 'name_it', 'brand', 'category', 'price', 'discount', 'stock_quantity',)
     list_filter = ('is_active', 'category')
+    autocomplete_fields = ['sizes', 'widths','colors',]
     inlines = [ProductImageInline]
     # Row-level restriction
     def get_queryset(self, request):
@@ -81,8 +83,7 @@ class ProductAdmin(ModelAdmin):
             return obj.partner == request.user
         return False
     
-@admin.register(Order)
-class OrderAdmin(admin.ModelAdmin):
+class OrderAdmin(ModelAdmin):
     list_display = ("order_number", "customer", "partner", "status", "total_amount")
     search_fields = ("order_number", "customer__email", "partner__email")
     list_filter = ("status",)
@@ -133,9 +134,10 @@ class OrderAdmin(admin.ModelAdmin):
         if request.user.role == 'customer':
             return obj.customer == request.user
         return False
-    
 
+admin.site.register(Product,ProductAdmin)
+admin.site.register(Order,OrderAdmin)
 admin.site.register(Size,SizeAdmin)
 admin.site.register(Width,WidthAdmin)
-admin.site.register(Color,ModelAdmin)
+admin.site.register(Color,ColorAdmin)
 admin.site.register(PdfFile,PdfFileAdmin)

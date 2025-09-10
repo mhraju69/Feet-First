@@ -43,3 +43,7 @@ class PDFFileUploadView(generics.CreateAPIView):
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user) 
+
+
+def view(request):
+    return render(request, 'widgets/fancy_file_input copy.html')

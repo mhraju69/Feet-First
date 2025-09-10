@@ -19,7 +19,7 @@ class UserAdmin(ModelAdmin):
     fieldsets = (
         ("Credentials", {"fields": ("email", "password")}),
         ("Personal Info", {"fields": ("name", "phone", "date_of_birth", "image", "language")}),
-        ('Partner Info', {"fields": ("latitude", "longitude", "match_score", "notes", "groups", "user_permissions")}),
+        ('Partner Info', {"fields": ("latitude", "longitude", "match_score", "notes", "groups",)}),
         ("Permissions", {"fields": ("role", "is_active", "is_staff", "is_superuser", "suspend")}),
         ("Important dates", {"fields": ("date_joined",)}),
     )
