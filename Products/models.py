@@ -4,20 +4,11 @@ from django.contrib.auth import get_user_model
 from django.forms import ValidationError
 User = get_user_model()
 from cloudinary_storage.storage import MediaCloudinaryStorage,RawMediaCloudinaryStorage
+from math import fabs
+
 
 # Create your models here.
-class Size(models.Model):
-    size = models.CharField(max_length=10, unique=True)
-    details = models.TextField(blank=True, null=True)
-    def __str__(self):
-        return self.size
 
-class Width(models.Model):
-    width = models.CharField(max_length=20, unique=True)
-    details = models.TextField(blank=True, null=True)
-    def __str__(self):
-        return self.width
-    
 class Color(models.Model):
     color = models.CharField(max_length=20, unique=True,verbose_name='Primary Color Name')
     code = models.CharField(max_length=20, unique=True,verbose_name='Color Hex Code')
@@ -42,56 +33,204 @@ class SubCategory(models.Model):
     def __str__(self):
         return self.name_de 
     
+# class Product(models.Model):
+#     CATEGORY_CHOICES = [
+#     ("running-shoes", "Running Shoes"),
+#     ("cycling-shoes", "Cycling Shoes"),
+#     ("hockey-shoes", "Hockey Shoes"),
+#     ("ski-boots", "Ski Boots"),
+#     ("basketball-shoes", "Basketball Shoes"),
+#     ("golf-shoes", "Golf Shoes"),
+#     ("football-shoes", "Football Shoes"),
+#     ("tennis-shoes", "Tennis Shoes"),
+#     ("climbing-shoes", "Climbing Shoes"),
+#     ("casual-sneaker", "Casual Sneaker"),
+#     ("elegant-shoes", "Elegant Shoes"),
+#     ("comfortable-shoes", "Comfortable Shoes"),
+#     ("sandals", "Sandals"),
+#     ("work-shoes", "Work Shoes"),
+#     ("miscellaneous", "Miscellaneous"),
+#     ]
+
+#     partner = models.ForeignKey(User, limit_choices_to={'role':'partner'}, related_name='product', on_delete=models.CASCADE)
+
+#     name_de = models.CharField(max_length=200,verbose_name='Name (German)')
+#     name_it= models.CharField(max_length=200,verbose_name='Name (Italian)')
+
+#     category = models.CharField(max_length=50, choices=CATEGORY_CHOICES)
+#     details_de = models.TextField(blank=True, null=True,verbose_name='Details (German)')
+#     details_it = models.TextField(blank=True, null=True,verbose_name='Details (Italian)')
+
+#     price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+#     discount = models.DecimalField(max_digits=5, decimal_places=2, null=True,blank=True)  
+#     stock_quantity = models.PositiveIntegerField(default=0)
+#     brand = models.CharField(max_length=255, blank=True, null=True)
+#     sizes = models.ManyToManyField(Size)
+#     widths = models.ManyToManyField(Width)
+#     colors = models.ManyToManyField(Color)
+#     toe_type = models.CharField(max_length=100, blank=True, null=True)
+#     heel_angle = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True)
+#     created_at = models.DateTimeField(auto_now_add=True)
+#     updated_at = models.DateTimeField(auto_now=True)
+#     technical_data = models.TextField(blank=True, null=True,help_text="Technical data/specifications. Format as key: value, one per line.")
+#     further_information = models.TextField(blank=True, help_text="Further information (Weitere Informationen)")
+#     arch_support = models.BooleanField(default=False)
+#     is_active = models.BooleanField(default=True)
+
+
+#     def __str__(self):
+#         return self.name_de 
+
+# --- ENUM Choices ---
+
+class Category(models.TextChoices):
+    EVERYDAY_SHOES = "everyday-shoes", "Everyday Shoes"
+    SPORTS_SHOES = "sports-shoes", "Sports Shoes"
+    MOUNTAIN_TREKKING_SHOES = "mountain-trekking-shoes", "Mountain Trekking Shoes"
+
+class SubCategory(models.TextChoices):
+    RUNNING_SHOES = "running-shoes", "Running Shoes"
+    CYCLING_SHOES = "cycling-shoes", "Cycling Shoes"
+    HOCKEY_SHOES = "hockey-shoes", "Hockey Shoes"
+    SKI_BOOTS = "ski-boots", "Ski Boots"
+    BASKETBALL_SHOES = "basketball-shoes", "Basketball Shoes"
+    GOLF_SHOES = "golf-shoes", "Golf Shoes"
+    FOOTBALL_SHOES = "football-shoes", "Football Shoes"
+    TENNIS_SHOES = "tennis-shoes", "Tennis Shoes"
+    CLIMBING_SHOES = "climbing-shoes", "Climbing Shoes"
+    CASUAL_SNEAKER = "casual-sneaker", "Casual Sneaker"
+    ELEGANT_SHOES = "elegant-shoes", "Elegant Shoes"
+    COMFORTABLE_SHOES = "comfortable-shoes", "Comfortable Shoes"
+    SANDALS = "sandals", "Sandals"
+    WORK_SHOES = "work-shoes", "Work Shoes"
+    MISCELLANEOUS = "miscellaneous", "Miscellaneous"
+
+class SizeSystem(models.TextChoices):
+    EU = "EU", "European"
+    US_MEN = "USM", "US Men"
+    US_WOMEN = "USW", "US Women"
+
+class WidthCategory(models.IntegerChoices):
+    NARROW = 0, "Narrow"
+    NARROW_NORMAL = 1, "Narrow-Normal"
+    NORMAL = 2, "Normal"
+    NORMAL_WIDE = 3, "Normal-Wide"
+    WIDE = 4, "Wide"
+
+class ToeBox(models.TextChoices):
+    NARROW = "narrow", "Narrow"
+    NORMAL = "normal", "Normal"
+    WIDE = "wide", "Wide"
+
+# --- PRODUCT MODEL ---
 class Product(models.Model):
-    CATEGORY_CHOICES = [
-    ("running-shoes", "Running Shoes"),
-    ("cycling-shoes", "Cycling Shoes"),
-    ("hockey-shoes", "Hockey Shoes"),
-    ("ski-boots", "Ski Boots"),
-    ("basketball-shoes", "Basketball Shoes"),
-    ("golf-shoes", "Golf Shoes"),
-    ("football-shoes", "Football Shoes"),
-    ("tennis-shoes", "Tennis Shoes"),
-    ("climbing-shoes", "Climbing Shoes"),
-    ("casual-sneaker", "Casual Sneaker"),
-    ("elegant-shoes", "Elegant Shoes"),
-    ("comfortable-shoes", "Comfortable Shoes"),
-    ("sandals", "Sandals"),
-    ("work-shoes", "Work Shoes"),
-    ("miscellaneous", "Miscellaneous"),
-    ]
+    # Partner/vendor
+    partner = models.ForeignKey(
+        User,
+        limit_choices_to={'role': 'partner'},
+        related_name='products',
+        on_delete=models.CASCADE
+    )
 
-    partner = models.ForeignKey(User, limit_choices_to={'role':'partner'}, related_name='product', on_delete=models.CASCADE)
-
-    name_de = models.CharField(max_length=200,verbose_name='Name (German)')
-    name_it= models.CharField(max_length=200,verbose_name='Name (Italian)')
-
-    category = models.CharField(max_length=50, choices=CATEGORY_CHOICES)
-    details_de = models.TextField(blank=True, null=True,verbose_name='Details (German)')
-    details_it = models.TextField(blank=True, null=True,verbose_name='Details (Italian)')
-
-    price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    discount = models.DecimalField(max_digits=5, decimal_places=2, null=True,blank=True)  
-    stock_quantity = models.PositiveIntegerField(default=0)
+    # Basic info
+    name_de = models.CharField(max_length=200, verbose_name='Name (German)')
+    name_it = models.CharField(max_length=200, verbose_name='Name (Italian)')
     brand = models.CharField(max_length=255, blank=True, null=True)
-    sizes = models.ManyToManyField(Size)
-    widths = models.ManyToManyField(Width)
-    colors = models.ManyToManyField(Color)
-    toe_type = models.CharField(max_length=100, blank=True, null=True)
-    heel_angle = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    technical_data = models.TextField(blank=True, null=True,help_text="Technical data/specifications. Format as key: value, one per line.")
-    further_information = models.TextField(blank=True, help_text="Further information (Weitere Informationen)")
-    arch_support = models.BooleanField(default=False)
+
+    # Category/Subcategory (fixed or dynamic as needed)
+    main_category = models.CharField(max_length=50, choices=Category.choices)
+    sub_category = models.CharField(max_length=50, choices=SubCategory.choices, null=True, blank=True)
+
+    # Size info
+    size_system = models.CharField(max_length=3, choices=SizeSystem.choices, default=SizeSystem.EU)
+    size_value = models.CharField(max_length=10)       # e.g. "40", "40.5", "40¾"
+    insole_min_mm = models.IntegerField()
+    insole_max_mm = models.IntegerField()
+
+    # Width & Toe
+    width_category = models.IntegerField(choices=WidthCategory.choices, default=WidthCategory.NORMAL)
+    toe_box = models.CharField(max_length=10, choices=ToeBox.choices, default=ToeBox.NORMAL)
+
+    # --- FOOT MEASUREMENT DATA ---
+
+    # Foot length (millimeters)
+    left_foot_length = models.DecimalField(max_digits=6, decimal_places=2, blank=True, null=True,help_text="Left foot length in mm")
+    right_foot_length = models.DecimalField(max_digits=6, decimal_places=2, blank=True, null=True,help_text="Right foot length in mm")
+
+    # Foot width (millimeters)
+    left_foot_width = models.DecimalField(max_digits=6, decimal_places=2, blank=True, null=True,help_text="Left foot width in mm")
+    right_foot_width = models.DecimalField(max_digits=6, decimal_places=2, blank=True, null=True,help_text="Right foot width in mm")
+
+    # Arch Index (already included for both feet)
+    left_arch_index = models.DecimalField(max_digits=6, decimal_places=2, blank=True, null=True)
+    right_arch_index = models.DecimalField(max_digits=6, decimal_places=2, blank=True, null=True)
+
+    # Heel Angle
+    left_heel_angle = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True,help_text="Left heel angle in degrees")
+    right_heel_angle = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True,help_text="Right heel angle in degrees")
+
+    # Other attributes
+    technical_data = models.TextField(blank=True, null=True, help_text="Technical specs, key: value per line")
+    further_information = models.TextField(blank=True, help_text="Weitere Informationen")
+
+    # Commerce
+    price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    discount = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    stock_quantity = models.PositiveIntegerField(default=0)
     is_active = models.BooleanField(default=True)
 
+    # Colors (optional simple CSV field)
+    colors = models.CharField(max_length=255, blank=True, help_text="Comma-separated color list")
+
+    # Meta
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return self.name_de 
+        return f"{self.brand or ''} {self.name_de} ({self.size_system} {self.size_value})"
 
+    def match_with_scan(self, scan):
+        """
+        Compare this Product against a FootScan and return match percentage (0-100).
+        """
 
+        score = 0
+        weight_total = 0
 
+        # --- LENGTH MATCH (50%) ---
+        product_length_mid = (self.insole_min_mm + self.insole_max_mm) / 2
+        length_diff = fabs(scan.max_length() - product_length_mid)
+
+        # assume 5mm tolerance gives full score, worse reduces it
+        length_match = max(0, 1 - (length_diff / 10))  # 10mm difference = 0 match
+        score += length_match * 50
+        weight_total += 50
+
+        # --- WIDTH MATCH (30%) ---
+        if self.width_category and scan.max_width():
+            # Simplified scaling: smaller diff = better match
+            width_diff = fabs(scan.max_width() - self.width_category)
+            width_match = max(0, 1 - (width_diff / 10))  # scale tolerance
+            score += width_match * 30
+            weight_total += 30
+
+        # --- ARCH INDEX MATCH (10%) ---
+        if self.left_arch_index and scan.left_arch_index:
+            arch_diff = fabs(scan.left_arch_index - self.left_arch_index)
+            arch_match = max(0, 1 - (arch_diff / 50))  # tolerance scale
+            score += arch_match * 10
+            weight_total += 10
+
+        # --- HEEL ANGLE MATCH (10%) ---
+        if self.left_heel_angle and scan.left_heel_angle:
+            heel_diff = fabs(scan.left_heel_angle - self.left_heel_angle)
+            heel_match = max(0, 1 - (heel_diff / 10))
+            score += heel_match * 10
+            weight_total += 10
+
+        # Final percentage
+        return round((score / weight_total) * 100, 2) if weight_total > 0 else 0
+    
 class ProductImage(models.Model):
     product = models.ForeignKey(Product, related_name='images', on_delete=models.CASCADE)
     image = models.ImageField(upload_to='products/', storage=MediaCloudinaryStorage())
@@ -109,9 +248,6 @@ class ProductImage(models.Model):
         if self.is_primary:
             ProductImage.objects.filter(product=self.product, is_primary=True).exclude(pk=self.pk).update(is_primary=False)
         super().save(*args, **kwargs)
-
-
-
 
 class Order(models.Model):
     STATUS_CHOICES = [
@@ -176,3 +312,51 @@ class PdfFile(models.Model):
 
     def __str__(self):
         return f"PDF File for {self.user.email} uploaded at {self.uploaded_at}"
+
+class FootScan(models.Model):
+    user = models.ForeignKey(
+        User,
+        limit_choices_to={'role': 'customer'},
+        on_delete=models.CASCADE,
+        related_name="foot_scans"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    # Foot length (mm)
+    left_length = models.DecimalField(max_digits=6, decimal_places=2, help_text="Left foot length in mm")
+    right_length = models.DecimalField(max_digits=6, decimal_places=2, help_text="Right foot length in mm")
+
+    # Width (mm)
+    left_width = models.DecimalField(max_digits=6, decimal_places=2, help_text="Left foot width in mm")
+    right_width = models.DecimalField(max_digits=6, decimal_places=2, help_text="Right foot width in mm")
+
+    # Arch Index (for insole recommendation)
+    left_arch_index = models.DecimalField(max_digits=6, decimal_places=2, blank=True, null=True)
+    right_arch_index = models.DecimalField(max_digits=6, decimal_places=2, blank=True, null=True)
+
+    # Heel Angle
+    left_heel_angle = models.DecimalField(max_digits=6, decimal_places=2, blank=True, null=True,
+                                          help_text="Left heel angle in degrees")
+    right_heel_angle = models.DecimalField(max_digits=6, decimal_places=2, blank=True, null=True,
+                                           help_text="Right heel angle in degrees")
+
+    # --- Utility Methods ---
+
+    def average_length(self):
+        """Returns average length of both feet."""
+        return float((self.left_length + self.right_length) / 2)
+
+    def average_width(self):
+        """Returns average width of both feet."""
+        return float((self.left_width + self.right_width) / 2)
+
+    def max_length(self):
+        """Returns the bigger foot (important for shoe fitting)."""
+        return float(max(self.left_length, self.right_length))
+
+    def max_width(self):
+        """Returns the wider foot."""
+        return float(max(self.left_width, self.right_width))
+
+    def __str__(self):
+        return f"FootScan #{self.id} for {self.user.username}"

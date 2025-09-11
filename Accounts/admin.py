@@ -15,7 +15,7 @@ class UserAdmin(ModelAdmin):
     ordering = ("-date_joined",)
     search_fields = ("email", "name")
     readonly_fields = ("last_login", "date_joined")
-
+    autocomplete_fields = ['groups']
     fieldsets = (
         ("Credentials", {"fields": ("email", "password")}),
         ("Personal Info", {"fields": ("name", "phone", "date_of_birth", "image", "language")}),

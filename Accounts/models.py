@@ -69,6 +69,9 @@ class User(AbstractBaseUser, PermissionsMixin):
     def save(self, *args, **kwargs):
         if self.password and not self.password.startswith('pbkdf2_sha256$'):
             self.set_password(self.password)
+        if self.role == 'partner':
+            self.is_staff = True
+            self.is_active = True
         if self.suspend:
             self.is_active = False
         super().save(*args, **kwargs)

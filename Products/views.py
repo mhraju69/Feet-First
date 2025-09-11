@@ -7,19 +7,6 @@ from rest_framework.filters import OrderingFilter
 from django_filters.rest_framework import DjangoFilterBackend
 # Create your views here.
 
-class CategoryListView(generics.ListAPIView):
-    permission_classes = [permissions.IsAuthenticated]
-    serializer_class = CategorySerializer
-    filter_backends = [OrderingFilter]
-    queryset = Category.objects.all()
-
-
-class SubcategoryListView(generics.ListAPIView):
-    serializer_class = SubCategorySerializer
-    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
-    queryset = SubCategory.objects.all()
-
-
 class ProductListView(generics.ListAPIView):
     serializer_class = ProductSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
@@ -44,6 +31,3 @@ class PDFFileUploadView(generics.CreateAPIView):
     def perform_create(self, serializer):
         serializer.save(user=self.request.user) 
 
-
-def view(request):
-    return render(request, 'widgets/fancy_file_input copy.html')

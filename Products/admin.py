@@ -7,18 +7,10 @@ from unfold.admin import TabularInline
 from django.utils.safestring import mark_safe
 from django.forms.widgets import ClearableFileInput
 # Register your models here.
-class SizeAdmin(ModelAdmin):
-    list_display = ('size', 'details')
-    search_fields = ('size',)
-
-class WidthAdmin(ModelAdmin):
-    list_display = ('width', 'details'  )
-    search_fields = ('width',)
 
 class ColorAdmin(ModelAdmin):
     list_display = ('color', 'details'  )
     search_fields = ('color',)
-
 
 class CategoryAdmin(ModelAdmin):
     list_display = ('name_de', 'name_it')
@@ -33,35 +25,51 @@ class PdfFileAdmin(ModelAdmin):
     list_display = ('user', 'pdf_file', 'uploaded_at')
     list_filter = ('user',)
 
+
+# --- Inline for product images ---
 class ProductImageInline(TabularInline):
     model = ProductImage
     extra = 1
     fields = ["image", "is_primary"]
 
+
+# --- Product Admin ---
+
 class ProductAdmin(ModelAdmin):
-    list_display = ('name_de', 'name_it', 'price', 'discount', 'stock_quantity', 'is_active', 'brand', "category")
-    search_fields = ('name_de', 'name_it', 'brand', 'category', 'price', 'discount', 'stock_quantity',)
-    list_filter = ('is_active', 'category')
-    autocomplete_fields = ['sizes', 'widths','colors',]
+    list_display = (
+        'name_de', 'name_it', 'brand',
+        'main_category', 'sub_category',
+        'price', 'stock_quantity',
+        'is_active'
+    )
+    search_fields = (
+        'name_de', 'name_it', 'brand',
+        'main_category', 'sub_category',
+        'size_value', 'price', 'discount'
+    )
+    list_filter = (
+        'is_active', 'main_category', 'sub_category',
+        'size_system', 'width_category', 'toe_box', 'brand'
+    )
+
     inlines = [ProductImageInline]
+
     # Row-level restriction
     def get_queryset(self, request):
         qs = super().get_queryset(request)
         if request.user.is_superuser:
             return qs
-        if request.user.role == 'partner':
-            # Example: only products assigned to this partner
-            # Make sure you have a 'partner' field in Product model
+        if hasattr(request.user, "role") and request.user.role == 'partner':
             return qs.filter(partner=request.user)
-        return qs
+        return qs.none()
 
-    # Restrict change permission similarly
+    # Restrict change permission
     def has_change_permission(self, request, obj=None):
         if request.user.is_superuser:
             return True
         if obj is None:
             return True  # needed for list view
-        if request.user.role == 'partner':
+        if hasattr(request.user, "role") and request.user.role == 'partner':
             return obj.partner == request.user
         return False
 
@@ -70,7 +78,7 @@ class ProductAdmin(ModelAdmin):
             return True
         if obj is None:
             return False
-        if request.user.role == 'partner':
+        if hasattr(request.user, "role") and request.user.role == 'partner':
             return obj.partner == request.user
         return False
 
@@ -79,10 +87,17 @@ class ProductAdmin(ModelAdmin):
             return True
         if obj is None:
             return True
-        if request.user.role == 'partner':
+        if hasattr(request.user, "role") and request.user.role == 'partner':
             return obj.partner == request.user
         return False
-    
+
+    # Automatically assign partner on save
+    def save_model(self, request, obj, form, change):
+        if not obj.pk and hasattr(request.user, "role") and request.user.role == 'partner':
+            obj.partner = request.user
+        super().save_model(request, obj, form, change)
+
+
 class OrderAdmin(ModelAdmin):
     list_display = ("order_number", "customer", "partner", "status", "total_amount")
     search_fields = ("order_number", "customer__email", "partner__email")
@@ -137,7 +152,6 @@ class OrderAdmin(ModelAdmin):
 
 admin.site.register(Product,ProductAdmin)
 admin.site.register(Order,OrderAdmin)
-admin.site.register(Size,SizeAdmin)
-admin.site.register(Width,WidthAdmin)
 admin.site.register(Color,ColorAdmin)
 admin.site.register(PdfFile,PdfFileAdmin)
+admin.site.register(FootScan,ModelAdmin)

@@ -7,5 +7,4 @@ urlpatterns = [
     path('',ProductListView.as_view()),
     path('<int:id>/',ProductDetailView.as_view()),
     path('upload-pdf/',PDFFileUploadView.as_view()),
-    path('view/',view),
 ]
