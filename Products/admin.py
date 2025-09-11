@@ -10,7 +10,7 @@ from django.forms.widgets import ClearableFileInput
 
 class ColorAdmin(ModelAdmin):
     list_display = ('color', 'details'  )
-    search_fields = ('color',)
+    search_fields = ["color", "code"]  # <-- allow searching by both
 
 class CategoryAdmin(ModelAdmin):
     list_display = ('name_de', 'name_it')
@@ -25,16 +25,13 @@ class PdfFileAdmin(ModelAdmin):
     list_display = ('user', 'pdf_file', 'uploaded_at')
     list_filter = ('user',)
 
-
 # --- Inline for product images ---
 class ProductImageInline(TabularInline):
     model = ProductImage
     extra = 1
     fields = ["image", "is_primary"]
 
-
 # --- Product Admin ---
-
 class ProductAdmin(ModelAdmin):
     list_display = (
         'name_de', 'name_it', 'brand',
@@ -51,7 +48,7 @@ class ProductAdmin(ModelAdmin):
         'is_active', 'main_category', 'sub_category',
         'size_system', 'width_category', 'toe_box', 'brand'
     )
-
+    autocomplete_fields =['colors']
     inlines = [ProductImageInline]
 
     # Row-level restriction
@@ -96,7 +93,16 @@ class ProductAdmin(ModelAdmin):
         if not obj.pk and hasattr(request.user, "role") and request.user.role == 'partner':
             obj.partner = request.user
         super().save_model(request, obj, form, change)
-
+        
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == "partner":
+            if request.user.is_superuser:
+                # Superuser can see all partner accounts
+                kwargs["queryset"] = User.objects.filter(role="partner")
+            elif hasattr(request.user, "role") and request.user.role == "partner":
+                # Partner can only see (and select) themselves
+                kwargs["queryset"] = User.objects.filter(id=request.user.id)
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
 class OrderAdmin(ModelAdmin):
     list_display = ("order_number", "customer", "partner", "status", "total_amount")

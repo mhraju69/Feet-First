@@ -14,7 +14,7 @@ class Color(models.Model):
     code = models.CharField(max_length=20, unique=True,verbose_name='Color Hex Code')
     details = models.TextField(blank=True, null=True)
     def __str__(self):
-        return f"{self.color}"
+        return f"{self.color}  {self.code}"
 
 class Category(models.Model):
     name_de = models.CharField(max_length=200,verbose_name='Name (German)')
@@ -180,7 +180,7 @@ class Product(models.Model):
     is_active = models.BooleanField(default=True)
 
     # Colors (optional simple CSV field)
-    colors = models.CharField(max_length=255, blank=True, help_text="Comma-separated color list")
+    colors = models.ManyToManyField(Color,max_length=255 , help_text="Type name to search color")
 
     # Meta
     created_at = models.DateTimeField(auto_now_add=True)

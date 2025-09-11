@@ -12,7 +12,7 @@ class ProductListView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
     filter_backends = [DjangoFilterBackend, OrderingFilter]
 
-    filterset_fields = {'category'}
+    filterset_fields = {'main_category','sub_category'}
     ordering = ['-created_at'] 
     
     queryset = Product.objects.filter(is_active = True)

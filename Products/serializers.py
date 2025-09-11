@@ -27,14 +27,13 @@ class ProductSerializer(serializers.ModelSerializer):
     
     
 class ProductDetailsSerializer(serializers.ModelSerializer):
-    sizes = serializers.StringRelatedField(many=True)
-    widths = serializers.StringRelatedField(many=True)
     colors =SubCategorySerializer(many=True)
     images = ProductImageSerializer(many=True)
     technical_data = serializers.SerializerMethodField() 
     class Meta:
         model = Product
-        fields = '__all__'
+        fields = ["id","colors","images","technical_data","name_de","name_it","brand","main_category","sub_category","size_system","size_value","width_category","toe_box","further_information","price","discount","stock_quantity","partner",
+        ]
     def get_technical_data(self, obj):
         data = {}
         if obj.technical_data:
