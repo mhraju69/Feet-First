@@ -10,12 +10,23 @@ from django_filters.rest_framework import DjangoFilterBackend
 class ProductListView(generics.ListAPIView):
     serializer_class = ProductSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
-    filter_backends = [DjangoFilterBackend, OrderingFilter]
+    filter_backends = [OrderingFilter]
+    ordering = ['-created_at']
 
-    filterset_fields = {'main_category','sub_category'}
-    ordering = ['-created_at'] 
-    
-    queryset = Product.objects.filter(is_active = True)
+    def get_queryset(self):
+        queryset = Product.objects.filter(is_active=True)
+        main = self.request.query_params.get("main_category")
+        sub = self.request.query_params.get("sub_category")
+
+        if main and sub:
+            # OR condition
+            queryset = queryset.filter(Q(main_category=main) | Q(sub_category=sub))
+        elif main:
+            queryset = queryset.filter(main_category=main)
+        elif sub:
+            queryset = queryset.filter(sub_category=sub)
+
+        return queryset
 
 class ProductDetailView(generics.RetrieveAPIView):
     serializer_class = ProductDetailsSerializer

@@ -59,18 +59,7 @@ class ProductMatchSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Product
-        fields = [
-            "id",
-            "name_de",
-            "name_it",
-            "brand",
-            "price",
-            "discount",
-            "stock_quantity",
-            "is_active",
-            "match_percentage",
-        ]
-
+        fields = ["id","colors","images","technical_data","name_de","name_it","brand","main_category","sub_category","size_system","size_value","width_category","toe_box","further_information","price","discount","stock_quantity","partner","match_percentage"]
     def get_match_percentage(self, obj):
         scan = self.context.get("scan")
         if scan:
