@@ -6,5 +6,5 @@ urlpatterns = [
     # path('subcategories/',SubcategoryListView.as_view()),
     path('',ProductListView.as_view()),
     path('<int:id>/',ProductDetailView.as_view()),
-    path('upload-pdf/',PDFFileUploadView.as_view()),
+    path("match/", ProductMatchView.as_view(), name="product-match"),
 ]

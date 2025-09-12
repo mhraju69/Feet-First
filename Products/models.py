@@ -82,7 +82,6 @@ class SubCategory(models.Model):
 #         return self.name_de 
 
 # --- ENUM Choices ---
-
 class Category(models.TextChoices):
     EVERYDAY_SHOES = "everyday-shoes", "Everyday Shoes"
     SPORTS_SHOES = "sports-shoes", "Sports Shoes"
@@ -305,13 +304,6 @@ class Order(models.Model):
         """
         return f"ORD-{uuid.uuid4().hex[:6].upper()}"
 
-class PdfFile(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="pdf_files")
-    pdf_file = models.FileField(upload_to='foot_scans_pdf/',storage=RawMediaCloudinaryStorage())
-    uploaded_at = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return f"PDF File for {self.user.email} uploaded at {self.uploaded_at}"
 
 class FootScan(models.Model):
     user = models.ForeignKey(
@@ -359,4 +351,5 @@ class FootScan(models.Model):
         return float(max(self.left_width, self.right_width))
 
     def __str__(self):
-        return f"FootScan #{self.id} for {self.user.username}"
+        return f"FootScan #{self.id} for {self.user.email}"
+    

@@ -21,10 +21,6 @@ class SubCategoryAdmin(ModelAdmin):
     search_fields = ('name_de', 'name_it', 'category')
     list_filter = ('category',)
 
-class PdfFileAdmin(ModelAdmin):
-    list_display = ('user', 'pdf_file', 'uploaded_at')
-    list_filter = ('user',)
-
 # --- Inline for product images ---
 class ProductImageInline(TabularInline):
     model = ProductImage
@@ -159,5 +155,4 @@ class OrderAdmin(ModelAdmin):
 admin.site.register(Product,ProductAdmin)
 admin.site.register(Order,OrderAdmin)
 admin.site.register(Color,ColorAdmin)
-admin.site.register(PdfFile,PdfFileAdmin)
 admin.site.register(FootScan,ModelAdmin)

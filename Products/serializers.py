@@ -25,7 +25,6 @@ class ProductSerializer(serializers.ModelSerializer):
             return ProductImageSerializer(primary).data
         return None
     
-    
 class ProductDetailsSerializer(serializers.ModelSerializer):
     colors =SubCategorySerializer(many=True)
     images = ProductImageSerializer(many=True)
@@ -55,8 +54,26 @@ class CategorySerializer(serializers.ModelSerializer):
         model = Category
         fields = '__all__'
 
-class PdfFileSerializer(serializers.ModelSerializer):
+class ProductMatchSerializer(serializers.ModelSerializer):
+    match_percentage = serializers.SerializerMethodField()
+
     class Meta:
-        model = PdfFile
-        fields = ['id', 'user', 'pdf_file', 'uploaded_at']
-        read_only_fields = ['id', 'uploaded_at', 'user']
+        model = Product
+        fields = [
+            "id",
+            "name_de",
+            "name_it",
+            "brand",
+            "price",
+            "discount",
+            "stock_quantity",
+            "is_active",
+            "match_percentage",
+        ]
+
+    def get_match_percentage(self, obj):
+        scan = self.context.get("scan")
+        if scan:
+            return obj.match_with_scan(scan)
+        return None
+    
