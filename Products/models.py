@@ -196,34 +196,42 @@ class Product(models.Model):
         score = 0
         weight_total = 0
 
-        # --- LENGTH MATCH (50%) ---
-        product_length_mid = (self.insole_min_mm + self.insole_max_mm) / 2
-        length_diff = fabs(scan.max_length() - product_length_mid)
+        # --- LENGTH MATCH (40%) ---
+        if self.left_foot_length and self.right_foot_length:
+            product_length_mid = float((self.left_foot_length + self.right_foot_length) / 2)
+            length_diff = fabs(scan.average_length() - product_length_mid)
 
-        # assume 5mm tolerance gives full score, worse reduces it
-        length_match = max(0, 1 - (length_diff / 10))  # 10mm difference = 0 match
-        score += length_match * 50
-        weight_total += 50
+            # assume 5mm tolerance = full score, 10mm = 0
+            length_match = max(0, 1 - (length_diff / 10))
+            score += length_match * 40
+            weight_total += 40
 
         # --- WIDTH MATCH (30%) ---
-        if self.width_category and scan.max_width():
-            # Simplified scaling: smaller diff = better match
-            width_diff = fabs(scan.max_width() - self.width_category)
-            width_match = max(0, 1 - (width_diff / 10))  # scale tolerance
+        if self.left_foot_width and self.right_foot_width:
+            product_width_mid = float((self.left_foot_width + self.right_foot_width) / 2)
+            width_diff = fabs(scan.average_width() - product_width_mid)
+
+            width_match = max(0, 1 - (width_diff / 10))
             score += width_match * 30
             weight_total += 30
 
-        # --- ARCH INDEX MATCH (10%) ---
-        if self.left_arch_index and scan.left_arch_index:
-            arch_diff = fabs(scan.left_arch_index - self.left_arch_index)
-            arch_match = max(0, 1 - (arch_diff / 50))  # tolerance scale
-            score += arch_match * 10
-            weight_total += 10
+        # --- ARCH INDEX MATCH (20%) ---
+        if self.left_arch_index and self.right_arch_index and scan.left_arch_index and scan.right_arch_index:
+            product_arch_mid = float((self.left_arch_index + self.right_arch_index) / 2)
+            scan_arch_mid = float((scan.left_arch_index + scan.right_arch_index) / 2)
+
+            arch_diff = fabs(scan_arch_mid - product_arch_mid)
+            arch_match = max(0, 1 - (arch_diff / 50))  # 50 tolerance
+            score += arch_match * 20
+            weight_total += 20
 
         # --- HEEL ANGLE MATCH (10%) ---
-        if self.left_heel_angle and scan.left_heel_angle:
-            heel_diff = fabs(scan.left_heel_angle - self.left_heel_angle)
-            heel_match = max(0, 1 - (heel_diff / 10))
+        if self.left_heel_angle and self.right_heel_angle and scan.left_heel_angle and scan.right_heel_angle:
+            product_heel_mid = float((self.left_heel_angle + self.right_heel_angle) / 2)
+            scan_heel_mid = float((scan.left_heel_angle + scan.right_heel_angle) / 2)
+
+            heel_diff = fabs(scan_heel_mid - product_heel_mid)
+            heel_match = max(0, 1 - (heel_diff / 10))  # 10° tolerance
             score += heel_match * 10
             weight_total += 10
 

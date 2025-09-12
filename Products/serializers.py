@@ -13,11 +13,11 @@ class ProductImageSerializer(serializers.ModelSerializer):
 
 class ProductSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField() 
-    
+    match_percentage = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
-        fields = ['id','image',"name_de","name_it","price",]
+        fields = ['id','image',"name_de","name_it","price","match_percentage"]
 
     def get_image(self, obj):
         primary = obj.images.filter(is_primary=True).first()
@@ -25,14 +25,25 @@ class ProductSerializer(serializers.ModelSerializer):
             return ProductImageSerializer(primary).data
         return None
     
+    def get_match_percentage(self, obj,):
+        scan = self.context.get("scan")
+        if scan:
+            return obj.match_with_scan(scan)
+        return None
+    
 class ProductDetailsSerializer(serializers.ModelSerializer):
-    colors =SubCategorySerializer(many=True)
+    colors = SubCategorySerializer(many=True)
     images = ProductImageSerializer(many=True)
-    technical_data = serializers.SerializerMethodField() 
+    technical_data = serializers.SerializerMethodField()
+    match_percentage = serializers.SerializerMethodField()
+
     class Meta:
         model = Product
-        fields = ["id","colors","images","technical_data","name_de","name_it","brand","main_category","sub_category","size_system","size_value","width_category","toe_box","further_information","price","discount","stock_quantity","partner",
-        ]
+        fields = ["id", "colors", "images", "technical_data", "name_de", "name_it", 
+                  "brand", "main_category", "sub_category", "size_system", "size_value", 
+                  "width_category", "toe_box", "further_information", "price", "discount", 
+                  "stock_quantity", "partner", "match_percentage"]  # Added match_percentage
+    
     def get_technical_data(self, obj):
         data = {}
         if obj.technical_data:
@@ -41,6 +52,13 @@ class ProductDetailsSerializer(serializers.ModelSerializer):
                     key, value = line.split(':', 1)
                     data[key.strip()] = value.strip()
         return data
+    
+    def get_match_percentage(self, obj):
+        scan = self.context.get("scan")
+        if scan:
+            return obj.match_with_scan(scan)
+        return None
+    
 
 class SubCategorySerializer(serializers.ModelSerializer):
     # product = ProductSerializer(many=True, read_only=True)
@@ -53,16 +71,10 @@ class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
         fields = '__all__'
-
-class ProductMatchSerializer(serializers.ModelSerializer):
-    match_percentage = serializers.SerializerMethodField()
-
-    class Meta:
-        model = Product
-        fields = ["id","colors","images","technical_data","name_de","name_it","brand","main_category","sub_category","size_system","size_value","width_category","toe_box","further_information","price","discount","stock_quantity","partner","match_percentage"]
-    def get_match_percentage(self, obj):
-        scan = self.context.get("scan")
-        if scan:
-            return obj.match_with_scan(scan)
-        return None
     
+class FootScanSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FootScan
+        fields = "__all__"
+        read_only_fields = ["id", "created_at",'user']
+
