@@ -32,54 +32,7 @@ class SubCategory(models.Model):
 
     def __str__(self):
         return self.name_de 
-    
-# class Product(models.Model):
-#     CATEGORY_CHOICES = [
-#     ("running-shoes", "Running Shoes"),
-#     ("cycling-shoes", "Cycling Shoes"),
-#     ("hockey-shoes", "Hockey Shoes"),
-#     ("ski-boots", "Ski Boots"),
-#     ("basketball-shoes", "Basketball Shoes"),
-#     ("golf-shoes", "Golf Shoes"),
-#     ("football-shoes", "Football Shoes"),
-#     ("tennis-shoes", "Tennis Shoes"),
-#     ("climbing-shoes", "Climbing Shoes"),
-#     ("casual-sneaker", "Casual Sneaker"),
-#     ("elegant-shoes", "Elegant Shoes"),
-#     ("comfortable-shoes", "Comfortable Shoes"),
-#     ("sandals", "Sandals"),
-#     ("work-shoes", "Work Shoes"),
-#     ("miscellaneous", "Miscellaneous"),
-#     ]
-
-#     partner = models.ForeignKey(User, limit_choices_to={'role':'partner'}, related_name='product', on_delete=models.CASCADE)
-
-#     name_de = models.CharField(max_length=200,verbose_name='Name (German)')
-#     name_it= models.CharField(max_length=200,verbose_name='Name (Italian)')
-
-#     category = models.CharField(max_length=50, choices=CATEGORY_CHOICES)
-#     details_de = models.TextField(blank=True, null=True,verbose_name='Details (German)')
-#     details_it = models.TextField(blank=True, null=True,verbose_name='Details (Italian)')
-
-#     price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-#     discount = models.DecimalField(max_digits=5, decimal_places=2, null=True,blank=True)  
-#     stock_quantity = models.PositiveIntegerField(default=0)
-#     brand = models.CharField(max_length=255, blank=True, null=True)
-#     sizes = models.ManyToManyField(Size)
-#     widths = models.ManyToManyField(Width)
-#     colors = models.ManyToManyField(Color)
-#     toe_type = models.CharField(max_length=100, blank=True, null=True)
-#     heel_angle = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True)
-#     created_at = models.DateTimeField(auto_now_add=True)
-#     updated_at = models.DateTimeField(auto_now=True)
-#     technical_data = models.TextField(blank=True, null=True,help_text="Technical data/specifications. Format as key: value, one per line.")
-#     further_information = models.TextField(blank=True, help_text="Further information (Weitere Informationen)")
-#     arch_support = models.BooleanField(default=False)
-#     is_active = models.BooleanField(default=True)
-
-
-#     def __str__(self):
-#         return self.name_de 
+  
 
 # --- ENUM Choices ---
 class Category(models.TextChoices):
@@ -311,7 +264,6 @@ class Order(models.Model):
         Generates a fun, unique order number like: ORD-5F8A3C
         """
         return f"ORD-{uuid.uuid4().hex[:6].upper()}"
-
 
 class FootScan(models.Model):
     user = models.ForeignKey(
