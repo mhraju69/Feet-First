@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from .models import *
 
+
 class SubCategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Color
@@ -78,3 +79,34 @@ class FootScanSerializer(serializers.ModelSerializer):
         fields = "__all__"
         read_only_fields = ["id", "created_at",'user']
 
+class OrderSerializer(serializers.ModelSerializer):
+    products = serializers.PrimaryKeyRelatedField(
+        queryset=Product.objects.all(), many=True
+    )
+    partner = serializers.PrimaryKeyRelatedField(
+        read_only=True, many=True
+    )
+
+    class Meta:
+        model = Order
+        fields = [
+            "id", "order_number", "products",
+            "partner", "shipping_address", "billing_address",
+            "total_amount", "status", "notes",  
+            "created_at", "updated_at"
+        ]
+        read_only_fields = ["order_number", "total_amount", "customer", "partner", "created_at", "updated_at"]
+
+    def create(self, validated_data):
+        products = validated_data.pop("products", [])
+        order = Order.objects.create(**validated_data)
+        order.products.set(products)
+        order.save()  # partners + total auto-updated
+        return order
+
+class FavouriteSerializer(serializers.ModelSerializer):
+    product = ProductSerializer(many=True)
+    class Meta:
+        model = Favourite
+        fields = ['id', 'user', 'product', 'created_at']
+        read_only_fields = ['id', 'user', 'created_at']

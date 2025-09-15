@@ -27,7 +27,10 @@ class ProductImageInline(TabularInline):
     extra = 1
     fields = ["image", "is_primary"]
 
-# --- Product Admin ---
+@admin.register(Size)
+class Sizeadmin(ModelAdmin):
+    search_fields = ('type','size')
+
 class ProductAdmin(ModelAdmin):
     list_display = (
         'name_de', 'name_it', 'brand',
@@ -38,13 +41,13 @@ class ProductAdmin(ModelAdmin):
     search_fields = (
         'name_de', 'name_it', 'brand',
         'main_category', 'sub_category',
-        'size_value', 'price', 'discount'
+        'sizes', 'price', 'discount'
     )
     list_filter = (
         'is_active', 'main_category', 'sub_category',
-        'size_system', 'width_category', 'toe_box', 'brand'
+        'sizes', 'width', 'toe_box', 'brand'
     )
-    autocomplete_fields =['colors']
+    autocomplete_fields =['colors', 'sizes']
     inlines = [ProductImageInline]
 
     # Row-level restriction
@@ -101,9 +104,14 @@ class ProductAdmin(ModelAdmin):
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
 class OrderAdmin(ModelAdmin):
-    list_display = ("order_number", "customer", "partner", "status", "total_amount")
-    search_fields = ("order_number", "customer__email", "partner__email")
+    list_display = ('id',"order_number", "status", "total_amount",'created_at')
+    search_fields = ("order_number", "customer__email", "partner__email",'created_at')
     list_filter = ("status",)
+    autocomplete_fields = ['customer','partner','products']
+    readonly_fields = ["order_number", "customer", "partner", "products",
+                       "shipping_address", "billing_address", "total_amount",
+                       'created_at', "notes"]
+
 
     # Row-level restriction
     def get_queryset(self, request):
@@ -156,3 +164,35 @@ admin.site.register(Product,ProductAdmin)
 admin.site.register(Order,OrderAdmin)
 admin.site.register(Color,ColorAdmin)
 admin.site.register(FootScan,ModelAdmin)
+
+from django.contrib import admin
+from .models import Favourite, Product, User # Make sure to import all relevant models
+
+@admin.register(Favourite)
+class FavouriteAdmin(ModelAdmin):
+    """
+    Admin configuration for the Favourite model.
+    """
+    # Fields to display in the main list view of the admin
+    list_display = ('user', 'display_products', 'created_at')
+
+    # Add a search bar to search by user's username
+    search_fields = ('user__username',)
+
+    # For a better UI to select products (provides a two-box selection interface)
+    filter_horizontal = ('product',)
+
+    # Fields that should not be editable in the admin
+    readonly_fields = ('created_at',)
+    autocomplete_fields = ['product']
+
+    def display_products(self, obj):
+        """
+        Creates a string of the first 5 product names for the list_display.
+        This avoids querying and displaying potentially thousands of products.
+        """
+        products = obj.product.all()[:5]
+        return ", ".join([p.name_de for p in products]) + ('...' if obj.product.count() > 5 else '')
+
+    # Give the custom method a user-friendly column header
+    display_products.short_description = 'Favourite Products'

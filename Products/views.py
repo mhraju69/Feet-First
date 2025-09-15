@@ -205,3 +205,55 @@ class DownloadFootScanExcel(views.APIView):
 
         except Exception as e:
             return Response({"detail": f"Error generating Excel file: {str(e)}"},status=status.HTTP_404_NOT_FOUND)
+        
+class OrderCreateView(generics.CreateAPIView):
+    queryset = Order.objects.all()
+    serializer_class = OrderSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def perform_create(self, serializer):
+        # Force current user as customer
+        serializer.save(customer=self.request.user)   
+
+class OrderRetrieveUpdateView(generics.RetrieveUpdateAPIView):
+    queryset = Order.objects.all()
+    serializer_class = OrderSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def perform_update(self, serializer):
+        order = self.get_object()
+        if order.status != "pending":
+            raise serializers.ValidationError(
+                "Cannot update order after it is confirmed."
+            )
+        serializer.save()
+
+class FavouriteRetrieveUpdateView(views.APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request,product_id=None):
+        try:
+            lists = Favourite.objects.get(user=request.user)
+
+            print(lists)
+            return Response(FavouriteSerializer(lists).data)
+        except Exception as e:
+            return Response(str(e))
+
+    def post(self, request, product_id):
+        try:
+            product = Product.objects.get(pk=product_id)
+            favourite= Favourite.objects.get(user=request.user)
+            favourite.products.add(product)
+            return Response({"message": "Product added to favourites."},status=200)
+        except Product.DoesNotExist:
+            return Response({"error": "Product not found."}, status=404)
+
+    def delete(self, request, product_id):
+        try:
+            product = Product.objects.get(pk=product_id)
+            favourite= Favourite.objects.get(user=request.user)
+            favourite.products.remove(product)
+            return Response({"message": "Product removed from favourites."},status=202)
+        except Product.DoesNotExist:
+            return Response({"error": "Product not found."}, status=404)
