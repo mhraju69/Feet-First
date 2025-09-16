@@ -54,7 +54,6 @@ class SizeSystem(models.TextChoices):
     USM = "USM", "US Men"
     USW = "USW", "US Women"
 
-# --- SIZE MODEL ---
 class Size(models.Model):
     type = models.CharField(max_length=3, choices=SizeSystem.choices)
     value = models.CharField(max_length=5, help_text="e.g. 40, 40.5, 40¾")
@@ -64,8 +63,6 @@ class Size(models.Model):
     def __str__(self):
         return f"{self.type} {self.value} ({self.insole_min_mm}-{self.insole_max_mm} mm)"
 
-
-# --- PRODUCT MODEL ---
 class Product(models.Model):
     partner = models.ForeignKey(
         User,
@@ -73,11 +70,12 @@ class Product(models.Model):
         related_name='products',
         on_delete=models.CASCADE
     )
+    
 
     # Basic info
-    name_de = models.CharField(max_length=200, verbose_name='Name (German)')
-    name_it = models.CharField(max_length=200, verbose_name='Name (Italian)')
+    name = models.CharField(max_length=200, verbose_name='Name')
     brand = models.CharField(max_length=255)
+    description = models.TextField()
 
     # Category/Subcategory
     main_category = models.CharField(max_length=50, choices=Category.choices)
@@ -86,13 +84,14 @@ class Product(models.Model):
     # Sizes
     sizes = models.ManyToManyField(Size, related_name="products")
 
+    gender = models.TextField(max_length=20,choices=(('male','Male'),('female','Female')))
     # Width & Toe box
     width = models.IntegerField(choices=Width.choices, default=Width.NORMAL)
     toe_box = models.CharField(max_length=10, choices=ToeBox.choices, default=ToeBox.NORMAL)
 
     # Extra info
-    technical_data = models.TextField(blank=True, null=True)
-    further_information = models.TextField(blank=True)
+    technical_data = models.TextField(blank=True, null=True,help_text='Add data as KEY : Value , one per line !')
+    further_information = models.TextField(blank=True,null=True)
 
     # Commerce
     price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
@@ -106,7 +105,7 @@ class Product(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.brand} {self.name_de}"
+        return f"{self.brand} {self.name}"
 
     # --- MATCHING LOGIC ---
     def match_with_scan(self, scan):
@@ -243,75 +242,17 @@ class FootScan(models.Model):
     def __str__(self):
         return f"FootScan #{self.id} for {self.user.email}"
 
-
-class Order(models.Model):
-    customer = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        limit_choices_to={'role': 'customer'},
-        related_name='orders'
-    )
-    products = models.ManyToManyField(Product, related_name='orders')
-
-    # Partners are derived from products
-    partner = models.ManyToManyField(User, related_name="partner_orders", blank=True)
-
-    shipping_address = models.ForeignKey(Address, on_delete=models.SET_NULL, null=True, blank=True, related_name="shipping_orders")
-    billing_address = models.ForeignKey(Address, on_delete=models.SET_NULL, null=True, blank=True, related_name="billing_orders")
-
-    order_number = models.CharField(max_length=50, unique=True, blank=True)
-    total_amount = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
-    notes = models.TextField( blank=True, null=True)
-    status = models.CharField(max_length=20, choices=[
-        ('pending', 'Pending'),
-        ('confirmed', 'Confirmed'),
-        ('completed', 'Completed'),
-        ('cancelled', 'Cancelled'),
-    ], default='pending')
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    def save(self, *args, **kwargs):
-        if not self.order_number:
-            self.order_number = self.generate_order_number()
-
-        super().save(*args, **kwargs)
-
-        # update partners from products
-        partner = {p.partner for p in self.products.all()}
-        self.partner.set(partner)
-
-        # recalc total
-        total = sum(p.price for p in self.products.all())
-        self.total_amount = total
-        super().save(update_fields=["total_amount"])
-
-    @staticmethod
-    def generate_order_number():
-        return f"ORD-{uuid.uuid4().hex[:6].upper()}"
-    
-class Favourite(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='favourite')
-    product = models.ManyToManyField(Product, related_name='favourite_products')
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ['-created_at']
-
-    def __str__(self):
-        return f"{self.user} favourite {self.product}"
-    
 class ProductImage(models.Model):
     product = models.ForeignKey(Product, related_name='images', on_delete=models.CASCADE)
     image = models.ImageField(upload_to='products/', storage=MediaCloudinaryStorage())
     is_primary = models.BooleanField(default=False)
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True)    
     
     class Meta:
         ordering = ['created_at']
     
     def __str__(self):
-        return f"Image for {self.product.name_de}"
+        return f"Image for {self.product.name}"
     
     def save(self, *args, **kwargs):
         # Ensure only one primary image per product

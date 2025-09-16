@@ -1,17 +1,13 @@
-from io import BytesIO
-from django.shortcuts import get_object_or_404
-from .models import *
-from .serializers import *
-from rest_framework import permissions,generics,views,status
-from rest_framework.response import Response
-from openpyxl import Workbook
 from .utils import *
-from openpyxl import Workbook
-from openpyxl.styles import Font, PatternFill, Alignment
+from .models import *
+from io import BytesIO
+from .serializers import *
 from datetime import datetime
-from .utils import ExcelRenderer
-from .models import FootScan
-# Create your views here.
+from openpyxl import Workbook
+from rest_framework.response import Response
+from django.shortcuts import get_object_or_404
+from rest_framework import permissions,generics,views,status
+from openpyxl.styles import Font, PatternFill, Alignment
 
 class ProductListView(generics.ListAPIView):
     serializer_class = ProductSerializer
@@ -43,9 +39,10 @@ class ProductListView(generics.ListAPIView):
                 # Get the scan object
                 scan = get_object_or_404(FootScan,user=self.request.user, id=scan_id)
                 context['scan'] = scan
-            except FootScan.DoesNotExist:
-                pass
-                
+            except :
+                scan = FootScan.objects.filter(user=self.request.user).first()
+                context['scan'] = scan
+            
         return context
     
 class ProductDetailView(generics.RetrieveAPIView):
@@ -62,8 +59,9 @@ class ProductDetailView(generics.RetrieveAPIView):
                 # Get the scan object
                 scan = get_object_or_404(FootScan,user=self.request.user, id=scan_id)
                 context['scan'] = scan
-            except FootScan.DoesNotExist:
-                pass
+            except :
+                scan = FootScan.objects.filter(user=self.request.user).first()
+                context['scan'] = scan
                 
         return context
 
@@ -206,54 +204,3 @@ class DownloadFootScanExcel(views.APIView):
         except Exception as e:
             return Response({"detail": f"Error generating Excel file: {str(e)}"},status=status.HTTP_404_NOT_FOUND)
         
-class OrderCreateView(generics.CreateAPIView):
-    queryset = Order.objects.all()
-    serializer_class = OrderSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def perform_create(self, serializer):
-        # Force current user as customer
-        serializer.save(customer=self.request.user)   
-
-class OrderRetrieveUpdateView(generics.RetrieveUpdateAPIView):
-    queryset = Order.objects.all()
-    serializer_class = OrderSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def perform_update(self, serializer):
-        order = self.get_object()
-        if order.status != "pending":
-            raise serializers.ValidationError(
-                "Cannot update order after it is confirmed."
-            )
-        serializer.save()
-
-class FavouriteRetrieveUpdateView(views.APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get(self, request,product_id=None):
-        try:
-            lists = Favourite.objects.get(user=request.user)
-
-            print(lists)
-            return Response(FavouriteSerializer(lists).data)
-        except Exception as e:
-            return Response(str(e))
-
-    def post(self, request, product_id):
-        try:
-            product = Product.objects.get(pk=product_id)
-            favourite= Favourite.objects.get(user=request.user)
-            favourite.products.add(product)
-            return Response({"message": "Product added to favourites."},status=200)
-        except Product.DoesNotExist:
-            return Response({"error": "Product not found."}, status=404)
-
-    def delete(self, request, product_id):
-        try:
-            product = Product.objects.get(pk=product_id)
-            favourite= Favourite.objects.get(user=request.user)
-            favourite.products.remove(product)
-            return Response({"message": "Product removed from favourites."},status=202)
-        except Product.DoesNotExist:
-            return Response({"error": "Product not found."}, status=404)
