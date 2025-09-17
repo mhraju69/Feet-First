@@ -267,7 +267,6 @@ class Questions(models.Model):  # Parent = holds sub_category
     def __str__(self):
         return self.sub_category or "No SubCategory"
 
-
 class Ques(models.Model):  # Child = belongs to a Questions record
     questions = models.CharField(max_length=100)
     parent = models.ForeignKey(
