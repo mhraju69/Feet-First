@@ -4,13 +4,27 @@ services:
   django:
     build: .
     container_name: feetfirst
-    command: python manage.py runserver 0.0.0.0:8000
+    command: gunicorn core.wsgi:application --bind 0.0.0.0:8000 --workers 3
     volumes:
       - .:/app
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+    expose:
+      - "8000"
+
+  nginx:
+    image: nginx:stable-alpine
+    container_name: nginx
     ports:
-      - "8000:8000"
+      - "80:80"
+      # - "443:443" # SSL করলে
+    volumes:
+      - ./deploy/nginx:/etc/nginx/conf.d
+      - static_volume:/vol/static
+      - media_volume:/vol/media
     depends_on:
-      - redis
+      - django
+
 
   celery_worker:
     build: .
@@ -35,3 +49,6 @@ services:
     container_name: redis
     ports:
       - "6380:6379"
+volumes:
+  static_volume:
+  media_volume:
