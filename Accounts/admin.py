@@ -3,13 +3,14 @@ from django.contrib import admin
 from unfold.admin import ModelAdmin
 from django.utils.html import format_html
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-
+from django.utils.text import Truncator
 from django.contrib.auth.forms import UserCreationForm, UserChangeForm
 from django import forms
 
 
 @admin.register(User)
 class UserAdmin(ModelAdmin):
+    icon = 'user'
     list_display = ("email", "name", "role", "is_active", "is_staff", "suspend", "date_joined")
     list_filter = ("role", "is_active"  , "is_staff", "suspend")
     ordering = ("-date_joined",)
@@ -142,7 +143,7 @@ class AddressAdmin(ModelAdmin):
     ordering = ('-created_at',)
     readonly_fields = ('user','created_at', 'updated_at',)
 
-admin.site.register(OTP,OtpAdmin)
+# admin.site.register(OTP,OtpAdmin)
 admin.site.register(Address,AddressAdmin)
 admin.site.register(AccountDeletionRequest,DeleteAdmin)
     

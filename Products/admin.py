@@ -1,4 +1,5 @@
 from .models import *
+from Questions.models import *
 from django.contrib import admin
 from unfold.admin import ModelAdmin
 from unfold.admin import TabularInline
@@ -88,17 +89,6 @@ class ProductAdmin(ModelAdmin):
                 kwargs["queryset"] = User.objects.filter(id=request.user.id)
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
-class QuesInline(TabularInline):  # Inline child model
-    model = Ques
-    extra = 1
-    fields = ["questions"]
-
-
-@admin.register(Questions)
-class QuestionsAdmin(ModelAdmin):
-    list_display = ("sub_category", "created_at")
-    search_fields = ("sub_category",)
-    inlines = [QuesInline]  # ✅ allows adding unlimited Ques inline
 
 
 admin.site.register(Size,Sizeadmin)

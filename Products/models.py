@@ -260,26 +260,4 @@ class ProductImage(models.Model):
             ProductImage.objects.filter(product=self.product, is_primary=True).exclude(pk=self.pk).update(is_primary=False)
         super().save(*args, **kwargs)
 
-class Questions(models.Model):  # Parent = holds sub_category
-    sub_category = models.CharField(max_length=100,choices=SubCategory, unique=True)
-    created_at = models.DateField(auto_now=True)
-
-    def __str__(self):
-        return self.sub_category or "No SubCategory"
-
-class Ques(models.Model):  # Child = belongs to a Questions record
-    questions = models.CharField(max_length=100)
-    parent = models.ForeignKey(
-        Questions,
-        on_delete=models.CASCADE,
-        related_name='ques_list'
-    )
-
-    class Meta:
-        verbose_name = 'Add Question'
-    
-
-    def __str__(self):
-        return f"Question: {self.questions}"
-    
 
