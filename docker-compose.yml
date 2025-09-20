@@ -1,4 +1,4 @@
-version: "3"
+version: "3.9"
 
 services:
   django:
@@ -11,20 +11,36 @@ services:
       - media_volume:/app/media
     expose:
       - "8000"
+    depends_on:
+      - db
+    restart: always
+
+  db:
+    image: postgres:15
+    container_name: postgres_data
+    restart: always
+    environment:
+      POSTGRES_DB: feetf1rst
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 8257
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
 
   nginx:
     image: nginx:stable-alpine
     container_name: nginx
     ports:
       - "80:80"
-      # - "443:443" # SSL করলে
+      # - "443:443" # enable for SSL
     volumes:
       - ./deploy/nginx:/etc/nginx/conf.d
-      - static_volume:/vol/static
-      - media_volume:/vol/media
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
     depends_on:
       - django
-
+    restart: always
 
   celery_worker:
     build: .
@@ -34,6 +50,8 @@ services:
       - .:/app
     depends_on:
       - redis
+      - django
+    restart: always
 
   celery_beat:
     build: .
@@ -43,12 +61,17 @@ services:
       - .:/app
     depends_on:
       - redis
+      - django
+    restart: always
 
   redis:
     image: redis:latest
     container_name: redis
     ports:
-      - "6380:6379"
+      - "6379:6380"
+    restart: always
+
 volumes:
+  postgres_data:
   static_volume:
   media_volume:

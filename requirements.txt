@@ -25,12 +25,17 @@ django-parler==2.3
 django-unfold==0.64.2
 djangorestframework==3.16.1
 djangorestframework_simplejwt==5.5.1
+et_xmlfile==2.0.0
+gunicorn==23.0.0
 idna==3.10
 kombu==5.5.4
 lxml==6.0.1
+numpy==2.3.3
+openpyxl==3.1.5
 packaging==25.0
 pillow==11.3.0
 prompt_toolkit==3.0.52
+psycopg2-binary==2.9.10
 pyasn1==0.6.1
 pyasn1_modules==0.4.2
 pycparser==2.22
@@ -46,7 +51,4 @@ sqlparse==0.5.3
 tzdata==2025.2
 urllib3==2.5.0
 vine==5.1.0
-gunicorn==22.0.0
-numpy==1.23.5
 wcwidth==0.2.13
-openpyxl==3.1.5

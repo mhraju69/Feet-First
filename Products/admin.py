@@ -6,7 +6,7 @@ from unfold.admin import TabularInline
 
 class ColorAdmin(ModelAdmin):
     list_display = ('color', 'details'  )
-    search_fields = ["color", "code"]  # <-- allow searching by both
+    search_fields = ["color"]  # <-- allow searching by both
 
 class ProductImageInline(TabularInline):
     model = ProductImage
