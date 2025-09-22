@@ -7,10 +7,11 @@ from django.utils.text import slugify
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.core.files.base import ContentFile
-from rest_framework.exceptions import NotFound  
+from rest_framework.exceptions import NotFound
+from rest_framework_simplejwt.exceptions import TokenError 
 from rest_framework import status, permissions
 from django.contrib.auth.hashers import make_password
-from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.tokens import RefreshToken,AccessToken
 
 # Create your views here.
 
@@ -227,3 +228,29 @@ class SocialAuthCallbackView(APIView):
             
         except Exception as e:
             return Response({'error': str(e)}, status=500)
+        
+class VerifyAccessView(APIView):
+    def post(self, request):
+        access_token = request.data.get("access_token")
+        refresh_token = request.data.get("refresh_token")
+
+        if not access_token:
+            return Response({"success": False, "message": "Access token required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            token = AccessToken(access_token)
+            user = User.objects.get(id=token['user_id'])
+            user_data = UserSerializer(user).data
+            return Response({"success": True, "access": access_token, "user": user_data})
+        except TokenError:
+            if not refresh_token:
+                return Response({"success": False, "message": "Access token expired, no refresh token provided"}, status=status.HTTP_401_UNAUTHORIZED)
+            try:
+                refresh = RefreshToken(refresh_token)
+                new_access = str(refresh.access_token)
+                # Get user from refresh token
+                user = User.objects.get(id=refresh['user_id'])
+                user_data = UserSerializer(user).data
+                return Response({"success": True, "access": new_access, 'refresh': refresh_token, "user": user_data})
+            except TokenError:
+                return Response({"success": False, "message": "Refresh token expired or invalid"}, status=status.HTTP_401_UNAUTHORIZED)

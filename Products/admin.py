@@ -14,8 +14,14 @@ class ProductImageInline(TabularInline):
     extra = 1
     fields = ["image", "is_primary"]
 
-class Sizeadmin(ModelAdmin):
-    search_fields = ('type','size')
+# class Sizeadmin(ModelAdmin):
+#     search_fields = ('type','size')
+
+class SizeInline(TabularInline):   # চাইলে StackedInline ও ব্যবহার করতে পারেন
+    model = Size
+    extra = 0   # নতুন ফাঁকা ফর্ম দেখাবে
+    min_num = 1 # অন্তত এক সাইজ দিতে হবে
+    show_change_link = True
 
 class ProductAdmin(ModelAdmin):
     list_display = (
@@ -25,16 +31,16 @@ class ProductAdmin(ModelAdmin):
         'is_active'
     )
     search_fields = (
-        'name', '', 'brand',
+        'name', 'brand',
         'main_category', 'sub_category',
-        'sizes', 'price', 'discount'
     )
     list_filter = (
         'gender','is_active', 'main_category', 'sub_category',
-        'sizes', 'width', 'toe_box', 'brand'
+        'width', 'toe_box', 'brand'
     )
-    autocomplete_fields =['colors', 'sizes']
-    inlines = [ProductImageInline]
+    autocomplete_fields = ['colors']   # এখন sizes বাদ যাবে
+    inlines = [SizeInline, ProductImageInline]
+
 
     # Row-level restriction
     def get_queryset(self, request):
@@ -89,9 +95,7 @@ class ProductAdmin(ModelAdmin):
                 kwargs["queryset"] = User.objects.filter(id=request.user.id)
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
-
-
-admin.site.register(Size,Sizeadmin)
+# admin.site.register(Size,Sizeadmin)
 admin.site.register(Product,ProductAdmin)
 admin.site.register(Color,ColorAdmin)
 admin.site.register(FootScan,ModelAdmin)

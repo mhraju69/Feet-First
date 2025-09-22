@@ -10,9 +10,8 @@ from django import forms
 
 @admin.register(User)
 class UserAdmin(ModelAdmin):
-    icon = 'user'
-    list_display = ("email", "name", "role", "is_active", "is_staff", "suspend", "date_joined")
     list_filter = ("role", "is_active"  , "is_staff", "suspend")
+    list_display = ("email",'name', "phone", "role", "is_active", "suspend")
     ordering = ("-date_joined",)
     search_fields = ("email", "name")
     readonly_fields = ("last_login", "date_joined")

@@ -54,15 +54,6 @@ class SizeSystem(models.TextChoices):
     USM = "USM", "US Men"
     USW = "USW", "US Women"
 
-class Size(models.Model):
-    type = models.CharField(max_length=3, choices=SizeSystem.choices)
-    value = models.CharField(max_length=5, help_text="e.g. 40, 40.5, 40¾")
-    insole_min_mm = models.IntegerField()
-    insole_max_mm = models.IntegerField()
-
-    def __str__(self):
-        return f"{self.type} {self.value} ({self.insole_min_mm}-{self.insole_max_mm} mm)"
-
 class Product(models.Model):
     partner = models.ForeignKey(
         User,
@@ -70,7 +61,6 @@ class Product(models.Model):
         related_name='products',
         on_delete=models.CASCADE
     )
-    
 
     # Basic info
     name = models.CharField(max_length=200, verbose_name='Name')
@@ -81,17 +71,15 @@ class Product(models.Model):
     main_category = models.CharField(max_length=50, choices=Category.choices)
     sub_category = models.CharField(max_length=50, choices=SubCategory.choices, null=True, blank=True)
 
-    # Sizes
-    sizes = models.ManyToManyField(Size, related_name="products")
-
-    gender = models.TextField(max_length=20,choices=(('male','Male'),('female','Female')))
+    gender = models.TextField(max_length=20, choices=(('male','Male'),('female','Female')))
+    
     # Width & Toe box
     width = models.IntegerField(choices=Width.choices, default=Width.NORMAL)
     toe_box = models.CharField(max_length=10, choices=ToeBox.choices, default=ToeBox.NORMAL)
 
     # Extra info
-    technical_data = models.TextField(blank=True, null=True,help_text='Add data as KEY : Value , one per line !')
-    further_information = models.TextField(blank=True,null=True)
+    technical_data = models.TextField(blank=True, null=True, help_text='Add data as KEY : Value , one per line !')
+    further_information = models.TextField(blank=True, null=True)
 
     # Commerce
     price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
@@ -109,17 +97,16 @@ class Product(models.Model):
 
     # --- MATCHING LOGIC ---
     def match_with_scan(self, scan):
-
         score = 0
-        # --- LENGTH MATCH (50%) ---
-        # Pick the closest size by insole length
         avg_foot_length = scan.average_length()
         best_size = None
         score_length = 0 
         best_match = 0
+
+        # এখানে self.sizes.all() ব্যবহার করা যাবে
         for size in self.sizes.all():
             if size.insole_min_mm <= avg_foot_length <= size.insole_max_mm:
-                best_match = 1.0  # perfect
+                best_match = 1.0
             else:
                 diff = min(abs(avg_foot_length - size.insole_min_mm),
                            abs(avg_foot_length - size.insole_max_mm))
@@ -140,7 +127,7 @@ class Product(models.Model):
                 best_size = size 
         score += (score_length * 50)
 
-        # --- WIDTH MATCH (30%) ---
+        # Width match (30%)
         diff_width = abs(scan.width_category() - self.width)
         if diff_width == 0:
             width_score = 1.0
@@ -154,14 +141,29 @@ class Product(models.Model):
             width_score = 0.0
         score += (width_score * 30)
 
-        # --- TOE BOX MATCH (20%) ---
+        # Toe box match (20%)
         toe_score = 1.0 if scan.toe_box_category() == self.toe_box else 0.0 
         score += (toe_score * 20)
 
         return {
-        "score": round(score, 2),
-        "recommended_size": best_size.value if best_size else None,}
-    
+            "score": round(score, 2),
+            "recommended_size": best_size.value if best_size else None,
+        }
+
+class Size(models.Model):
+    product = models.ForeignKey(
+        Product,
+        related_name="sizes",
+        on_delete=models.CASCADE
+    )
+    type = models.CharField(max_length=3, choices=SizeSystem.choices)
+    value = models.CharField(max_length=5, help_text="e.g. 40, 40.5, 40¾")
+    insole_min_mm = models.IntegerField()
+    insole_max_mm = models.IntegerField()
+
+    def __str__(self):
+        return f"{self.product.name} - {self.type} {self.value} ({self.insole_min_mm}-{self.insole_max_mm} mm)"
+
 class FootScan(models.Model):   
     user = models.ForeignKey(
         User,
@@ -259,5 +261,4 @@ class ProductImage(models.Model):
         if self.is_primary:
             ProductImage.objects.filter(product=self.product, is_primary=True).exclude(pk=self.pk).update(is_primary=False)
         super().save(*args, **kwargs)
-
 

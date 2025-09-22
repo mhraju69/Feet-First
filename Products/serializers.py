@@ -2,10 +2,21 @@ from rest_framework import serializers
 from .models import *
 
 
+
+class ColorSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Color
+        fields = ["color"]
+
 class ProductImageSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductImage
         fields = ['id','image']
+
+class ProductSizeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Size
+        exclude = ['product']
 
 class ProductSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField() 
@@ -26,18 +37,22 @@ class ProductSerializer(serializers.ModelSerializer):
         if scan:
             return obj.match_with_scan(scan)
         return None
-    
+
 class ProductDetailsSerializer(serializers.ModelSerializer):
     images = ProductImageSerializer(many=True)
+    sizes = ProductSizeSerializer(many=True)
+    colors = ColorSerializer(many=True)
     technical_data = serializers.SerializerMethodField()
     match_percentage = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
-        fields = ["id", "colors", "images", "technical_data", "name_de", "name_it", 
-                  "brand", "main_category", "sub_category", "size_system", "size_value", 
-                  "width_category", "toe_box", "further_information", "price", "discount", 
-                  "stock_quantity", "partner", "match_percentage"]  # Added match_percentage
+        fields = [
+            "id", "name", "colors", "images", "technical_data",
+            "brand", "main_category", "sub_category", "sizes",
+            "toe_box", "further_information", "price", "discount", 
+            "stock_quantity", "partner", "match_percentage"
+        ]
     
     def get_technical_data(self, obj):
         data = {}

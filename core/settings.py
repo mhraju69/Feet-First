@@ -36,7 +36,11 @@ INSTALLED_APPS = [
     "cloudinary_storage",
     'rest_framework_simplejwt.token_blacklist',
     'Questions',
+    'tailwind',
     ]
+
+TAILWIND_APP_NAME = 'Accounts   '  # Replace with your app name
+TAILWIND_MODE = 'jit'
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
@@ -70,23 +74,23 @@ TEMPLATES = [
 WSGI_APPLICATION = 'core.wsgi.application'
 
 
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.sqlite3',
-#         'NAME': BASE_DIR / 'db.sqlite3',
-#     }
-# }   
-
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.environ.get('DB_NAME'),
-        'USER': os.environ.get('DB_USER'),
-        'PASSWORD': os.environ.get('DB_PASSWORD'),
-        'HOST': os.environ.get('DB_HOST'),
-        'PORT': os.environ.get('DB_PORT'),
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
-}  
+}   
+
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql',
+#         'NAME': os.environ.get('DB_NAME'),
+#         'USER': os.environ.get('DB_USER'),
+#         'PASSWORD': os.environ.get('DB_PASSWORD'),
+#         'HOST': os.environ.get('DB_HOST'),
+#         'PORT': os.environ.get('DB_PORT'),
+#     }
+# }  
 
 
 AUTH_PASSWORD_VALIDATORS = [
@@ -151,6 +155,7 @@ UNFOLD = {
     "MODE": "dark",
     "SITE_TITLE": "Feet First Admin",   
     "SITE_HEADER": "Admin Dashboard",
+    "SHOW_ICON": True,  
 }
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
