@@ -13,11 +13,6 @@ class ProductImageSerializer(serializers.ModelSerializer):
         model = ProductImage
         fields = ['id','image']
 
-class ProductSizeSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Size
-        exclude = ['product']
-
 class ProductSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField() 
     match_percentage = serializers.SerializerMethodField()
@@ -40,7 +35,7 @@ class ProductSerializer(serializers.ModelSerializer):
 
 class ProductDetailsSerializer(serializers.ModelSerializer):
     images = ProductImageSerializer(many=True)
-    sizes = ProductSizeSerializer(many=True)
+    sizes = serializers.SerializerMethodField()
     colors = ColorSerializer(many=True)
     technical_data = serializers.SerializerMethodField()
     match_percentage = serializers.SerializerMethodField()
@@ -68,6 +63,16 @@ class ProductDetailsSerializer(serializers.ModelSerializer):
         if scan:
             return obj.match_with_scan(scan)
         return None
+    
+    def get_sizes(self, obj):
+        # Collect sizes from all linked SizeTables
+        size_list = []
+        for size_table in obj.sizes.all():  # SizeTable objects
+            for size in size_table.sizes.all():  # related Size objects
+                size_list.append(
+                    f"{size.type.upper()} {size.value} {size.insole_min_mm}-{size.insole_max_mm}"
+                )
+        return size_list
 
 class FootScanSerializer(serializers.ModelSerializer):
     class Meta:
