@@ -54,6 +54,26 @@ class SizeSystem(models.TextChoices):
     USM = "USM", "US Men"
     USW = "USW", "US Women"
 
+class SizeTable(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+
+    def __str__(self):
+        return self.name
+    
+class Size(models.Model):
+    table = models.ForeignKey(
+        SizeTable,
+        related_name="sizes",
+        on_delete=models.CASCADE
+    )
+    type = models.CharField(max_length=3, choices=SizeSystem.choices)
+    value = models.CharField(max_length=5, help_text="e.g. 40, 40.5, 40¾")
+    insole_min_mm = models.IntegerField()
+    insole_max_mm = models.IntegerField()
+
+    def __str__(self):
+        return f"{self.type} {self.value} ({self.insole_min_mm}-{self.insole_max_mm}mm)"
+    
 class Product(models.Model):
     partner = models.ForeignKey(
         User,
@@ -70,9 +90,9 @@ class Product(models.Model):
     # Category/Subcategory
     main_category = models.CharField(max_length=50, choices=Category.choices)
     sub_category = models.CharField(max_length=50, choices=SubCategory.choices, null=True, blank=True)
-
+    sizes = models.ManyToManyField(SizeTable, related_name="products")
     gender = models.TextField(max_length=20, choices=(('male','Male'),('female','Female')))
-    
+        
     # Width & Toe box
     width = models.IntegerField(choices=Width.choices, default=Width.NORMAL)
     toe_box = models.CharField(max_length=10, choices=ToeBox.choices, default=ToeBox.NORMAL)
@@ -149,20 +169,6 @@ class Product(models.Model):
             "score": round(score, 2),
             "recommended_size": best_size.value if best_size else None,
         }
-
-class Size(models.Model):
-    product = models.ForeignKey(
-        Product,
-        related_name="sizes",
-        on_delete=models.CASCADE
-    )
-    type = models.CharField(max_length=3, choices=SizeSystem.choices)
-    value = models.CharField(max_length=5, help_text="e.g. 40, 40.5, 40¾")
-    insole_min_mm = models.IntegerField()
-    insole_max_mm = models.IntegerField()
-
-    def __str__(self):
-        return f"{self.product.name} - {self.type} {self.value} ({self.insole_min_mm}-{self.insole_max_mm} mm)"
 
 class FootScan(models.Model):   
     user = models.ForeignKey(

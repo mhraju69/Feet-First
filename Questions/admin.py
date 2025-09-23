@@ -10,7 +10,7 @@ class QuesInline(TabularInline):  # Inline child model
     fields = ["questions"]
 
 
-@admin.register(Questions)
+# @admin.register(Questions)
 class QuestionsAdmin(ModelAdmin):
     list_display = ("sub_category", "created_at")
     search_fields = ("sub_category",)
@@ -21,7 +21,7 @@ class AnswerItemInline(TabularInline):
     model = AnswerItem
     extra = 1
 
-@admin.register(Answer)
+# @admin.register(Answer)
 class AnswerAdmin(ModelAdmin):
     list_display = ("user", "created_at")
     readonly_fields = ('user',)
