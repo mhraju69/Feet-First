@@ -1,8 +1,6 @@
 from rest_framework import serializers
 from .models import *
 
-
-
 class ColorSerializer(serializers.ModelSerializer):
     class Meta:
         model = Color
@@ -36,7 +34,7 @@ class ProductSerializer(serializers.ModelSerializer):
 class ProductDetailsSerializer(serializers.ModelSerializer):
     images = ProductImageSerializer(many=True)
     sizes = serializers.SerializerMethodField()
-    colors = ColorSerializer(many=True)
+    colors = serializers.SerializerMethodField()
     technical_data = serializers.SerializerMethodField()
     match_percentage = serializers.SerializerMethodField()
 
@@ -73,6 +71,10 @@ class ProductDetailsSerializer(serializers.ModelSerializer):
                     f"{size.type.upper()} {size.value} {size.insole_min_mm}-{size.insole_max_mm}"
                 )
         return size_list
+    
+    def get_colors(self, obj):
+        return [", ".join(color.color for color in obj.colors.all())
+]
 
 class FootScanSerializer(serializers.ModelSerializer):
     class Meta:

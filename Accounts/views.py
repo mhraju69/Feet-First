@@ -55,7 +55,18 @@ class VerifyOTP(APIView):
         result = verify_otp(email, otp_code)
 
         if result['success']:
-            return Response({"success": True, "message": result['message']}, status=status.HTTP_200_OK)
+            try:
+                user = User.objects.get(email=email)
+            except User.DoesNotExist:
+                return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
+            # Generate JWT tokens
+            refresh = RefreshToken.for_user(user)
+            return Response({
+                "user": UserSerializer(user).data,
+                "refresh": str(refresh),
+                "access": str(refresh.access_token),
+            }, status=status.HTTP_200_OK)
         else:
             # 403 for lock, 400 for invalid/expired
             status_code = status.HTTP_403_FORBIDDEN if "Too many attempts" in result['message'] else status.HTTP_400_BAD_REQUEST
