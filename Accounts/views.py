@@ -73,24 +73,23 @@ class VerifyOTP(APIView):
             return Response({"success": False, "error": result['message']}, status=status_code)
 
 class ResetPassword(APIView):
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
         email = request.data.get('email')
-        otp_code = request.data.get('otp_code')
         new_password = request.data.get('new_password')
 
-        if not email or not new_password:
+        if not email or not new_password :
             return Response(
                 {"error": "Email and new password are required."},
                 status=400
             )
-
-        if otp_code:
-            result = verify_otp(email, otp_code)
-            if not result['success']:
-                return Response({"error": result['message']}, status=400)
-
+        
+        elif request.user.email != email :
+            return Response(
+                {"error": "You can only reset your own password."},
+                status=403)
+        
         try:
             user = User.objects.get(email=email)
             user.set_password(new_password)

@@ -8,14 +8,16 @@ class OnboardingSurvey(models.Model):
     # Foreign key to the user
     user =  models.OneToOneField(User, on_delete=models.CASCADE, related_name="survey")
 
-    sources = models.JSONField(default=list, blank=True)  # 👈 multiple choices allowed
+    discovery_question = models.JSONField(default=list, blank=True)  # 👈 multiple choices allowed
 
+    interests = models.JSONField(default=list, blank=True)  # 👈 multiple choices allowed
+    
     # Step 3: Which products do you use the most?
     PRODUCT_CHOICES = [
         ("man", "Man"),
         ("woman", "Woman"),
     ]
-    product_preference = models.CharField(max_length=10, choices=PRODUCT_CHOICES)
+    gender = models.CharField(max_length=10, choices=PRODUCT_CHOICES)
 
     # Step 4: Free text for foot/shoe problems
     foot_problems = models.TextField(blank=True, null=True)

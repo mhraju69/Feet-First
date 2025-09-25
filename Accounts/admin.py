@@ -110,26 +110,26 @@ class OtpAdmin(ModelAdmin):
         return False
     
 class SurvayAdmin(ModelAdmin):
-    list_display = ('user', 'formatted_sources', 'product_preference', 'truncated_foot_problems', 'created_at')
+    list_display = ('user', 'formatted_discovery_question', 'product_preference', 'truncated_foot_problems', 'created_at')
 
     # Make non-editable and nicely formatted fields readonly
-    readonly_fields = ('user','formatted_sources', 'created_at', 'product_preference', 'foot_problems')
+    readonly_fields = ('user','formatted_discovery_question', 'created_at', 'product_preference', 'foot_problems')
 
     # Specify fields for the detail page (exclude non-editable from fields list)
-    fields = ('user','formatted_sources', 'product_preference', 'foot_problems', 'created_at')
+    fields = ('user','formatted_discovery_question', 'product_preference', 'foot_problems', 'created_at')
 
-    search_fields = ('user__email', 'sources', )
+    search_fields = ('user__email', 'discovery_question', )
     list_filter = ('product_preference',)    
 
-    def formatted_sources(self, obj):
-        # Display sources as badges
+    def formatted_discovery_question(self, obj):
+        # Display discovery_question as badges
         return format_html(
             " ".join([
                 f'<span style="background:#eee;padding:2px 5px;border-radius:3px;margin-right:3px;">{s}</span>'
-                for s in obj.sources
+                for s in obj.discovery_question
             ])
         )
-    formatted_sources.short_description = 'Sources'
+    formatted_discovery_question.short_description = 'discovery_question'
     def truncated_foot_problems(self, obj):
         # Truncate to 30 characters (adjust as needed)
         return Truncator(obj.foot_problems).chars(20)
