@@ -3,9 +3,9 @@ from django.db import models
 from django.contrib.auth import get_user_model
 from django.forms import ValidationError
 User = get_user_model()
-from cloudinary_storage.storage import MediaCloudinaryStorage,RawMediaCloudinaryStorage
-from math import fabs
+from cloudinary_storage.storage import MediaCloudinaryStorage
 from Accounts.models import *
+from Questions.models import Questions, Ans
 
 # Create your models here.
 
@@ -100,7 +100,8 @@ class Product(models.Model):
     # Extra info
     technical_data = models.TextField(blank=True, null=True, help_text='Add data as KEY : Value , one per line !')
     further_information = models.TextField(blank=True, null=True)
-
+    qna = models.ManyToManyField(Questions, through="Question", related_name="products", blank=True,null=True, help_text="Select questions relevant to this product")
+    
     # Commerce
     price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     discount = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
@@ -268,3 +269,11 @@ class ProductImage(models.Model):
             ProductImage.objects.filter(product=self.product, is_primary=True).exclude(pk=self.pk).update(is_primary=False)
         super().save(*args, **kwargs)
 
+class Question(models.Model):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="product_qna")
+    question = models.ForeignKey(Questions, on_delete=models.CASCADE)
+    answers = models.ManyToManyField(Ans)
+
+    def __str__(self):
+        return f"{self.product.name} - {self.question.Question}"
+    

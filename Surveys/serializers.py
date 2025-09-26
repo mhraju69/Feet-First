@@ -7,3 +7,5 @@ class SurveySerializer(serializers.ModelSerializer):
         model = OnboardingSurvey
         fields = '__all__'
         read_only_fields = ["id", "created_at", "user"]
+    
+    

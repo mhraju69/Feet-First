@@ -14,6 +14,6 @@ urlpatterns = [
     path('verify-access/', VerifyAccessView.as_view(), name='verify-access'),
     path("change-password/", ChangePasswordView.as_view(), name="change-password"),
     path("addresses/", AddressListCreateView.as_view(), name="address-list-create"),
-    path("addresses/<int:pk>/", AddressDetailView.as_view(), name="address-detail"),
+    path("addresses/me/", AddressDetailView.as_view(), name="address-detail"),
     path('deletion-request/', DeleteRequestView.as_view(), name='deletion_request_detail'), 
 ]

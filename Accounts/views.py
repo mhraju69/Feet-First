@@ -124,6 +124,9 @@ class AddressListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         return Address.objects.filter(user=self.request.user)
     def perform_create(self, serializer):
+        addr = Address.objects.filter(user=self.request.user).first()
+        if addr:
+            raise serializers.ValidationError("Address already exists. You can update or delete it.")
         serializer.save(user=self.request.user)
 
 class AddressDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -132,14 +135,12 @@ class AddressDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Address.objects.all()
 
     def get_object(self):
-        pk = self.kwargs.get('pk')  # Get the pk from the URL
         user = self.request.user
 
         try:
-            address = Address.objects.get(pk=pk, user=user)
+            address = Address.objects.get(user=user)
         except Address.DoesNotExist:
             raise NotFound("Address not found")
-        
         return address
 
 class LogoutView(APIView):

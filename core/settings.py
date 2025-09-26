@@ -37,6 +37,8 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt.token_blacklist',
     'Questions',
     'tailwind',
+    'dal',
+    'dal_select2'
     ]
 
 TAILWIND_APP_NAME = 'Accounts   '  # Replace with your app name

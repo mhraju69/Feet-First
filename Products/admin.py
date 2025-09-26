@@ -3,8 +3,34 @@ from Questions.models import *
 from django.contrib import admin
 from unfold.admin import ModelAdmin
 from unfold.admin import TabularInline
+from dal import autocomplete
+from django import forms
 # Register your models here.
 
+class ProductQnAForm(forms.ModelForm):
+    class Meta:
+        model = Question
+        fields = ['question', 'answers']
+        widgets = {
+            'answers': autocomplete.ModelSelect2Multiple(
+                url='answer-autocomplete',
+                forward=['question'],
+                attrs={  
+                        'style': 'border: none; outline: none; box-shadow: none; background-color: transparent;',
+                        'class': 'form-control',
+                        'placeholder': 'Select answers',
+                }
+            )
+        }
+
+class AnswerAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self):
+        qs = Ans.objects.all()
+        question_id = self.forwarded.get('question', None)
+        if question_id:
+            qs = qs.filter(parent_id=question_id)
+        return qs
+    
 class ColorAdmin(ModelAdmin):
     list_display = ('color', 'details'  )
     search_fields = ["color"]  # <-- allow searching by both
@@ -18,6 +44,19 @@ class SizeInline(TabularInline):
     model = Size
     extra = 1
 
+class ProductQuestionAnswerInline(TabularInline):
+    model = Question
+    extra = 1  # Number of empty forms
+    form = ProductQnAForm
+    autocomplete_fields = ['question', 'answers'] 
+    def formfield_for_foreignkey(self, db_field, request=None, **kwargs):
+        if db_field.name == "answer":
+            if 'question' in request.GET:
+                kwargs["queryset"] = Ans.objects.filter(parent_id=request.GET['question'])
+            else:
+                kwargs["queryset"] = Ans.objects.none()
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+        
 
 @admin.register(SizeTable)
 class SizeTableAdmin(ModelAdmin):
@@ -41,7 +80,7 @@ class ProductAdmin(ModelAdmin):
         'width', 'toe_box', 'brand'
     )
     autocomplete_fields = ['colors','sizes']
-    inlines = [ProductImageInline]
+    inlines = [ProductImageInline,ProductQuestionAnswerInline]
 
 
     # Row-level restriction

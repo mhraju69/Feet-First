@@ -4,25 +4,18 @@ from unfold.admin import ModelAdmin
 from unfold.admin import TabularInline
 # Register your models here.
 
-class QuesInline(TabularInline):  # Inline child model
-    model = Ques
+class AnsInline(TabularInline):  # Inline child model
+    model = Ans
     extra = 1
-    fields = ["questions"]
+    fields = ["answer"]
 
-
-# @admin.register(Questions)
+@admin.register(Questions)
 class QuestionsAdmin(ModelAdmin):
     list_display = ("sub_category", "created_at")
     search_fields = ("sub_category",)
-    inlines = [QuesInline]  # ✅ allows adding unlimited Ques inline
+    inlines = [AnsInline]  
 
-
-class AnswerItemInline(TabularInline):
-    model = AnswerItem
-    extra = 1
-
-# @admin.register(Answer)
-class AnswerAdmin(ModelAdmin):
-    list_display = ("user", "created_at")
-    readonly_fields = ('user',)
-    inlines = [AnswerItemInline]
+@admin.register(Ans)
+class AnsAdmin(ModelAdmin):
+    list_display = ("answer", "parent")
+    search_fields = ("answer", "parent__sub_category")  # Allow searching by answer text and parent sub_category
