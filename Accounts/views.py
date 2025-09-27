@@ -126,7 +126,7 @@ class AddressListCreateView(generics.ListCreateAPIView):
     def perform_create(self, serializer):
         addr = Address.objects.filter(user=self.request.user).first()
         if addr:
-            raise serializers.ValidationError("Address already exists. You can update or delete it.")
+            raise serializers.ValidationError({"error":"Address already exists. You can update or delete it."})
         serializer.save(user=self.request.user)
 
 class AddressDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -140,7 +140,7 @@ class AddressDetailView(generics.RetrieveUpdateDestroyAPIView):
         try:
             address = Address.objects.get(user=user)
         except Address.DoesNotExist:
-            raise NotFound("Address not found")
+            raise NotFound({"error":"Address not found"})
         return address
 
 class LogoutView(APIView):

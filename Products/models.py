@@ -100,7 +100,7 @@ class Product(models.Model):
     # Extra info
     technical_data = models.TextField(blank=True, null=True, help_text='Add data as KEY : Value , one per line !')
     further_information = models.TextField(blank=True, null=True)
-    qna = models.ManyToManyField(Questions, through="Question", related_name="products", blank=True,null=True, help_text="Select questions relevant to this product")
+    # qna = models.ManyToManyField(Questions, through="Question", related_name="products", blank=True,null=True, help_text="Select questions relevant to this product")
     
     # Commerce
     price = models.DecimalField(max_digits=10, decimal_places=2, default=0)

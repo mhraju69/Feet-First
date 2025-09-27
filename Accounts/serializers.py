@@ -14,7 +14,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         user = User.objects.create_user(**validated_data)
-        send_otp(user.email)  
+        send_otp(user.email)
         return user       
 
 class UserUpdateSerializer(serializers.ModelSerializer):

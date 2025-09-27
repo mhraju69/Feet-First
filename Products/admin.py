@@ -80,7 +80,7 @@ class ProductAdmin(ModelAdmin):
         'width', 'toe_box', 'brand'
     )
     autocomplete_fields = ['colors','sizes']
-    inlines = [ProductImageInline,ProductQuestionAnswerInline]
+    inlines = [ProductImageInline]
 
 
     # Row-level restriction
