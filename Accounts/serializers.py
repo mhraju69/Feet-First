@@ -22,7 +22,7 @@ class UserUpdateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['name', 'email', 'password', 'image']
+        exclude = ['is_superuser', 'is_staff', 'groups', 'user_permissions', 'last_login', 'date_joined']
         extra_kwargs = {
             'password': {'write_only': True, 'required': False}
         }
