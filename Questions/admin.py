@@ -19,3 +19,5 @@ class QuestionsAdmin(ModelAdmin):
 class AnsAdmin(ModelAdmin):
     list_display = ("answer", "parent")
     search_fields = ("answer", "parent__sub_category")  # Allow searching by answer text and parent sub_category
+
+admin.site.register(FAQ,ModelAdmin)

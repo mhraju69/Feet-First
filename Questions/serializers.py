@@ -7,3 +7,9 @@ class QuesSerializer(serializers.ModelSerializer):
     class Meta:
         model = Ans
         fields = ("id", "questions", "sub_category")
+
+
+class FAQSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FAQ
+        fields = ("question_de", "question_it", "answer_de", "answer_it")

@@ -44,3 +44,15 @@ class Ans(models.Model):  # Child = belongs to a Questions record
     def __str__(self):
         return f"Answer: {self.answer}"
     
+class FAQ(models.Model):
+    question_de = models.CharField(max_length=200 , verbose_name ="Question (German)")
+    question_it = models.CharField(max_length=200 , verbose_name="Question (Italian)")
+    answer_de = models.TextField(verbose_name ="Answer (German)")
+    answer_it = models.TextField(verbose_name="Answer (Italian)")
+
+    class Meta:
+        verbose_name = 'FAQ'
+        verbose_name_plural = 'FAQs'
+
+    def __str__(self):
+        return f"FAQ for: {self.question}"
