@@ -82,3 +82,10 @@ class FootScanSerializer(serializers.ModelSerializer):
         fields = "__all__"
         read_only_fields = ["id", "created_at",'user']
 
+class FavoriteSerializer(serializers.ModelSerializer):
+    products = ProductSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Favorite
+        fields = ['id', 'user', 'products']
+        read_only_fields = ['user']

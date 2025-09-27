@@ -136,6 +136,13 @@ class ProductAdmin(ModelAdmin):
                 kwargs["queryset"] = User.objects.filter(id=request.user.id)
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
+class FavoriteAdmin(ModelAdmin):
+    list_display = ('user', )
+    search_fields = ('user__email',)
+    # readonly_fields = ('user','products')
+    autocomplete_fields = ['products']
+
 admin.site.register(Product,ProductAdmin)
 admin.site.register(Color,ColorAdmin)
 admin.site.register(FootScan,ModelAdmin)
+admin.site.register(Favorite,FavoriteAdmin)

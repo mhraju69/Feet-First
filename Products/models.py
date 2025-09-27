@@ -277,3 +277,22 @@ class Question(models.Model):
     def __str__(self):
         return f"{self.product.name} - {self.question.Question}"
     
+class Favorite(models.Model):
+    user = models.OneToOneField(
+        User,
+        limit_choices_to={'role': 'customer'},
+        on_delete=models.CASCADE,
+        related_name="favorite"
+    )
+    products = models.ManyToManyField(
+        'Product',
+        related_name="favorited_by",
+        blank=True
+    )
+    added_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-added_at']
+
+    def __str__(self):
+        return f"{self.user.email}'s favorites"

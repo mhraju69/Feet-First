@@ -8,26 +8,28 @@ from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from rest_framework import permissions,generics,views,status
 from openpyxl.styles import Font, PatternFill, Alignment
+from rest_framework.pagination import PageNumberPagination
+
+class CustomLimitPagination(PageNumberPagination):
+    page_size = 10  # default page size
+    page_size_query_param = 'limit'  # frontend can send ?limit=20
+    max_page_size = 100  # optional maximum limit
 
 class ProductListView(generics.ListAPIView):
     serializer_class = ProductSerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = CustomLimitPagination  # add pagination
 
     def get_queryset(self):
         queryset = Product.objects.filter(is_active=True)
-        main = self.request.query_params.get("main_category")
         sub = self.request.query_params.get("sub_category")
 
-        if main and sub:
+        if sub:
             s = queryset.filter(sub_category=sub)
-            m = queryset.filter(main_category=main)
-            if s:
-                queryset = s & m
+            if s.exists():
+                queryset = s 
             else:
-                queryset = m
-        else:
-            queryset = queryset.all()
-
+                queryset = queryset.all()
         return queryset
 
     def get_serializer_context(self):
@@ -35,15 +37,27 @@ class ProductListView(generics.ListAPIView):
         scan_id = self.request.query_params.get("scan_id")
         
         if scan_id:
-            try:
-                # Get the scan object
-                scan = get_object_or_404(FootScan,user=self.request.user, id=scan_id)
-                context['scan'] = scan
-            except :
+            scan = FootScan.objects.filter(user=self.request.user, id=scan_id).first()
+            if not scan:
                 scan = FootScan.objects.filter(user=self.request.user).first()
-                context['scan'] = scan
+            context['scan'] = scan
             
         return context
+    
+class ProductsCountView(views.APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        sub = request.query_params.get("sub_category")
+
+        if sub:
+            # Filter by sub_category if provided
+            count = Product.objects.filter(is_active=True, sub_category=sub).count()
+        else:
+            # Otherwise count all active products
+            count = 0
+
+        return Response({"count": count}, status=200)
     
 class ProductDetailView(generics.RetrieveAPIView):
     serializer_class = ProductDetailsSerializer
@@ -204,3 +218,39 @@ class DownloadFootScanExcel(views.APIView):
         except Exception as e:
             return Response({"detail": f"Error generating Excel file: {str(e)}"},status=status.HTTP_404_NOT_FOUND)
         
+class FavoriteUpdateView(views.APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        favorite, created = Favorite.objects.get_or_create(user=request.user)
+        serializer = FavoriteSerializer(favorite)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def patch(self, request, *args, **kwargs):
+
+        # Get or create the Favorite object for this user
+        favorite, created = Favorite.objects.get_or_create(user=request.user)
+
+        # Extract product_id and action from request data
+        product_id = request.data.get('product_id')
+        action = request.data.get('action')
+
+        if not product_id or action not in ['add', 'remove']:
+            return Response({"detail": "Invalid request."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Validate the product exists and is active
+        try:
+            product = Product.objects.get(id=product_id, is_active=True)
+        except Product.DoesNotExist:
+            return Response({"detail": "Product not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        # Perform add or remove
+        if action == 'add':
+            favorite.products.add(product)
+        else:  # remove
+            favorite.products.remove(product)
+
+        # Serialize and return the updated favorite object
+        serializer = FavoriteSerializer(favorite)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
