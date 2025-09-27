@@ -55,4 +55,4 @@ class FAQ(models.Model):
         verbose_name_plural = 'FAQs'
 
     def __str__(self):
-        return f"FAQ for: {self.question}"
+        return f"FAQ for: {self.question_de}"

@@ -10,6 +10,6 @@ class QuesListAPIView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated] 
 
 class FAQAPIView(generics.ListAPIView):
-    queryset = Questions.objects.all()
-    serializer_class = FAQSerializer
     permission_classes = [permissions.IsAuthenticated]  
+    queryset = FAQ.objects.all()
+    serializer_class = FAQSerializer
