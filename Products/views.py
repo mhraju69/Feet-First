@@ -13,7 +13,7 @@ from rest_framework.pagination import PageNumberPagination
 class CustomLimitPagination(PageNumberPagination):
     page_size = 10  # default page size
     page_size_query_param = 'limit'  # frontend can send ?limit=20
-    max_page_size = 100  # optional maximum limit
+    max_page_size = 20  # optional maximum limit
 
 class ProductListView(generics.ListAPIView):
     serializer_class = ProductSerializer
