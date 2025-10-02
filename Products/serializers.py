@@ -14,13 +14,13 @@ class ProductImageSerializer(serializers.ModelSerializer):
 class ProductSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField() 
     match_percentage = serializers.SerializerMethodField()
-
+    colors = serializers.SerializerMethodField()
     class Meta:
         model = Product
-        fields = ['id','image',"name","gender","price","match_percentage"]
+        fields = ['id','image',"name","colors","gender","price","match_percentage"]
 
     def get_image(self, obj):
-        primary = obj.images.filter(is_primary=True).first()
+        primary = obj.images.filter().first()
         if primary:
             return ProductImageSerializer(primary).data
         return None
@@ -30,6 +30,11 @@ class ProductSerializer(serializers.ModelSerializer):
         if scan:
             return obj.match_with_scan(scan)
         return None
+    def get_brand(self, obj):
+        return obj.brand.name
+    
+    def get_colors(self, obj):
+        return [", ".join(color.hex_code for color in obj.colors.all())]
 
 class ProductDetailsSerializer(serializers.ModelSerializer):
     images = ProductImageSerializer(many=True)
@@ -37,6 +42,7 @@ class ProductDetailsSerializer(serializers.ModelSerializer):
     colors = serializers.SerializerMethodField()
     technical_data = serializers.SerializerMethodField()
     match_percentage = serializers.SerializerMethodField()
+    brand = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
@@ -73,8 +79,10 @@ class ProductDetailsSerializer(serializers.ModelSerializer):
         return size_list
     
     def get_colors(self, obj):
-        return [", ".join(color.color for color in obj.colors.all())
-]
+        return [", ".join(color.hex_code for color in obj.colors.all())]
+    def get_brand(self, obj):
+        return obj.brand.name
+
 
 class FootScanSerializer(serializers.ModelSerializer):
     class Meta:

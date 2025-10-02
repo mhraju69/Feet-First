@@ -6,14 +6,16 @@ User = get_user_model()
 from cloudinary_storage.storage import MediaCloudinaryStorage
 from Accounts.models import *
 from Questions.models import Questions, Ans
+from Brands.models import Brand
 
 # Create your models here.
 
 class Color(models.Model):
     color = models.CharField(max_length=20, unique=True,verbose_name='Primary Color Name')
+    hex_code = models.CharField(max_length=7, help_text="Hex color code, e.g. #FFFFFF")
     details = models.TextField(blank=True, null=True)
     def __str__(self):
-        return self.color
+        return f"{self.color} ({self.hex_code})"
 
 class Category(models.TextChoices):
     EVERYDAY_SHOES = "everyday-shoes", "Everyday Shoes"
@@ -55,10 +57,12 @@ class SizeSystem(models.TextChoices):
     USW = "USW", "US Women"
 
 class SizeTable(models.Model):
-    name = models.CharField(max_length=100, unique=True)
-
+    brand = models.ForeignKey(Brand, on_delete=models.CASCADE, related_name="size_brand")
+    name = models.CharField(max_length=100, help_text="e.g. Standard , Wide")
     def __str__(self):
-        return self.name
+        return f"{self.brand.name} - {self.name}"
+    class Meta:
+        unique_together = ('brand', 'name')
     
 class Size(models.Model):
     table = models.ForeignKey(
@@ -84,7 +88,7 @@ class Product(models.Model):
 
     # Basic info
     name = models.CharField(max_length=200, verbose_name='Name')
-    brand = models.CharField(max_length=255)
+    brand = models.ForeignKey(Brand, on_delete=models.CASCADE, related_name="product_brand")
     description = models.TextField()
 
     # Category/Subcategory
@@ -113,8 +117,8 @@ class Product(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    def __str__(self):
-        return f"{self.brand} {self.name}"
+    # def __str__(self):
+    #     return f"{self.brand} {self.name}"
 
     # --- MATCHING LOGIC ---
     def match_with_scan(self, scan):
@@ -253,8 +257,7 @@ class FootScan(models.Model):
 
 class ProductImage(models.Model):
     product = models.ForeignKey(Product, related_name='images', on_delete=models.CASCADE)
-    image = models.ImageField(upload_to='products/', storage=MediaCloudinaryStorage())
-    is_primary = models.BooleanField(default=False)
+    image = models.ImageField(upload_to='products/',storage=MediaCloudinaryStorage(),blank=False, null=False)
     created_at = models.DateTimeField(auto_now_add=True)    
     
     class Meta:
@@ -263,11 +266,6 @@ class ProductImage(models.Model):
     def __str__(self):
         return f"Image for {self.product.name}"
     
-    def save(self, *args, **kwargs):
-        # Ensure only one primary image per product
-        if self.is_primary:
-            ProductImage.objects.filter(product=self.product, is_primary=True).exclude(pk=self.pk).update(is_primary=False)
-        super().save(*args, **kwargs)
 
 class Question(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="product_qna")
@@ -296,3 +294,4 @@ class Favorite(models.Model):
 
     def __str__(self):
         return f"{self.user.email}'s favorites"
+    

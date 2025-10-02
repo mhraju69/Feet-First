@@ -13,6 +13,7 @@ urlpatterns = [
     path('api/products/', include('Products.urls')),
     path('api/surveys/', include('Surveys.urls')),
     path("accounts/", include("django.contrib.auth.urls")),  
+    path('api/brands/', include('Brands.urls')), 
     path('', RedirectView.as_view(url='/admin/', permanent=False)),
     path('api/contactus/',ContactListView.as_view(),name='contactus'),
     path('api/questions/', QuesListAPIView.as_view(), name='ques-list'),

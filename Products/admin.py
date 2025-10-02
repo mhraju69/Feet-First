@@ -32,13 +32,13 @@ class AnswerAutocomplete(autocomplete.Select2QuerySetView):
         return qs
     
 class ColorAdmin(ModelAdmin):
-    list_display = ('color', 'details'  )
-    search_fields = ["color"]  # <-- allow searching by both
+    list_display = ('color', 'hex_code'  )
+    search_fields = ["color",'hex_code']  # <-- allow searching by both
 
 class ProductImageInline(TabularInline):
     model = ProductImage
     extra = 1
-    fields = ["image", "is_primary"]
+    fields = ["image",]
 
 class SizeInline(TabularInline):
     model = Size
@@ -60,9 +60,10 @@ class ProductQuestionAnswerInline(TabularInline):
 
 @admin.register(SizeTable)
 class SizeTableAdmin(ModelAdmin):
-    list_display = ('name',)
-    search_fields = ('name',)
+    list_display = ('brand',)
+    search_fields = ('brand',)
     inlines = [SizeInline]
+    autocomplete_fields = ['brand']
 
 class ProductAdmin(ModelAdmin):
     list_display = (
@@ -72,14 +73,13 @@ class ProductAdmin(ModelAdmin):
         'is_active'
     )
     search_fields = (
-        'name', 'brand',
-        'main_category', 'sub_category',
+        'name',
     )
     list_filter = (
         'gender','is_active', 'main_category', 'sub_category',
-        'width', 'toe_box', 'brand'
+        'width', 'toe_box', 'brand','colors',
     )
-    autocomplete_fields = ['colors','sizes']
+    autocomplete_fields = ['colors','sizes', 'brand',]
     inlines = [ProductImageInline]
 
 

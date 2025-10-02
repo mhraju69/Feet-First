@@ -38,7 +38,8 @@ INSTALLED_APPS = [
     'Questions',
     'tailwind',
     'dal',
-    'dal_select2'
+    'dal_select2',
+    'Brands',
     ]
 
 TAILWIND_APP_NAME = 'Accounts   '  # Replace with your app name
