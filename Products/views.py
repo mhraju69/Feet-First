@@ -22,14 +22,12 @@ class ProductListView(generics.ListAPIView):
 
     def get_queryset(self):
         queryset = Product.objects.filter(is_active=True)
-        sub = self.request.query_params.get("sub_category")
-
+        sub : str = self.request.query_params.get("sub_category")
+        
         if sub:
             s = queryset.filter(sub_category=sub)
-            if s.exists():
-                queryset = s 
-            else:
-                queryset = queryset.all()
+            queryset = s
+            
         return queryset
 
     def get_serializer_context(self):

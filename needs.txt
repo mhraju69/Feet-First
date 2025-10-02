@@ -1,0 +1,13 @@
+1. Add BrandLogo.
+2. Response with color in all products.
+3. Add Hex Code in color
+4. Make at least one image mandatory.
+5. Make the first imaage active by default.
+6. News {
+    image, 
+    title_de, title_itl,
+    description_de, description_it
+},
+7. Size "42.5, 44"
+8. Scan & Shoe size calucation suggestion, mandatory. + Endpoint.
+9. Shoe Question Based filtering must.
