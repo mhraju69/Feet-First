@@ -1,4 +1,5 @@
 from django.db import models
+from cloudinary_storage.storage import MediaCloudinaryStorage
 
 # Create your models here.
 class SubCategory(models.TextChoices):
@@ -56,3 +57,18 @@ class FAQ(models.Model):
 
     def __str__(self):
         return f"FAQ for: {self.question_de}"
+
+class News(models.Model):
+    title_de = models.CharField(max_length=200 , verbose_name ="Title (German)")
+    title_it = models.CharField(max_length=200 , verbose_name="Title (Italian)")
+    image = models.ImageField(upload_to='news_images/',storage=MediaCloudinaryStorage())
+    content_de = models.TextField(verbose_name ="Content (German)")
+    content_it = models.TextField(verbose_name="Content (Italian)")
+    created_at = models.DateField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'News'
+        verbose_name_plural = 'News'
+
+    def __str__(self):
+        return f"{self.title_de} - {self.title_it}"

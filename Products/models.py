@@ -20,7 +20,6 @@ class Color(models.Model):
 class Category(models.TextChoices):
     EVERYDAY_SHOES = "everyday-shoes", "Everyday Shoes"
     SPORTS_SHOES = "sports-shoes", "Sports Shoes"
-    MOUNTAIN_TREKKING_SHOES = "mountain-trekking-shoes", "Mountain Trekking Shoes"
 
 class SubCategory(models.TextChoices):
     RUNNING_SHOES = "running-shoes", "Running Shoes"
@@ -38,6 +37,7 @@ class SubCategory(models.TextChoices):
     SANDALS = "sandals", "Sandals"
     WORK_SHOES = "work-shoes", "Work Shoes"
     MISCELLANEOUS = "miscellaneous", "Miscellaneous"
+    MOUNTAIN_TREKKING_SHOES = "mountain-trekking-shoes", "Mountain Trekking Shoes"
 
 class Width(models.IntegerChoices):
     NARROW = 0, "Narrow"

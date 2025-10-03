@@ -60,7 +60,7 @@ class ProductQuestionAnswerInline(TabularInline):
 
 @admin.register(SizeTable)
 class SizeTableAdmin(ModelAdmin):
-    list_display = ('brand',)
+    list_display = ('name','brand',)
     search_fields = ('brand',)
     inlines = [SizeInline]
     autocomplete_fields = ['brand']

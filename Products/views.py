@@ -9,6 +9,7 @@ from django.shortcuts import get_object_or_404
 from rest_framework import permissions,generics,views,status
 from openpyxl.styles import Font, PatternFill, Alignment
 from rest_framework.pagination import PageNumberPagination
+import time
 
 class CustomLimitPagination(PageNumberPagination):
     page_size = 10  # default page size
@@ -234,21 +235,18 @@ class FavoriteUpdateView(views.APIView):
         action = request.data.get('action')
 
         if not product_id or action not in ['add', 'remove']:
-            return Response({"detail": "Invalid request."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "Invalid request."}, status=status.HTTP_400_BAD_REQUEST)
 
         # Validate the product exists and is active
         try:
             product = Product.objects.get(id=product_id, is_active=True)
         except Product.DoesNotExist:
-            return Response({"detail": "Product not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"error": "Product not found."}, status=status.HTTP_404_NOT_FOUND)
 
         # Perform add or remove
         if action == 'add':
             favorite.products.add(product)
         else:  # remove
             favorite.products.remove(product)
-
-        # Serialize and return the updated favorite object
-        serializer = FavoriteSerializer(favorite)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response({"message":"Success"},status=status.HTTP_200_OK)
 
