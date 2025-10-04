@@ -19,7 +19,7 @@ class ProductSerializer(serializers.ModelSerializer):
     favourite = serializers.SerializerMethodField()
     class Meta:
         model = Product
-        fields = ['id','image',"name","colors","gender","price","match_percentage","brand",'favourite']
+        fields = ['id','image',"name","colors","gender","price","match_percentage","brand",'favourite','sub_category']
 
     def get_image(self, obj):
         primary = obj.images.filter().first()
@@ -83,9 +83,7 @@ class ProductDetailsSerializer(serializers.ModelSerializer):
         size_list = []
         for size_table in obj.sizes.all():  # SizeTable objects
             for size in size_table.sizes.all():  # related Size objects
-                size_list.append(
-                    f"{size.type.upper()} {size.value} {size.insole_min_mm}-{size.insole_max_mm}"
-                )
+                size_list.append(size.value)
         return size_list
     
     def get_colors(self, obj):

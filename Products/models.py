@@ -5,7 +5,7 @@ from django.forms import ValidationError
 User = get_user_model()
 from cloudinary_storage.storage import MediaCloudinaryStorage
 from Accounts.models import *
-from Questions.models import Questions, Ans
+from Others.models import Ques, Ans
 from Brands.models import Brand
 
 # Create your models here.
@@ -76,7 +76,7 @@ class Size(models.Model):
     insole_max_mm = models.IntegerField()
 
     def __str__(self):
-        return f"{self.type} {self.value} ({self.insole_min_mm}-{self.insole_max_mm}mm)"
+        return f"{self.value}"
     
 class Product(models.Model):
     partner = models.ForeignKey(
@@ -269,7 +269,7 @@ class ProductImage(models.Model):
 
 class Question(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="product_qna")
-    question = models.ForeignKey(Questions, on_delete=models.CASCADE)
+    question = models.ForeignKey(Ques, on_delete=models.CASCADE)
     answers = models.ManyToManyField(Ans)
 
     def __str__(self):

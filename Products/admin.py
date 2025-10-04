@@ -1,5 +1,5 @@
 from .models import *
-from Questions.models import *
+from Others.models import *
 from django.contrib import admin
 from unfold.admin import ModelAdmin
 from unfold.admin import TabularInline

@@ -5,7 +5,7 @@ from django.conf.urls.static import static
 from django.views.generic import RedirectView
 from Contact.views import ContactListView
 from rest_framework_simplejwt.views import (TokenObtainPairView,TokenRefreshView,)
-from Questions.views import *
+from Others.views import *
 
 urlpatterns = [
     path('admin/', admin.site.urls),

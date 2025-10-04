@@ -2,40 +2,24 @@ from django.db import models
 from cloudinary_storage.storage import MediaCloudinaryStorage
 
 # Create your models here.
-class SubCategory(models.TextChoices):
-    RUNNING_SHOES = "running-shoes", "Running Shoes"
-    CYCLING_SHOES = "cycling-shoes", "Cycling Shoes"
-    HOCKEY_SHOES = "hockey-shoes", "Hockey Shoes"
-    SKI_BOOTS = "ski-boots", "Ski Boots"
-    BASKETBALL_SHOES = "basketball-shoes", "Basketball Shoes"
-    GOLF_SHOES = "golf-shoes", "Golf Shoes"
-    FOOTBALL_SHOES = "football-shoes", "Football Shoes"
-    TENNIS_SHOES = "tennis-shoes", "Tennis Shoes"
-    CLIMBING_SHOES = "climbing-shoes", "Climbing Shoes"
-    CASUAL_SNEAKER = "casual-sneaker", "Casual Sneaker"
-    ELEGANT_SHOES = "elegant-shoes", "Elegant Shoes"
-    COMFORTABLE_SHOES = "comfortable-shoes", "Comfortable Shoes"
-    SANDALS = "sandals", "Sandals"
-    WORK_SHOES = "work-shoes", "Work Shoes"
-    MISCELLANEOUS = "miscellaneous", "Miscellaneous"
 
-class Questions(models.Model):  # Parent = holds sub_category
-    sub_category = models.CharField(max_length=100,choices=SubCategory, unique=True)
-    Question = models.CharField(max_length=100)
+
+class Ques(models.Model):  # Parent = holds sub_category
+    title = models.CharField(max_length=100, verbose_name="Question_title")
     created_at = models.DateField(auto_now=True)
 
-    def __str__(self):
-        return self.Question or "No SubCategory"
     class Meta:
         verbose_name = 'Question'
-        verbose_name_plural = 'Questions'   
+        verbose_name_plural = 'Questions'
+    def __str__(self):
+        return self.title
 
 class Ans(models.Model):  # Child = belongs to a Questions record
     answer = models.CharField(max_length=100)
     parent = models.ForeignKey(
-        Questions,
+        Ques,
         on_delete=models.CASCADE,
-        related_name='ans_list'
+        related_name='ans_list',verbose_name="Related Question"
     )
 
     class Meta:
@@ -43,7 +27,7 @@ class Ans(models.Model):  # Child = belongs to a Questions record
     
 
     def __str__(self):
-        return f"Answer: {self.answer}"
+        return f"Answer: {self.answer} for Question: {self.parent.title}"
     
 class FAQ(models.Model):
     question_de = models.CharField(max_length=200 , verbose_name ="Question (German)")
