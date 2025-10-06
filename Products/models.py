@@ -179,12 +179,11 @@ class Product(models.Model):
         }
 
 class FootScan(models.Model):   
-    user = models.ForeignKey(
+    user = models.OneToOneField(
         User,
         limit_choices_to={'role': 'customer'},
         on_delete=models.CASCADE,
         related_name="foot_scans",
-        unique=True
     )
     created_at = models.DateTimeField(auto_now_add=True)
 

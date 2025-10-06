@@ -206,7 +206,8 @@ class SocialAuthCallbackView(APIView):
             profile_image_url = user_data.get("picture")
             email = user_data.get("email")
             name = user_data.get("name")
-
+            
+            print(user_data)
             
             user, created = User.objects.get_or_create(
                 email=email,

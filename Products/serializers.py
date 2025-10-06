@@ -96,6 +96,14 @@ class FootScanSerializer(serializers.ModelSerializer):
         model = FootScan
         fields = "__all__"
         read_only_fields = ["id", "created_at",'user']
+    def create(self, validated_data):
+        user = self.context['request'].user
+        if FootScan.objects.filter(user=user).exists():
+            raise serializers.ValidationError("User already has a foot scan.")
+        
+        validated_data.pop('user', None)  # remove user if it exists
+        scan = FootScan.objects.create(user=user, **validated_data)
+        return scan
 
 class FavoriteSerializer(serializers.ModelSerializer):
     products = ProductSerializer(many=True, read_only=True)

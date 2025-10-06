@@ -87,13 +87,8 @@ class DeleteAdmin(ModelAdmin):
     search_fields = ('email', 'reason', )
 
     def formatted_reason(self, obj):
-        # Display reason as badges
-        return format_html(
-            " ".join([
-                f'<span style="background:#eee;padding:2px 5px;border-radius:3px;margin-right:3px;">{s}</span>'
-                for s in obj.reason
-            ])
-        )
+        # Display the full reason as one badge
+        return format_html('<span style="background:#eee;padding:2px 5px;border-radius:3px;">{}</span>',obj.reason)
     formatted_reason.short_description = 'Reason'
 
     # Disable add button
