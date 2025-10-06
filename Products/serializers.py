@@ -50,7 +50,6 @@ class ProductDetailsSerializer(serializers.ModelSerializer):
     images = ProductImageSerializer(many=True)
     sizes = serializers.SerializerMethodField()
     colors = serializers.SerializerMethodField()
-    technical_data = serializers.SerializerMethodField()
     match_percentage = serializers.SerializerMethodField()
     brand = serializers.SerializerMethodField()
     favourite = serializers.SerializerMethodField()
@@ -60,20 +59,11 @@ class ProductDetailsSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = [
-            "id", "name", "colors", "images", "technical_data",
+            "id", "name", "colors", "images", "technical_data",'description',
             "brand", "main_category", "sub_category", "sizes",
             "toe_box", "further_information", "price", "discount", 
             "stock_quantity", "partner", "match_percentage", 'favourite'
         ]
-    
-    def get_technical_data(self, obj):
-        data = {}
-        if obj.technical_data:
-            for line in obj.technical_data.splitlines():
-                if ':' in line:
-                    key, value = line.split(':', 1)
-                    data[key.strip()] = value.strip()
-        return data
     
     def get_match_percentage(self, obj):
         scan = self.context.get("scan")
@@ -94,6 +84,7 @@ class ProductDetailsSerializer(serializers.ModelSerializer):
     
     def get_brand(self, obj):
         return obj.brand.name
+    
     def get_favourite(self, obj):
         request = self.context.get("request")
         if request and request.user.is_authenticated:

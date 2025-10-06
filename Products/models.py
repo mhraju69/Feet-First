@@ -120,7 +120,7 @@ class Product(models.Model):
     # def __str__(self):
     #     return f"{self.brand} {self.name}"
 
-    # --- MATCHING LOGIC ---
+        # --- MATCHING LOGIC ---
     def match_with_scan(self, scan):
         score = 0
         avg_foot_length = scan.average_length()
@@ -128,28 +128,31 @@ class Product(models.Model):
         score_length = 0 
         best_match = 0
 
-        # এখানে self.sizes.all() ব্যবহার করা যাবে
-        for size in self.sizes.all():
-            if size.insole_min_mm <= avg_foot_length <= size.insole_max_mm:
-                best_match = 1.0
-            else:
-                diff = min(abs(avg_foot_length - size.insole_min_mm),
-                           abs(avg_foot_length - size.insole_max_mm))
-                if diff <= 4:
+        # প্রতিটি SizeTable এর ভেতরের Size লুপ করো
+        for size_table in self.sizes.all():  # এখানে size_table হলো SizeTable
+            for size in size_table.sizes.all():  # এখানে size হলো Size
+                if size.insole_min_mm <= avg_foot_length <= size.insole_max_mm:
                     best_match = 1.0
-                elif diff <= 8:
-                    best_match = 0.8
-                elif diff <= 12:
-                    best_match = 0.6
-                elif diff <= 16:
-                    best_match = 0.4
-                elif diff <= 20:
-                    best_match = 0.2
                 else:
-                    best_match = 0.0
-            if best_match > score:
-                score_length = best_match   
-                best_size = size 
+                    diff = min(abs(avg_foot_length - size.insole_min_mm),
+                            abs(avg_foot_length - size.insole_max_mm))
+                    if diff <= 4:
+                        best_match = 1.0
+                    elif diff <= 8:
+                        best_match = 0.8
+                    elif diff <= 12:
+                        best_match = 0.6
+                    elif diff <= 16:
+                        best_match = 0.4
+                    elif diff <= 20:
+                        best_match = 0.2
+                    else:
+                        best_match = 0.0
+
+                if best_match > score:
+                    score_length = best_match   
+                    best_size = size 
+
         score += (score_length * 50)
 
         # Width match (30%)
@@ -180,7 +183,8 @@ class FootScan(models.Model):
         User,
         limit_choices_to={'role': 'customer'},
         on_delete=models.CASCADE,
-        related_name="foot_scans"
+        related_name="foot_scans",
+        unique=True
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -266,7 +270,6 @@ class ProductImage(models.Model):
     def __str__(self):
         return f"Image for {self.product.name}"
     
-
 class Question(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="product_qna")
     question = models.ForeignKey(Ques, on_delete=models.CASCADE)

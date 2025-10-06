@@ -9,7 +9,8 @@ from django.shortcuts import get_object_or_404
 from rest_framework import permissions,generics,views,status
 from openpyxl.styles import Font, PatternFill, Alignment
 from rest_framework.pagination import PageNumberPagination
-import time
+from rest_framework import generics, permissions, filters
+from django_filters.rest_framework import DjangoFilterBackend
 
 class CustomLimitPagination(PageNumberPagination):
     page_size = 10  # default page size
@@ -20,27 +21,41 @@ class ProductListView(generics.ListAPIView):
     serializer_class = ProductSerializer
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = CustomLimitPagination  # add pagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ['name', 'description']  
 
     def get_queryset(self):
+        # Base queryset
         queryset = Product.objects.filter(is_active=True)
-        sub : str = self.request.query_params.get("sub_category")
-        
+
+        # Filter by sub_category if provided
+        sub = self.request.query_params.get("sub_category")
         if sub:
-            s = queryset.filter(sub_category=sub)
-            queryset = s
-            
+            queryset = queryset.filter(sub_category=sub)
+
+        # Get match param and user's foot scan
+        match = self.request.query_params.get("match")
+        scan = FootScan.objects.filter(user=self.request.user).first()
+
+        # If match=true and scan exists → sort by matching score
+        if match and match.lower() == "true" and scan:
+            queryset = sorted(
+                queryset,
+                key=lambda product: product.match_with_scan(scan)["score"],
+                reverse=True
+            )
+
         return queryset
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
-        scan_id = self.request.query_params.get("scan_id")
-        
-        if scan_id:
-            scan = FootScan.objects.filter(user=self.request.user, id=scan_id).first()
-            if not scan:
-                scan = FootScan.objects.filter(user=self.request.user).first()
-            context['scan'] = scan
-            
+        match = self.request.query_params.get("match")
+        scan = FootScan.objects.filter(user=self.request.user).first()
+        context['scan'] = scan
+
+        # Pass match flag to serializer
+        context['match'] = match and match.lower() == "true"
+
         return context
     
 class ProductsCountView(views.APIView):
@@ -61,21 +76,21 @@ class ProductsCountView(views.APIView):
 class ProductDetailView(generics.RetrieveAPIView):
     serializer_class = ProductDetailsSerializer
     permission_classes = [permissions.IsAuthenticated]
-    queryset = Product.objects.filter(is_active = True)
+    queryset = Product.objects.filter(is_active=True)
     lookup_field = 'id'
+
     def get_serializer_context(self):
         context = super().get_serializer_context()
-        scan_id = self.request.query_params.get("scan_id")
+        match = self.request.query_params.get("match")
+        scan = FootScan.objects.filter(user=self.request.user).first()
+        context['scan'] = scan
 
-        if scan_id:
-            try:
-                # Get the scan object
-                scan = get_object_or_404(FootScan,user=self.request.user, id=scan_id)
-                context['scan'] = scan
-            except :
-                scan = FootScan.objects.filter(user=self.request.user).first()
-                context['scan'] = scan
-                
+        # If match=true → pass flag to serializer so it can sort/filter accordingly
+        if match and match.lower() == "true":
+            context['match'] = True
+        else:
+            context['match'] = False
+
         return context
 
 class FootScanListCreateView(generics.ListCreateAPIView):
@@ -84,12 +99,10 @@ class FootScanListCreateView(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        # Customers only see their own scans
-        user = self.request.user
-        if user.role == "customer":
-            return FootScan.objects.filter(user=user)
-        # Admins/staff see all
-        return FootScan.objects.all()
+        return FootScan.objects.filter(user=self.request.user)
+    
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
 
 class FootScanDetailView(generics.RetrieveUpdateDestroyAPIView):
     """Retrieve, update, or delete a foot scan."""
@@ -250,3 +263,50 @@ class FavoriteUpdateView(views.APIView):
             favorite.products.remove(product)
         return Response({"message":"Success"},status=status.HTTP_200_OK)
 
+class SuggestedProductsView(generics.ListAPIView):
+    serializer_class = ProductSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = CustomLimitPagination
+
+    def get_queryset(self):
+        product_id = self.request.query_params.get("product_id")
+        if not product_id:
+            return Product.objects.none()
+
+        try:
+            product_id = int(product_id)
+        except ValueError:
+            return Product.objects.none()
+
+        try:
+            product = Product.objects.get(id=product_id, is_active=True)
+        except Product.DoesNotExist:
+            return Product.objects.none()
+
+        # Flatten all sizes
+        size_values = list(
+       Size.objects.filter(
+           table__in=product.sizes.all()
+       ).values_list('value', flat=True).distinct()
+   )
+
+        if not size_values:
+            return Product.objects.none()
+
+        # Find products with matching size values
+        queryset = Product.objects.filter(
+            is_active=True,
+            sizes__sizes__value__in=size_values  # Now this should work
+        ).distinct().exclude(id=product_id).prefetch_related('sizes__sizes')
+
+        # Optional match sorting
+        match = self.request.query_params.get("match")
+        scan = FootScan.objects.filter(user=self.request.user).first()
+        if match and match.lower() == "true" and scan:
+            queryset = sorted(
+                queryset,
+                key=lambda product: product.match_with_scan(scan)["score"],
+                reverse=True
+            )
+
+        return queryset

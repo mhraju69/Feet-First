@@ -6,11 +6,11 @@ from datetime import timedelta
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(os.path.join(BASE_DIR, ".env"))
 
-SECRET_KEY = 'django-insecure-*89y9uo5b583+77pi18bu^5kgcw=j)vxlmrhx29uvpwapog18a'
+SECRET_KEY = os.environ.get("SECRET_KEY")
 
 DEBUG = True
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = ['10.10.13.59','ape-in-eft.ngrok-free.app']
 
 
 # Application definition

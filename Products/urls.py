@@ -11,4 +11,5 @@ urlpatterns = [
     path("footscans/<int:pk>/", FootScanDetailView.as_view(), name="foot_scan_retrieve_update"),
     path('answer-autocomplete/', AnswerAutocomplete.as_view(), name='answer-autocomplete'),
     path('footscan/<int:scan_id>/download/', DownloadFootScanExcel.as_view(), name='download_foot_scan'),
+    path('suggestions/<int:product_id>/', SuggestedProductsView.as_view(), name='product_suggestions'),
 ]

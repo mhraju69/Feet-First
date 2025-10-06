@@ -263,3 +263,8 @@ class VerifyAccessView(APIView):
                 return Response({"success": True, "access": new_access, 'refresh': refresh_token, "user": user_data})
             except TokenError:
                 return Response({"success": False, "message": "Refresh token expired or invalid"}, status=status.HTTP_401_UNAUTHORIZED)
+
+class PartnerView(generics.ListAPIView):
+    queryset = User.objects.filter(role = 'partner')
+    serializer_class = UserSerializer
+    permission_classes = [permissions.IsAuthenticated]

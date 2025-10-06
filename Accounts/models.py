@@ -122,7 +122,7 @@ class Address(models.Model):
         related_name="addresses"
     )
     first_name = models.CharField(max_length=100)
-    last_name = models.CharField(max_length=100)
+    last_name = models.CharField(max_length=100,blank=True, null=True)
     street_address = models.CharField(max_length=255, )
     address_line2 = models.CharField(max_length=255, blank=True, null=True)
     postal_code = models.CharField(max_length=20)

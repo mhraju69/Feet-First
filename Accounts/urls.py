@@ -11,6 +11,7 @@ urlpatterns = [
     path('signup/',UserCreateView.as_view(), name="signup"),
     path('verify-otp/',VerifyOTP.as_view(), name="verify_otp"),
     path("google/callback/", SocialAuthCallbackView.as_view()),
+    path('paertners/', PartnerView.as_view(), name='partner-list'),
     path('verify-access/', VerifyAccessView.as_view(), name='verify-access'),
     path("change-password/", ChangePasswordView.as_view(), name="change-password"),
     path("addresses/", AddressListCreateView.as_view(), name="address-list-create"),
