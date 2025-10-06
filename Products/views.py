@@ -269,13 +269,9 @@ class SuggestedProductsView(generics.ListAPIView):
     pagination_class = CustomLimitPagination
 
     def get_queryset(self):
-        product_id = self.request.query_params.get("product_id")
+        product_id = self.kwargs.get('product_id')
+        
         if not product_id:
-            return Product.objects.none()
-
-        try:
-            product_id = int(product_id)
-        except ValueError:
             return Product.objects.none()
 
         try:
@@ -283,28 +279,29 @@ class SuggestedProductsView(generics.ListAPIView):
         except Product.DoesNotExist:
             return Product.objects.none()
 
-        # Flatten all sizes
-        size_values = list(
-       Size.objects.filter(
-           table__in=product.sizes.all()
-       ).values_list('value', flat=True).distinct()
-   )
+        # Get unique size values from the original product
+        size_list = list(set(
+            str(size.value)
+            for size_table in product.sizes.all()
+            for size in size_table.sizes.all()
+        ))
 
-        if not size_values:
+        if not size_list:
             return Product.objects.none()
 
-        # Find products with matching size values
+        # Base queryset - find products with matching sizes
         queryset = Product.objects.filter(
             is_active=True,
-            sizes__sizes__value__in=size_values  # Now this should work
-        ).distinct().exclude(id=product_id).prefetch_related('sizes__sizes')
+            sizes__sizes__value__in=size_list
+        ).distinct().exclude(id=product_id)
 
-        # Optional match sorting
+        # Optional scan-based sorting
         match = self.request.query_params.get("match")
         scan = FootScan.objects.filter(user=self.request.user).first()
+        
         if match and match.lower() == "true" and scan:
             queryset = sorted(
-                queryset,
+                list(queryset),
                 key=lambda product: product.match_with_scan(scan)["score"],
                 reverse=True
             )
