@@ -4,4 +4,4 @@ from .models import *
 class BrandSerializer(serializers.ModelSerializer):
     class Meta:
         model = Brand
-        fields = '__all__'
+        fields = ['name','image']

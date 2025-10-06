@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from Brands.serializers import *
 from .models import *
 
 class ColorSerializer(serializers.ModelSerializer):
@@ -17,6 +18,7 @@ class ProductSerializer(serializers.ModelSerializer):
     colors = serializers.SerializerMethodField()
     brand = serializers.SerializerMethodField()
     favourite = serializers.SerializerMethodField()
+    brand = BrandSerializer(read_only=True)
     class Meta:
         model = Product
         fields = ['id','image',"name","colors","gender","price","match_percentage","brand",'favourite','sub_category']
@@ -36,7 +38,7 @@ class ProductSerializer(serializers.ModelSerializer):
         return obj.brand.name
     
     def get_colors(self, obj):
-        return [", ".join(color.hex_code for color in obj.colors.all())]
+        return [color.hex_code for color in obj.colors.all()]
 
     def get_favourite(self, obj):
         request = self.context.get("request")
@@ -52,6 +54,7 @@ class ProductDetailsSerializer(serializers.ModelSerializer):
     match_percentage = serializers.SerializerMethodField()
     brand = serializers.SerializerMethodField()
     favourite = serializers.SerializerMethodField()
+    brand = BrandSerializer(read_only=True)
 
 
     class Meta:
@@ -87,7 +90,8 @@ class ProductDetailsSerializer(serializers.ModelSerializer):
         return size_list
     
     def get_colors(self, obj):
-        return [", ".join(color.hex_code for color in obj.colors.all())]
+        return [color.hex_code for color in obj.colors.all()]
+    
     def get_brand(self, obj):
         return obj.brand.name
     def get_favourite(self, obj):
@@ -95,7 +99,6 @@ class ProductDetailsSerializer(serializers.ModelSerializer):
         if request and request.user.is_authenticated:
             return Favorite.objects.filter(user=request.user,products=obj).exists()
         return False
-
 
 class FootScanSerializer(serializers.ModelSerializer):
     class Meta:
