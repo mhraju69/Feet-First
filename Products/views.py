@@ -111,35 +111,20 @@ class FootScanListCreateView(generics.ListCreateAPIView):
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
-class FootScanDetailView(generics.RetrieveUpdateDestroyAPIView):
-    """Retrieve, update, or delete a foot scan."""
-    serializer_class = FootScanSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get_queryset(self):
-        user = self.request.user
-        if user.role == "customer":
-            return FootScan.objects.filter(user=user)
-        return FootScan.objects.all()
-
 class DownloadFootScanExcel(views.APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, *args, **kwargs):
         try:
-            scan_id = self.kwargs.get('scan_id')
-            if not scan_id:
-                return Response({"detail": "Scan ID is required"}, status=400)
-            
-            foot_scan = get_object_or_404(FootScan, id=scan_id, user=request.user)
+            foot_scan = get_object_or_404(FootScan, user=request.user)
 
         except Exception as e:
-            return Response({"detail": f"Error retrieving FootScan: {str(e)}"}, status=500)
+            return Response({"error": f"FootScan no found"}, status=500)
 
         try:
             wb = Workbook()
             ws = wb.active
-            ws.title = f"FootScan_{scan_id}"
+            ws.title = f"FootScan_of_{request.user.email}"
 
             header_font = Font(bold=True, size=12)
             header_fill = PatternFill(start_color="C0C0C0", end_color="C0C0C0", fill_type="solid")
@@ -147,7 +132,7 @@ class DownloadFootScanExcel(views.APIView):
 
             # Title
             ws.merge_cells('A1:B1')
-            ws['A1'] = f"Foot Scan Report - ID: {scan_id}"
+            ws['A1'] = f"Foot Scan Report - Email: {request.user.email}"
             ws['A1'].font = Font(bold=True, size=14)
             ws['A1'].alignment = Alignment(horizontal="center")
 
@@ -225,7 +210,7 @@ class DownloadFootScanExcel(views.APIView):
             wb.save(output)
             output.seek(0)
 
-            filename = f"FootScan_{scan_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+            filename = f"FootScan_{request.user.email}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
 
             from django.http import HttpResponse
             response = HttpResponse(

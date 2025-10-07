@@ -16,7 +16,7 @@ urlpatterns = [
     path('api/brands/', include('Brands.urls')), 
     path('', RedirectView.as_view(url='/admin/', permanent=False)),
     path('api/contactus/',ContactListView.as_view(),name='contactus'),
-    path('api/questions/', QuesListAPIView.as_view(), name='ques-list'),
+    # path('api/questions/', QuesListAPIView.as_view(), name='ques-list'),
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('api/faq/', FAQAPIView.as_view(), name='faq-list'),

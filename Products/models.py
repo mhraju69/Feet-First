@@ -5,7 +5,7 @@ from django.forms import ValidationError
 User = get_user_model()
 from cloudinary_storage.storage import MediaCloudinaryStorage
 from Accounts.models import *
-from Others.models import Ques, Ans
+# from Others.models import Ques, Ans
 from Brands.models import Brand
 
 # Create your models here.
@@ -538,15 +538,7 @@ class ProductImage(models.Model):
     
     def __str__(self):
         return f"Image for {self.product.name}"
-    
-class Question(models.Model):
-    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="product_qna")
-    question = models.ForeignKey(Ques, on_delete=models.CASCADE)
-    answers = models.ManyToManyField(Ans)
-
-    def __str__(self):
-        return f"{self.product.name} - {self.question.Question}"
-    
+        
 class Favorite(models.Model):
     user = models.OneToOneField(
         User,
