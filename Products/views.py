@@ -6,44 +6,51 @@ from datetime import datetime
 from openpyxl import Workbook
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
-from rest_framework import permissions,generics,views,status
+from rest_framework import permissions, generics, views, status
 from openpyxl.styles import Font, PatternFill, Alignment
 from rest_framework.pagination import PageNumberPagination
-from rest_framework import generics, permissions, filters
+from rest_framework import filters
 from django_filters.rest_framework import DjangoFilterBackend
 
 class CustomLimitPagination(PageNumberPagination):
-    page_size = 10  # default page size
-    page_size_query_param = 'limit'  # frontend can send ?limit=20
-    max_page_size = 20  # optional maximum limit
+    page_size = 10
+    page_size_query_param = 'limit'
+    max_page_size = 50
 
 class ProductListView(generics.ListAPIView):
     serializer_class = ProductSerializer
     permission_classes = [permissions.IsAuthenticated]
-    pagination_class = CustomLimitPagination  # add pagination
+    pagination_class = CustomLimitPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ['name', 'description']  
+    search_fields = ['name', 'description', 'brand__name']
+    filterset_fields = ['main_category', 'sub_category', 'gender', 'brand']
 
     def get_queryset(self):
-        # Base queryset
-        queryset = Product.objects.filter(is_active=True)
+        queryset = Product.objects.filter(is_active=True).select_related('brand').prefetch_related('images', 'colors')
 
         # Filter by sub_category if provided
         sub = self.request.query_params.get("sub_category")
         if sub:
             queryset = queryset.filter(sub_category=sub)
+        
+        # Filter by gender
+        gender = self.request.query_params.get("gender")
+        if gender:
+            queryset = queryset.filter(gender=gender)
 
         # Get match param and user's foot scan
         match = self.request.query_params.get("match")
         scan = FootScan.objects.filter(user=self.request.user).first()
 
-        # If match=true and scan exists → sort by matching score
+        # Sort by match score if requested and scan exists
         if match and match.lower() == "true" and scan:
-            queryset = sorted(
-                queryset,
+            # Convert to list for sorting
+            products_list = list(queryset)
+            products_list.sort(
                 key=lambda product: product.match_with_scan(scan)["score"],
                 reverse=True
             )
+            return products_list
 
         return queryset
 
@@ -51,46 +58,46 @@ class ProductListView(generics.ListAPIView):
         context = super().get_serializer_context()
         match = self.request.query_params.get("match")
         scan = FootScan.objects.filter(user=self.request.user).first()
+        
         context['scan'] = scan
-
-        # Pass match flag to serializer
         context['match'] = match and match.lower() == "true"
-
+        
         return context
-    
+
 class ProductsCountView(views.APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, *args, **kwargs):
         sub = request.query_params.get("sub_category")
+        gender = request.query_params.get("gender")
 
+        queryset = Product.objects.filter(is_active=True)
+        
         if sub:
-            # Filter by sub_category if provided
-            count = Product.objects.filter(is_active=True, sub_category=sub).count()
-        else:
-            # Otherwise count all active products
-            count = 0
+            queryset = queryset.filter(sub_category=sub)
+        
+        if gender:
+            queryset = queryset.filter(gender=gender)
+        
+        count = queryset.count()
 
         return Response({"count": count}, status=200)
-    
+
 class ProductDetailView(generics.RetrieveAPIView):
     serializer_class = ProductDetailsSerializer
     permission_classes = [permissions.IsAuthenticated]
     queryset = Product.objects.filter(is_active=True)
     lookup_field = 'id'
 
+    def get_queryset(self):
+        return super().get_queryset().select_related('brand').prefetch_related(
+            'images', 'colors', 'sizes__sizes'
+        )
+
     def get_serializer_context(self):
         context = super().get_serializer_context()
-        match = self.request.query_params.get("match")
         scan = FootScan.objects.filter(user=self.request.user).first()
         context['scan'] = scan
-
-        # If match=true → pass flag to serializer so it can sort/filter accordingly
-        if match and match.lower() == "true":
-            context['match'] = True
-        else:
-            context['match'] = False
-
         return context
 
 class FootScanListCreateView(generics.ListCreateAPIView):
@@ -117,7 +124,6 @@ class FootScanDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 class DownloadFootScanExcel(views.APIView):
     permission_classes = [permissions.IsAuthenticated]
-    renderer_classes = [ExcelRenderer]   # force Excel output
 
     def get(self, request, *args, **kwargs):
         try:
@@ -131,7 +137,6 @@ class DownloadFootScanExcel(views.APIView):
             return Response({"detail": f"Error retrieving FootScan: {str(e)}"}, status=500)
 
         try:
-            # ----- Excel workbook -----
             wb = Workbook()
             ws = wb.active
             ws.title = f"FootScan_{scan_id}"
@@ -140,7 +145,7 @@ class DownloadFootScanExcel(views.APIView):
             header_fill = PatternFill(start_color="C0C0C0", end_color="C0C0C0", fill_type="solid")
             header_alignment = Alignment(horizontal="center", vertical="center")
 
-            # Title row
+            # Title
             ws.merge_cells('A1:B1')
             ws['A1'] = f"Foot Scan Report - ID: {scan_id}"
             ws['A1'].font = Font(bold=True, size=14)
@@ -153,6 +158,7 @@ class DownloadFootScanExcel(views.APIView):
             user_info = [
                 ("Email", foot_scan.user.email),
                 ("Scan Date", foot_scan.created_at.strftime("%d-%m-%Y %H:%M:%S")),
+                ("Foot Type", foot_scan.get_foot_type()),
             ]
             row = 4
             for label, value in user_info:
@@ -160,7 +166,7 @@ class DownloadFootScanExcel(views.APIView):
                 ws[f'B{row}'] = value
                 row += 1
 
-            # Measurements Header
+            # Measurements
             row += 1
             ws[f'A{row}'] = "Foot Measurements (mm)"
             ws[f'A{row}'].font = Font(bold=True, size=12)
@@ -168,7 +174,6 @@ class DownloadFootScanExcel(views.APIView):
             ws[f'A{row}'].alignment = header_alignment
             ws.merge_cells(f'A{row}:C{row}')
 
-            # Table headers
             row += 1
             headers = ["Measurement Type", "Left Foot", "Right Foot"]
             for col, header in enumerate(headers, 1):
@@ -178,7 +183,6 @@ class DownloadFootScanExcel(views.APIView):
                 cell.fill = header_fill
                 cell.alignment = header_alignment
 
-            # Data
             measurements = [
                 ("Length (mm)", float(foot_scan.left_length), float(foot_scan.right_length)),
                 ("Width (mm)", float(foot_scan.left_width), float(foot_scan.right_width)),
@@ -195,14 +199,17 @@ class DownloadFootScanExcel(views.APIView):
 
             # Summary
             row += 2
-            ws[f'A{row}'] = "Summary"
+            ws[f'A{row}'] = "Summary & Analysis"
             ws[f'A{row}'].font = Font(bold=True, size=12)
             ws[f'A{row}'].fill = header_fill
+            
             summary = [
                 ("Average Length", f"{foot_scan.average_length():.2f} mm"),
                 ("Average Width", f"{foot_scan.average_width():.2f} mm"),
-                ("Maximum Length", f"{foot_scan.max_length():.2f} mm"),
-                ("Maximum Width", f"{foot_scan.max_width():.2f} mm"),
+                ("Maximum Length (for sizing)", f"{foot_scan.max_length():.2f} mm"),
+                ("Maximum Width (for sizing)", f"{foot_scan.max_width():.2f} mm"),
+                ("Width Category", foot_scan.get_width_label()),
+                ("Toe Box Category", foot_scan.toe_box_category()),
             ]
             row += 1
             for label, value in summary:
@@ -210,58 +217,60 @@ class DownloadFootScanExcel(views.APIView):
                 ws[f'B{row}'] = value
                 row += 1
 
-            ws.column_dimensions['A'].width = 25
-            ws.column_dimensions['B'].width = 20
-            ws.column_dimensions['C'].width = 20
+            ws.column_dimensions['A'].width = 30
+            ws.column_dimensions['B'].width = 25
+            ws.column_dimensions['C'].width = 25
 
-            # Save to BytesIO buffer
             output = BytesIO()
             wb.save(output)
             output.seek(0)
 
             filename = f"FootScan_{scan_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
 
-            # Use DRF Response with our renderer
-            headers = {
-                "Content-Disposition": f'attachment; filename="{filename}"'
-            }
-            return Response(output.getvalue(), headers=headers, content_type=ExcelRenderer.media_type)
+            from django.http import HttpResponse
+            response = HttpResponse(
+                output.getvalue(),
+                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            )
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            return response
 
         except Exception as e:
-            return Response({"detail": f"Error generating Excel file: {str(e)}"},status=status.HTTP_404_NOT_FOUND)
-        
+            return Response(
+                {"detail": f"Error generating Excel file: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
 class FavoriteUpdateView(views.APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, *args, **kwargs):
         favorite, created = Favorite.objects.get_or_create(user=request.user)
-        serializer = FavoriteSerializer(favorite)
+        serializer = FavoriteSerializer(favorite, context={'request': request, 'scan': None, 'match': False})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def patch(self, request, *args, **kwargs):
-
-        # Get or create the Favorite object for this user
         favorite, created = Favorite.objects.get_or_create(user=request.user)
 
-        # Extract product_id and action from request data
         product_id = request.data.get('product_id')
         action = request.data.get('action')
 
         if not product_id or action not in ['add', 'remove']:
             return Response({"error": "Invalid request."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Validate the product exists and is active
         try:
             product = Product.objects.get(id=product_id, is_active=True)
         except Product.DoesNotExist:
             return Response({"error": "Product not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        # Perform add or remove
         if action == 'add':
             favorite.products.add(product)
-        else:  # remove
+            message = "Product added to favorites"
+        else:
             favorite.products.remove(product)
-        return Response({"message":"Success"},status=status.HTTP_200_OK)
+            message = "Product removed from favorites"
+        
+        return Response({"message": message}, status=status.HTTP_200_OK)
 
 class SuggestedProductsView(generics.ListAPIView):
     serializer_class = ProductSerializer
@@ -279,31 +288,40 @@ class SuggestedProductsView(generics.ListAPIView):
         except Product.DoesNotExist:
             return Product.objects.none()
 
-        # Get unique size values from the original product
-        size_list = list(set(
-            str(size.value)
-            for size_table in product.sizes.all()
-            for size in size_table.sizes.all()
-        ))
-
-        if not size_list:
-            return Product.objects.none()
-
-        # Base queryset - find products with matching sizes
-        queryset = Product.objects.filter(
-            is_active=True,
-            sizes__sizes__value__in=size_list
-        ).distinct().exclude(id=product_id)
-
-        # Optional scan-based sorting
-        match = self.request.query_params.get("match")
+        # Get scan for better suggestions
         scan = FootScan.objects.filter(user=self.request.user).first()
         
-        if match and match.lower() == "true" and scan:
-            queryset = sorted(
-                list(queryset),
-                key=lambda product: product.match_with_scan(scan)["score"],
-                reverse=True
-            )
+        # Base criteria: same sub_category and gender
+        queryset = Product.objects.filter(
+            is_active=True,
+            sub_category=product.sub_category,
+            gender=product.gender
+        ).exclude(id=product_id).select_related('brand').prefetch_related('images', 'colors')
 
-        return queryset
+        # If scan exists, prioritize products with similar width/toe box
+        if scan:
+            foot_width_cat = scan.width_category()
+            foot_toe_box = scan.toe_box_category()
+            
+            # Convert to list and sort by relevance
+            products_list = list(queryset)
+            products_list.sort(
+                key=lambda p: (
+                    # Prioritize matching width (primary)
+                    abs(p.width - foot_width_cat),
+                    # Then matching toe box
+                    0 if p.toe_box == foot_toe_box else 1,
+                    # Then overall match score
+                    -p.match_with_scan(scan)["score"]
+                )
+            )
+            return products_list[:20]  # Limit to top 20
+
+        return queryset[:20]
+    
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        scan = FootScan.objects.filter(user=self.request.user).first()
+        context['scan'] = scan
+        context['match'] = True  # Always show match data for suggestions
+        return context
