@@ -242,7 +242,7 @@ class News(models.Model):
         return f"{self.title_de} - {self.title_it}"
 
 
-class ShoesQuestion(models.Model):
+class Question(models.Model):
     key = models.CharField(max_length=255, unique=True)
     label = models.TextField()
 
@@ -250,8 +250,8 @@ class ShoesQuestion(models.Model):
         return self.label
 
 
-class ShoesAnswer(models.Model):
-    question = models.ForeignKey(ShoesQuestion, on_delete=models.CASCADE, related_name="answers")
+class Answer(models.Model):
+    question = models.ForeignKey(Question, on_delete=models.CASCADE, related_name="answers")
     key = models.CharField(max_length=255)
     label = models.TextField()
 
@@ -260,8 +260,10 @@ class ShoesAnswer(models.Model):
 
 class ProductQuestionAnswer(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="product_questions")
-    question = models.ForeignKey(ShoesQuestion, on_delete=models.CASCADE, related_name="product_questions")
-    answers = models.ManyToManyField(ShoesAnswer,related_name="product_answers")
+    question = models.ForeignKey(Question, on_delete=models.CASCADE, related_name="product_questions")
+    answers = models.ManyToManyField(Answer,related_name="product_answers")
 
     def __str__(self):
         return f"{self.product.name} - {self.question.label}"
+    class Meta:
+        verbose_name = 'Question & Answer'

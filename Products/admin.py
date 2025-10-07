@@ -40,7 +40,7 @@ class ProductQuestionAnswerInline(TabularInline):
     autocomplete_fields = ['question', 'answers']
     # filter_horizontal = ("answers",)  # Multi-select answers
 
-@admin.register(ShoesQuestion)
+@admin.register(Question)
 class ShoesQuestionAdmin(ModelAdmin):
     readonly_fields = ('key','label',)
     list_display = ["label"]
@@ -48,7 +48,7 @@ class ShoesQuestionAdmin(ModelAdmin):
     has_add_permission = lambda self, request, obj=None: False
     has_delete_permission = lambda self, request, obj=None: False  # Prevent deletion
 
-@admin.register(ShoesAnswer)
+@admin.register(Answer)
 class ShoesAnswerAdmin(ModelAdmin):
     list_display = ["label", "question"]
     search_fields = ["label", "question__label"]

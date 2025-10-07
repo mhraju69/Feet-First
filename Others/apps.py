@@ -7,7 +7,7 @@ class OthersConfig(AppConfig):
     def ready(self):
         # Import models here, not at the top
         from django.db.utils import OperationalError
-        from .models import ShoesQuestion, ShoesAnswer
+        from .models import Question, Answer
 
         QUESTION_ANSWERS_MAP = {
                 # Running Shoes
@@ -270,12 +270,12 @@ class OthersConfig(AppConfig):
 
         try:
             for q_label, ans_list in QUESTION_ANSWERS_MAP.items():
-                question_obj, created = ShoesQuestion.objects.get_or_create(
+                question_obj, created = Question.objects.get_or_create(
                     key=q_label.lower().replace(" ", "_")[:255],
                     defaults={"label": q_label}
                 )
                 for ans_key, ans_label in ans_list:
-                    ShoesAnswer.objects.get_or_create(
+                    Answer.objects.get_or_create(
                         question=question_obj,
                         key=ans_key,
                         defaults={"label": ans_label}
