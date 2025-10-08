@@ -273,7 +273,9 @@ class SuggestedProductsView(generics.ListAPIView):
             product = Product.objects.get(id=product_id, is_active=True)
         except Product.DoesNotExist:
             return Product.objects.none()
-
+        size = product.sizes.all()
+        # size_values = Size.objects.filter(table__in=size)
+        print(size)
         # Get scan for better suggestions
         scan = FootScan.objects.filter(user=self.request.user).first()
         
@@ -281,7 +283,9 @@ class SuggestedProductsView(generics.ListAPIView):
         queryset = Product.objects.filter(
             is_active=True,
             sub_category=product.sub_category,
-            gender=product.gender
+            gender=product.gender,
+            sizes__in=size
+
         ).exclude(id=product_id).select_related('brand').prefetch_related('images', 'colors')
 
         # If scan exists, prioritize products with similar width/toe box
@@ -355,4 +359,3 @@ class ProductQnAFilterAPIView(views.APIView):
         products = Product.objects.filter(query).distinct()
         serializer = ProductSerializer(products, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
-
