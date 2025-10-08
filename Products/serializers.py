@@ -165,3 +165,15 @@ class FavoriteSerializer(serializers.ModelSerializer):
         model = Favorite
         fields = ['id', 'user', 'products']
         read_only_fields = ['user']
+
+class QnASerializer(serializers.ModelSerializer):
+    question = serializers.CharField(source='question.label')
+    answers = serializers.SlugRelatedField(
+        many=True,
+        read_only=True,
+        slug_field='label'
+    )
+
+    class Meta:
+        model = ProductQuestionAnswer
+        fields = ['question', 'answers']

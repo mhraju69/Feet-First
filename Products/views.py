@@ -4,13 +4,14 @@ from io import BytesIO
 from .serializers import *
 from datetime import datetime
 from openpyxl import Workbook
+from django.db.models import Q
+from rest_framework import filters
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
-from rest_framework import permissions, generics, views, status
 from openpyxl.styles import Font, PatternFill, Alignment
 from rest_framework.pagination import PageNumberPagination
-from rest_framework import filters
 from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import permissions, generics, views, status
 
 class CustomLimitPagination(PageNumberPagination):
     page_size = 10
@@ -310,3 +311,48 @@ class SuggestedProductsView(generics.ListAPIView):
         context['scan'] = scan
         context['match'] = True  # Always show match data for suggestions
         return context
+    
+class ProductQnAFilterAPIView(views.APIView):
+    """
+    Filter products based on frontend questions and answers.
+    Uses case-insensitive substring matching (__icontains).
+    """
+    pagination_class = CustomLimitPagination
+    def post(self, request, *args, **kwargs):
+
+        data = request.data  # Expected list of {question, answers}
+        if not isinstance(data, list):
+            return Response(
+                {"error": "Invalid data format, expected a list."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        query = Q()
+
+        for item in data:
+            question_label = item.get("question")
+            answer_labels = item.get("answers", [])
+
+            if not question_label or not answer_labels:
+                continue  # Skip empty entries
+
+            # Case-insensitive substring match for question
+            question_obj = Question.objects.filter(label__icontains=question_label).first()
+            if not question_obj:
+                continue  # Skip if question not found
+
+            # Build Q for all answers under this question (case-insensitive substring match)
+            q_obj = Q()
+            for ans_label in answer_labels:
+                q_obj |= Q(
+                    question_answers__question=question_obj,
+                    question_answers__answers__label__icontains=ans_label
+                )
+
+            query |= q_obj  # Combine Q for multiple questions with OR
+
+        # Fetch products matching at least one question-answer pair
+        products = Product.objects.filter(query).distinct()
+        serializer = ProductSerializer(products, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+

@@ -8,7 +8,6 @@ from django import forms
 import json
 from django.db.models import Q
 
-# ============= CUSTOM AUTOCOMPLETE VIEW =============
 class AnswerAutocomplete(autocomplete.Select2QuerySetView):
     """
     Custom autocomplete for Answer field
@@ -20,19 +19,16 @@ class AnswerAutocomplete(autocomplete.Select2QuerySetView):
 
         qs = Answer.objects.all()
 
-        # Get question_id from forwarded data
         question_id = self.forwarded.get('question', None)
         
         if question_id:
             qs = qs.filter(question_id=question_id)
 
-        # Search filtering
         if self.q:
             qs = qs.filter(label__icontains=self.q)
 
         return qs.order_by('label')
 
-# ============= CUSTOM FORM FOR INLINE =============
 class ProductQuestionAnswerForm(forms.ModelForm):
     class Meta:
         model = ProductQuestionAnswer
@@ -40,26 +36,20 @@ class ProductQuestionAnswerForm(forms.ModelForm):
         widgets = {
             'answers': autocomplete.ModelSelect2Multiple(
                 url='answer-autocomplete',
-                forward=['question'],  # Forward question value to autocomplete
+                forward=['question'],  
             )
         }
 
-# ============= INLINE CLASSES =============
 class ProductQuestionAnswerInline(TabularInline):
     model = ProductQuestionAnswer
-    form = ProductQuestionAnswerForm  # Use custom form
+    form = ProductQuestionAnswerForm  
     extra = 1
-    autocomplete_fields = ['question']  # Only question uses default autocomplete
+    autocomplete_fields = ['question']  
     
     class Media:
         css = {
-            'all': ('admin/css/custom_select2.css',)  # আপনার custom CSS
+            'all': ('admin/css/custom_select2.css',)  
         }
-
-# ============= ADMIN CLASSES =============
-class ColorAdmin(ModelAdmin):
-    list_display = ('color', 'hex_code')
-    search_fields = ["color", 'hex_code']
 
 class ProductImageInline(TabularInline):
     model = ProductImage
@@ -69,6 +59,11 @@ class ProductImageInline(TabularInline):
 class SizeInline(TabularInline):
     model = Size
     extra = 1
+
+@admin.register(Color)
+class ColorAdmin(ModelAdmin):
+    list_display = ('color', 'hex_code')
+    search_fields = ["color", 'hex_code']
 
 @admin.register(SizeTable)
 class SizeTableAdmin(ModelAdmin):
@@ -86,7 +81,7 @@ class ProductQuestionAnswerAdmin(ModelAdmin):
 @admin.register(Question)
 class ShoesQuestionAdmin(ModelAdmin):
     readonly_fields = ('sub_category','key', 'label')
-    list_display = ["label"]
+    list_display = ["label", 'sub_category']
     search_fields = ["label"]
     list_filter = ['sub_category']
     has_add_permission = lambda self, request, obj=None: False
@@ -100,6 +95,7 @@ class ShoesAnswerAdmin(ModelAdmin):
     has_add_permission = lambda self, request, obj=None: False
     has_delete_permission = lambda self, request, obj=None: False
 
+@admin.register(Product)
 class ProductAdmin(ModelAdmin):
     list_display = (
         'name',
@@ -163,13 +159,9 @@ class ProductAdmin(ModelAdmin):
                 kwargs["queryset"] = User.objects.filter(id=request.user.id)
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
+@admin.register(Favorite)
 class FavoriteAdmin(ModelAdmin):
     list_display = ('user',)
     search_fields = ('user__email',)
     autocomplete_fields = ['products']
 
-# Register models
-admin.site.register(Product, ProductAdmin)
-admin.site.register(Color, ColorAdmin)
-admin.site.register(FootScan, ModelAdmin)
-admin.site.register(Favorite, FavoriteAdmin)

@@ -257,10 +257,17 @@ class Answer(models.Model):
     label = models.TextField()
 
     def __str__(self):
-        return f"{self.label} ({self.question.label})"
+        return f"{self.label}"
+    
+    @property
+    def sub_category(self):
+        return self.product.sub_category if self.product else None
+
+    class Meta:
+        verbose_name = 'Question & Answer'
 
 class ProductQuestionAnswer(models.Model):
-    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="product_questions")
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="question_answers")
     question = models.ForeignKey(Question, on_delete=models.CASCADE, related_name="product_questions")
     answers = models.ManyToManyField(Answer,related_name="product_answers")
 

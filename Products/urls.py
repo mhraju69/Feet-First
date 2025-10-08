@@ -8,7 +8,7 @@ urlpatterns = [
     path("count/", ProductsCountView.as_view(), name="products_count"),
     path('favorites/', FavoriteUpdateView.as_view(), name='favorite-add-remove'),
     path("footscans/", FootScanListCreateView.as_view(), name="foot_scan_list_create"),
-    # path('answer-autocomplete/', AnswerAutocomplete.as_view(), name='answer-autocomplete'),
+    path('qna-match/', ProductQnAFilterAPIView.as_view(), name='answer-autocomplete'),
     path('footscan/download/', DownloadFootScanExcel.as_view(), name='download_foot_scan'),
     path('suggestions/<int:product_id>/', SuggestedProductsView.as_view(), name='product_suggestions'),
 ]

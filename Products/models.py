@@ -150,7 +150,7 @@ class Product(models.Model):
 
     # Category/Subcategory
     main_category = models.CharField(max_length=50, choices=Category.choices)
-    sub_category = models.CharField(max_length=50, choices=SubCategory.choices, null=True, blank=True)
+    sub_category = models.CharField(max_length=50, choices=SubCategory.choices)
     sizes = models.ManyToManyField(SizeTable, related_name="products")
     gender = models.TextField(max_length=20, choices=(('male','Male'),('female','Female')))
         

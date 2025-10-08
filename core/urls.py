@@ -17,13 +17,10 @@ urlpatterns = [
     path('api/brands/', include('Brands.urls')), 
     path('', RedirectView.as_view(url='/admin/', permanent=False)),
     path('api/contactus/',ContactListView.as_view(),name='contactus'),
-     path('answer-autocomplete/', 
-         AnswerAutocomplete.as_view(), 
-         name='answer-autocomplete'),
+    path('answer-autocomplete/', AnswerAutocomplete.as_view(), name='answer-autocomplete'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('api/faq/', FAQAPIView.as_view(), name='faq-list'),
     path('api/news/', NewsAPIView.as_view(), name='news-list'),
-    
 ] 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
