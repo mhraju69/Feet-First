@@ -404,7 +404,6 @@ class Product(models.Model):
             "warnings": warnings if warnings else ["Good match!"]
         }
 
-
 class FootScan(models.Model):   
     user = models.OneToOneField(
         User,

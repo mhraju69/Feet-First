@@ -1,6 +1,6 @@
 from django.db import models
 from cloudinary_storage.storage import MediaCloudinaryStorage
-from Products.models import Product
+from Products.models import *
 from itertools import chain
 
 # Create your models here.
@@ -243,6 +243,7 @@ class News(models.Model):
 
 
 class Question(models.Model):
+    sub_category = models.CharField(max_length=100,choices=SubCategory.choices ,blank=True, null=True)
     key = models.CharField(max_length=255, unique=True)
     label = models.TextField()
 

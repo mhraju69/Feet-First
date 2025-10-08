@@ -85,9 +85,10 @@ class ProductQuestionAnswerAdmin(ModelAdmin):
 
 @admin.register(Question)
 class ShoesQuestionAdmin(ModelAdmin):
-    readonly_fields = ('key', 'label')
+    readonly_fields = ('sub_category','key', 'label')
     list_display = ["label"]
     search_fields = ["label"]
+    list_filter = ['sub_category']
     has_add_permission = lambda self, request, obj=None: False
     has_delete_permission = lambda self, request, obj=None: False
 
