@@ -1,11 +1,7 @@
 from rest_framework import serializers
 from Brands.serializers import *
 from .models import *
-
-# class ColorSerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = Color
-#         fields = ["hex_code"]
+from Others.models import *
 
 class ProductImageSerializer(serializers.ModelSerializer):
     class Meta:
@@ -75,6 +71,7 @@ class ProductDetailsSerializer(serializers.ModelSerializer):
     match_data = serializers.SerializerMethodField()
     brand = BrandSerializer(read_only=True)
     favourite = serializers.SerializerMethodField()
+    qna = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
@@ -82,7 +79,7 @@ class ProductDetailsSerializer(serializers.ModelSerializer):
             "id", "name", "colors", "images", "technical_data", 'description',
             "brand", "sub_category", "sizes",
             "further_information", "price", "discount", 
-            "stock_quantity", "partner", "match_data", 'favourite', 'gender'
+            "stock_quantity", "partner", "match_data", 'favourite', 'gender', 'qna'
         ]
     
     def get_match_data(self, obj):
@@ -116,6 +113,15 @@ class ProductDetailsSerializer(serializers.ModelSerializer):
         return False
     def get_colors(self, obj):
         return [color.hex_code for color in obj.colors.all()]
+
+    def get_qna(self, obj):
+        qna_list = []
+        for pq in ProductQuestionAnswer.objects.filter(product=obj).select_related('question').prefetch_related('answers'):
+            qna_list.append({
+                'question': pq.question.label,
+                'answers': [ans.label for ans in pq.answers.all()]
+            })
+        return qna_list
 
 class FootScanSerializer(serializers.ModelSerializer):
     width_category = serializers.SerializerMethodField()

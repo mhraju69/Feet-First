@@ -180,7 +180,7 @@ class SocialAuthCallbackView(APIView):
         
         if not access_token:
             return Response({'error': 'No access token provided'}, status=400)
-        
+        print("Access Token:", access_token)
         try:
             # Token verify করুন
             token_info_response = requests.get(

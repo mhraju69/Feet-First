@@ -6,6 +6,7 @@ from django.views.generic import RedirectView
 from Contact.views import ContactListView
 from rest_framework_simplejwt.views import (TokenObtainPairView,TokenRefreshView,)
 from Others.views import *
+from Products.admin import *
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -16,8 +17,9 @@ urlpatterns = [
     path('api/brands/', include('Brands.urls')), 
     path('', RedirectView.as_view(url='/admin/', permanent=False)),
     path('api/contactus/',ContactListView.as_view(),name='contactus'),
-    # path('api/questions/', QuesListAPIView.as_view(), name='ques-list'),
-    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+     path('answer-autocomplete/', 
+         AnswerAutocomplete.as_view(), 
+         name='answer-autocomplete'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('api/faq/', FAQAPIView.as_view(), name='faq-list'),
     path('api/news/', NewsAPIView.as_view(), name='news-list'),
