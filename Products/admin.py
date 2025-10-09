@@ -165,4 +165,4 @@ class FavoriteAdmin(ModelAdmin):
     search_fields = ('user__email',)
     autocomplete_fields = ['products']
     has_add_permission = lambda self, request, obj=None: False
-    has_delete_permission = lambda self, request, obj=None: False
+    # has_delete_permission = lambda self, request, obj=None: False
