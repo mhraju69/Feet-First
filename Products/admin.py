@@ -80,10 +80,9 @@ class ProductQuestionAnswerAdmin(ModelAdmin):
 
 @admin.register(Question)
 class ShoesQuestionAdmin(ModelAdmin):
-    readonly_fields = ('sub_category','key', 'label')
-    list_display = ["label", 'sub_category']
+    readonly_fields = ('key', 'label')
+    list_display = ["label"]
     search_fields = ["label"]
-    list_filter = ['sub_category']
     has_add_permission = lambda self, request, obj=None: False
     has_delete_permission = lambda self, request, obj=None: False
 
@@ -92,6 +91,7 @@ class ShoesAnswerAdmin(ModelAdmin):
     list_display = ["label", "question"]
     search_fields = ["label", "question__label"]
     readonly_fields = ("question", 'key', 'label')
+    list_filter = ["label"]
     has_add_permission = lambda self, request, obj=None: False
     has_delete_permission = lambda self, request, obj=None: False
 
@@ -164,4 +164,5 @@ class FavoriteAdmin(ModelAdmin):
     list_display = ('user',)
     search_fields = ('user__email',)
     autocomplete_fields = ['products']
-
+    has_add_permission = lambda self, request, obj=None: False
+    has_delete_permission = lambda self, request, obj=None: False

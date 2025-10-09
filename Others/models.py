@@ -243,7 +243,6 @@ class News(models.Model):
 
 
 class Question(models.Model):
-    sub_category = models.CharField(max_length=100,choices=SubCategory.choices ,blank=True, null=True)
     key = models.CharField(max_length=255, unique=True)
     label = models.TextField()
 
@@ -252,7 +251,7 @@ class Question(models.Model):
 
 
 class Answer(models.Model):
-    question = models.ForeignKey(Question, on_delete=models.CASCADE, related_name="answers")
+    question = models.ForeignKey(Question, on_delete=models.CASCADE, related_name="answers", null=True, blank=True)
     key = models.CharField(max_length=255)
     label = models.TextField()
 
@@ -264,7 +263,7 @@ class Answer(models.Model):
         return self.product.sub_category if self.product else None
 
     class Meta:
-        verbose_name = 'Question & Answer'
+        verbose_name = 'Answer'
 
 class ProductQuestionAnswer(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="question_answers")

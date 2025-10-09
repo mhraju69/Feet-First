@@ -24,7 +24,7 @@ class SurvayAdmin(ModelAdmin):
                 for s in obj.discovery_question
             ])
         )
-    formatted_discovery_question.short_description = 'discovery_question'
+    formatted_discovery_question.short_description = 'Discovery Question'
 
     def formatted_interests(self, obj):
         # Display discovery_question as badges
