@@ -1,14 +1,16 @@
 from django.apps import AppConfig
+from django.db.models.signals import post_migrate
+from django.db.utils import OperationalError
 
 class OthersConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
     name = 'Others'
 
     def ready(self):
-        from django.db.utils import OperationalError
+        
         from .models import Question, Answer
-
-        QUESTION_ANSWERS_MAP = {
+        def populate_questions(sender, **kwargs):
+            QUESTION_ANSWERS_MAP = {
                     "What purpose are you looking for running shoes?": [
                         ("allrounder", "All-rounder"),
                         ("trail_running", "Trail running (terrain)"),
@@ -338,18 +340,19 @@ class OthersConfig(AppConfig):
                         ("roomy_miscellaneous", "Rather roomier, as I prefer more freedom of movement")
                     ],
         }
-        try:
-            for q_label, ans_list in QUESTION_ANSWERS_MAP.items():
-                question_key = q_label.lower().replace(' ', '_')[:240]
-                question_obj, created = Question.objects.get_or_create(
-                    key=question_key,
-                    defaults={"label": q_label}
-                )
-                for ans_key, ans_label in ans_list:
-                    Answer.objects.get_or_create(
-                        question=question_obj,
-                        key=ans_key,
-                        defaults={"label": ans_label}
+            try:
+                for q_label, ans_list in QUESTION_ANSWERS_MAP.items():
+                    question_key = q_label.lower().replace(' ', '_')[:240]
+                    question_obj, created = Question.objects.get_or_create(
+                        key=question_key,
+                        defaults={"label": q_label}
                     )
-        except OperationalError:
-            pass
+                    for ans_key, ans_label in ans_list:
+                        Answer.objects.get_or_create(
+                            question=question_obj,
+                            key=ans_key,
+                            defaults={"label": ans_label}
+                        )
+            except OperationalError:
+                pass
+        post_migrate.connect(populate_questions, sender=self)

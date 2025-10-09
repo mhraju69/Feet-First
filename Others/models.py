@@ -1,6 +1,6 @@
 from django.db import models
 from cloudinary_storage.storage import MediaCloudinaryStorage
-from Products.models import *
+from Products.models import Product
 from itertools import chain
 
 # Create your models here.

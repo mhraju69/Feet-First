@@ -174,83 +174,6 @@ class DeleteRequestView(generics.CreateAPIView):
     def perform_create(self, serializer):
         serializer.save(email=self.request.user.email)
 
-# class SocialAuthCallbackView(APIView):
-#     def post(self, request):
-#         access_token = request.data.get('access_token')
-        
-#         if not access_token:
-#             return Response({'error': 'No access token provided'}, status=400)
-#         print("Access Token:", access_token)
-#         try:
-#             # Token verify করুন
-#             token_info_response = requests.get(
-#                 f'https://www.googleapis.com/oauth2/v1/tokeninfo?access_token={access_token}'
-#             )
-            
-#             if token_info_response.status_code != 200:
-#                 return Response({'error': 'Invalid access token'}, status=400)
-            
-#             token_info = token_info_response.json()
-            
-#             # Check if token is valid for your app
-#             if 'error' in token_info:
-#                 return Response({'error': token_info['error']}, status=400)
-            
-#             # Get user info
-#             user_info_response = requests.get(
-#                 'https://www.googleapis.com/oauth2/v2/userinfo',
-#                 headers={'Authorization': f'Bearer {access_token}'}
-#             )
-            
-#             user_data = user_info_response.json()
-#             profile_image_url = user_data.get("picture")
-#             email = user_data.get("email")
-#             name = user_data.get("name")
-            
-#             print(user_data)
-            
-#             user, created = User.objects.get_or_create(
-#                 email=email,
-#                 defaults={
-#                     'name': name,
-#                     'is_active': True,
-#                     'password': make_password(None)  # unusable password
-#                 }
-#             )
-            
-#             if created and user_data.get("picture"):
-#                 img_response = requests.get(profile_image_url)
-#                 if img_response.status_code == 200:
-#                     file_name = f"{slugify(name)}-profile.jpg"
-#                     user.image.save(file_name, ContentFile(img_response.content), save=True)
-
-#             # Generate tokens
-#             if user.suspend:   
-#                 return Response({"error": "User account is disabled.Please contact to support"}, status=403)
-            
-#             refresh = RefreshToken.for_user(user)
-#             serializers = UserSerializer(user)
-#             return Response({
-#                 'access': str(refresh.access_token),
-#                 'refresh': str(refresh),
-#                 'user': serializers.data,
-#             })
-            
-#         except Exception as e:
-#             return Response({'error': str(e)}, status=500)
-
-
-import requests
-from django.utils.text import slugify
-from django.core.files.base import ContentFile
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework_simplejwt.tokens import RefreshToken
-from django.contrib.auth.hashers import make_password
-from .models import User
-from .serializers import UserSerializer
-
-
 class SocialAuthCallbackView(APIView):
     def post(self, request):
         access_token = request.data.get('access_token')
@@ -258,15 +181,11 @@ class SocialAuthCallbackView(APIView):
         if not access_token:
             return Response({'error': 'No access token provided'}, status=400)
         
-        print("🔑 Access Token:", access_token)
-
         try:
-            # ✅ Verify token
+            # Verify token
             token_info_response = requests.get(
                 f'https://www.googleapis.com/oauth2/v1/tokeninfo?access_token={access_token}'
             )
-            print("🧩 Token Info Response Code:", token_info_response.status_code)
-            print("🧩 Token Info JSON:", token_info_response.json())
 
             if token_info_response.status_code != 200:
                 return Response({'error': 'Invalid access token'}, status=400)
@@ -276,64 +195,61 @@ class SocialAuthCallbackView(APIView):
             if 'error' in token_info:
                 return Response({'error': token_info['error']}, status=400)
 
-            # ✅ Get basic user info
+            # Get basic user info
             user_info_response = requests.get(
                 'https://www.googleapis.com/oauth2/v2/userinfo',
                 headers={'Authorization': f'Bearer {access_token}'}
             )
-            print("👤 User Info Response Code:", user_info_response.status_code)
-            print("👤 User Info JSON:", user_info_response.json())
 
             user_data = user_info_response.json()
             profile_image_url = user_data.get("picture")
             email = user_data.get("email")
             name = user_data.get("name")
 
-            # ✅ Get DOB using People API
+            #  Get DOB + Phone Number using People API
             date_of_birth = None
-            people_api_url = "https://people.googleapis.com/v1/people/me?personFields=birthdays"
+            phone_number = None
+
+            people_api_url = "https://people.googleapis.com/v1/people/me?personFields=birthdays,phoneNumbers"
             people_response = requests.get(
                 people_api_url,
                 headers={'Authorization': f'Bearer {access_token}'}
             )
 
-            print("🎂 People API Response Code:", people_response.status_code)
-
+            
             try:
                 people_json = people_response.json()
-                print("🎂 People API JSON:", people_json)
             except Exception as json_err:
-                print("⚠️ Failed to parse People API response as JSON:", json_err)
                 people_json = {}
 
             if people_response.status_code == 200 and isinstance(people_json, dict):
+
+                # Birthday extraction
                 birthdays = people_json.get("birthdays", [])
                 if birthdays:
-                    # ✅ Prefer a birthday entry that includes a year
                     date_info = None
                     for b in birthdays:
                         d = b.get("date", {})
                         if "year" in d:
                             date_info = d
                             break
-                    # fallback to the first entry if none has a year
                     if not date_info:
                         date_info = birthdays[0].get("date", {})
-
                     year = date_info.get("year")
                     month = date_info.get("month")
                     day = date_info.get("day")
-
                     if year and month and day:
                         date_of_birth = f"{year}-{month:02d}-{day:02d}"
                     elif month and day:
-                        # fallback year if only month/day are returned
                         date_of_birth = f"1900-{month:02d}-{day:02d}"
-            else:
-                print("⚠️ People API did not return a valid birthday structure.")
 
+                # Phone number extraction
+                phone_numbers = people_json.get("phoneNumbers", [])
+                if phone_numbers:
+                    primary_phone = next((p for p in phone_numbers if p.get("metadata", {}).get("primary")), phone_numbers[0])
+                    phone_number = primary_phone.get("value")
 
-            # ✅ Create or get user
+            # Create or get user
             user, created = User.objects.get_or_create(
                 email=email,
                 defaults={
@@ -343,34 +259,32 @@ class SocialAuthCallbackView(APIView):
                 }
             )
 
-            # ✅ Save profile image if new user
+            # Save profile image if new user
             if created and profile_image_url:
                 img_response = requests.get(profile_image_url)
                 if img_response.status_code == 200:
                     file_name = f"{slugify(name)}-profile.jpg"
                     user.image.save(file_name, ContentFile(img_response.content), save=True)
 
-            # ✅ Save DOB if fetched successfully
-            if date_of_birth:
+            # Save DOB or Phone if fetched successfully
+            if date_of_birth or phone_number:
                 if not user.date_of_birth:  # only set if not already present
-                    print(f"✅ Updating date_of_birth for {user.email}: {date_of_birth}")
                     user.date_of_birth = date_of_birth
                     user.save(update_fields=["date_of_birth"])
-                else:
-                    print(f"ℹ️ date_of_birth already set for {user.email}: {user.date_of_birth}")
+                elif not user.phone:
+                    user.phone = phone_number
+                    user.save(update_fields=["phone"])
 
-            # ✅ Check suspend flag
+            # Check suspend flag
             if getattr(user, 'suspend', False):
                 return Response(
                     {"error": "User account is disabled. Please contact support"},
                     status=403
                 )
 
-            # ✅ Generate JWT tokens
+            # Generate JWT tokens
             refresh = RefreshToken.for_user(user)
             serializer = UserSerializer(user)
-
-            print("🎟️ Tokens generated successfully for:", user.email)
 
             return Response({
                 'access': str(refresh.access_token),
@@ -379,9 +293,7 @@ class SocialAuthCallbackView(APIView):
             })
 
         except Exception as e:
-            print("❌ Exception:", str(e))
             return Response({'error': str(e)}, status=500)
-
 
 class VerifyAccessView(APIView):
     def post(self, request):

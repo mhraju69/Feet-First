@@ -1,16 +1,14 @@
-version: "3.9"
-
 services:
   django:
     build: .
     container_name: feetfirst
-    command: gunicorn core.wsgi:application --bind 0.0.0.0:8000 --workers 3
+    command: gunicorn core.wsgi:application --bind 0.0.0.0:8080 --workers 3 --reload
     volumes:
       - .:/app
       - static_volume:/app/staticfiles
       - media_volume:/app/media
     expose:
-      - "8000"
+      - "8080"
     depends_on:
       - db
     restart: always
@@ -32,7 +30,7 @@ services:
     image: nginx:stable-alpine
     container_name: nginx
     ports:
-      - "80:80"
+      - "8000:8000"
       # - "443:443" # enable for SSL
     volumes:
       - ./deploy/nginx:/etc/nginx/conf.d
