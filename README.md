@@ -4,13 +4,44 @@
 
 Feetfirst is a comprehensive web application designed to manage user accounts, product catalogs, customer inquiries, and onboarding surveys. It provides a robust backend for handling various business processes, including secure authentication, product management, and PDF file uploads.
 
-## Features
+## ✨ Key Features
 
--   **User Account Management**: Secure user authentication, authorization, and profile management.
--   **Product Catalog**: Efficiently manage product categories, subcategories, and detailed product information.
--   **Contact Management**: Streamline handling of customer inquiries and contact information.
--   **Survey System**: Create and manage onboarding surveys for users.
--   **PDF File Uploads**: Securely upload, store, and manage PDF documents.
+### 👤 User Management
+- **Secure Authentication**: JWT token-based authentication with email/password and Google OAuth
+- **OTP Verification**: Secure account verification via one-time passwords
+- **Password Management**: Reset, change, and recover passwords
+- **Profile Management**: Update user details, addresses, and preferences
+- **Account Security**: Deletion requests and suspension handling
+
+### 👟 Product Catalog
+- **Multi-level Categorization**: Main categories and subcategories
+- **Advanced Filtering**: By size, color, gender, brand, and price
+- **Product Matching**: AI-powered foot scan matching with percentage scores
+- **Size Recommendations**: Personalized sizing based on foot scans
+- **Favorites System**: Save and manage favorite products
+- **PDF Specifications**: Technical documentation uploads and downloads
+
+### 🦶 Foot Scanning
+- **Scan Analysis**: Detailed foot measurements (length, width, arch index)
+- **Size Conversion**: Automatic size recommendations across brands
+- **Excel Reports**: Download detailed scan reports
+- **Product Matching**: Algorithm to find best-fitting footwear
+
+### 🔍 Discovery Features
+- **Smart Suggestions**: Recommended products based on scans and preferences
+- **Q&A Matching**: Find products matching user questionnaire answers
+- **Viewing History**: Track recently viewed products
+
+### 📊 Surveys & Engagement
+- **Onboarding Surveys**: Customizable user preference questionnaires
+- **Contact System**: Customer inquiry management
+- **Feedback Collection**: Gather user experience data
+
+### 🛠️ Admin Features
+- **Django Admin**: Comprehensive backend management
+- **Content Management**: Add/edit products, categories, and specifications
+- **User Management**: View and manage all user accounts
+- **Analytics**: Track system usage and engagement
 
 ## API Endpoints
 
@@ -39,15 +70,21 @@ The Feetfirst project exposes a set of RESTful APIs to interact with its various
 -   `/api/users/google/callback/`: Google OAuth callback.
 -   `/api/users/change-password/`: Change user password.
 -   `/api/users/addresses/`: List and create user addresses.
--   `/api/users/addresses/<int:pk>/`: Retrieve, update, or delete a specific user address.
+-   `/api/users/addresses/int:pk/`: Retrieve, update, or delete a specific user address.
 -   `/api/users/deletion-request/`: Request account deletion.
 
 ### Products Endpoints (`/api/products/`)
 
 -   `/api/products/`: List all products.
--   `/api/products/<int:id>/`: Retrieve a specific product by ID.
+-   `/api/products/int:id/`: Retrieve a specific product by ID.
 -   `/api/products/upload-pdf/`: Upload PDF files related to products.
 -   `/api/products/view/`: View product details.
+-   `/api/products/favorites/`: View favourite products.
+-   `/api/products/footscans/`: View footscan details.
+-   `/api/products/qna-match/`: View QnA match products .
+-   `/api/products/footscan/download/`: Download footscan details as exel.
+-   `/api/products/suggestions/int:product_id/`: View suggestion products.
+
 
 ### Surveys Endpoints (`/api/surveys/`)
 

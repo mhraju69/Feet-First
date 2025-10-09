@@ -159,7 +159,7 @@ class Product(models.Model):
     toe_box = models.CharField(max_length=10, choices=ToeBox.choices, default=ToeBox.NORMAL)
 
     # Extra info
-    technical_data = models.TextField(blank=True, null=True, help_text='Add data as KEY : Value , one per line !')
+    technical_data = models.TextField(blank=True, null=True)
     further_information = models.TextField(blank=True, null=True)
     
     # Commerce
