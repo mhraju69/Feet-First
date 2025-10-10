@@ -529,7 +529,7 @@ class FootScan(models.Model):
 
 class ProductImage(models.Model):
     product = models.ForeignKey(Product, related_name='images', on_delete=models.CASCADE)
-    image = models.ImageField(upload_to='products/',storage=MediaCloudinaryStorage(),blank=False, null=False)
+    image = models.ImageField(upload_to='products/',storage=MediaCloudinaryStorage(),blank=False, null=False,help_text="Image size should be less than 1MB")
     created_at = models.DateTimeField(auto_now_add=True)    
     
     class Meta:

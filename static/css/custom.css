@@ -1,0 +1,26 @@
+/* Add logo before the header text */
+.header-title::before {
+    content: "";
+    display: inline-block;
+    width: 120px;   /* adjust logo width */
+    height: 40px;   /* adjust logo height */
+    background-image: url("/static/images/logo.png");
+    background-size: contain;
+    background-repeat: no-repeat;
+    margin-right: 10px; /* space between logo and text */
+}
+/* Change header background */
+.header {
+    background-color: #1abc9c !important;
+}
+
+/* Change buttons */
+.btn-primary {
+    background-color: #1abc9c !important;
+    border-color: #1abc9c !important;
+}
+
+.btn-primary:hover {
+    background-color: #16a085 !important;
+    border-color: #16a085 !important;
+}

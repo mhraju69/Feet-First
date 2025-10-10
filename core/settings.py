@@ -76,23 +76,23 @@ TEMPLATES = [
 WSGI_APPLICATION = 'core.wsgi.application'
 
 
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.sqlite3',
-#         'NAME': BASE_DIR / 'db.sqlite3',
-#     }
-# }   
-
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.environ.get('DB_NAME'),
-        'USER': os.environ.get('DB_USER'),
-        'PASSWORD': os.environ.get('DB_PASSWORD'),
-        'HOST': os.environ.get('DB_HOST'),
-        'PORT': os.environ.get('DB_PORT'),
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
-}  
+}   
+
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql',
+#         'NAME': os.environ.get('DB_NAME'),
+#         'USER': os.environ.get('DB_USER'),
+#         'PASSWORD': os.environ.get('DB_PASSWORD'),
+#         'HOST': os.environ.get('DB_HOST'),
+#         'PORT': os.environ.get('DB_PORT'),
+#     }
+# }  
 
 
 AUTH_PASSWORD_VALIDATORS = [
@@ -160,6 +160,27 @@ UNFOLD = {
     "SITE_TITLE": "Feet First Admin",   
     "SITE_HEADER": "Admin Dashboard",
     "SHOW_ICON": True,  
+    "CUSTOM_CSS": "/static/css/custom.css",
+    "SITE_LOGO": "/static/images/logo.png",
+    "COLORS": {
+        "primary": {
+            "50": "#62a07b",
+            "100": "#62a07b",
+            "200": "#62a07b",
+            "300": "#62a07b",
+            "400": "#62a07b",
+            "500": "#62a07b",  # Your custom color
+            "600": "#62a07b",
+            "700": "#62a07b",
+            "800": "#62a07b",
+            "900": "#62a07b",
+        },
+    },
+     "EXTENSIONS": {
+        "colors": {
+            "primary": "#62a07b",  # Ensure this matches
+        },
+    },
 }
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
@@ -193,3 +214,19 @@ CLOUDINARY_STORAGE = {
 }
 
 DEFAULT_FILE_STORAGE = "cloudinary_storage.storage.MediaCloudinaryStorage"
+
+
+JAZZMIN_SETTINGS = {
+    "site_title": "Feet F1rst Admin", 
+    "site_header": "Feet F1rst Admin",
+    "welcome_sign": "Welcome to My Admin",
+    "copyright": "© 2025 My Company",
+    
+        "site_logo": "images/logo.png",        
+    "site_logo_classes": "img-circle",
+    "login_logo": "images/logo.png",       
+    "login_logo_dark": None,      
+
+    "custom_css": "css/custom_admin.css",
+    "custom_js": None,
+}

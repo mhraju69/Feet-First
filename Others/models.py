@@ -229,7 +229,7 @@ class FAQ(models.Model):
 class News(models.Model):
     title_de = models.CharField(max_length=200 , verbose_name ="Title (German)")
     title_it = models.CharField(max_length=200 , verbose_name="Title (Italian)")
-    image = models.ImageField(upload_to='news_images/',storage=MediaCloudinaryStorage())
+    image = models.ImageField(upload_to='news_images/',storage=MediaCloudinaryStorage(),help_text="Image size should be less than 1MB")
     content_de = models.TextField(verbose_name ="Content (German)")
     content_it = models.TextField(verbose_name="Content (Italian)")
     created_at = models.DateField(auto_now=True)

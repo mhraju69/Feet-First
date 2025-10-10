@@ -1,0 +1,15 @@
+{% extends "admin/login.html" %}
+{% load i18n %}
+
+{% block content %}
+{{ block.super }}
+
+<div class="text-left mt-4">
+    <a 
+        href="{% url 'password_reset' %}" 
+        class="text-sm text-blue-600 hover:text-blue-500 font-medium"
+    >
+        {% trans "Forgot your password?" %}
+    </a>
+</div>
+{% endblock %}
