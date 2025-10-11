@@ -113,7 +113,7 @@ class PartnerSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = User
-        fields = ['name', 'email', 'image', 'latitude', 'longitude', 'phone', 'address']
+        fields = ['name', 'email', 'image', 'lat', 'lng', 'phone', 'address']
         read_only_fields = ["id", "created_at", "updated_at", "user"]
 
     def get_address(self, obj):

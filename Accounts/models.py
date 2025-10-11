@@ -49,8 +49,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     last_login = models.DateTimeField(auto_now=True)
     suspend = models.BooleanField(default=False,verbose_name="Suspend User")
 
-    latitude = models.FloatField(blank=True, null=True)
-    longitude = models.FloatField(blank=True, null=True)
+    lat= models.FloatField(blank=True, null=True,verbose_name='Latitude')
+    lng = models.FloatField(blank=True, null=True,verbose_name='Longitude')
     match_score = models.FloatField(default=0.0)
     notes = models.TextField(blank=True, null=True)
 
