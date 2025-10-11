@@ -107,3 +107,16 @@ class DeleteSerializer(serializers.ModelSerializer):
         model = AccountDeletionRequest
         fields = '__all__'
         read_only_fields = ["id", "deleted_at", "email"]
+
+class PartnerSerializer(serializers.ModelSerializer):
+    address = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = User
+        fields = ['name', 'email', 'image', 'latitude', 'longitude', 'phone', 'address']
+        read_only_fields = ["id", "created_at", "updated_at", "user"]
+
+    def get_address(self, obj):
+        address = obj.addresses.first()
+        if address:
+            return AddressSerializer(address).data

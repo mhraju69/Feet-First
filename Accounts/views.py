@@ -323,5 +323,5 @@ class VerifyAccessView(APIView):
 
 class PartnerView(generics.ListAPIView):
     queryset = User.objects.filter(role = 'partner')
-    serializer_class = UserSerializer
+    serializer_class = PartnerSerializer
     permission_classes = [permissions.IsAuthenticated]

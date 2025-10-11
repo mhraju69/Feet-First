@@ -157,7 +157,7 @@ SIMPLE_JWT = {
 
 UNFOLD = {
     "MODE": "dark",
-    "SITE_TITLE": "Feet First Admin",   
+    "SITE_TITLE": "Feet F1rst Admin",   
     "SITE_HEADER": "Admin Dashboard",
     "SHOW_ICON": True,  
     "CUSTOM_CSS": "/static/css/custom.css",

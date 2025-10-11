@@ -317,13 +317,9 @@ class SuggestedProductsView(generics.ListAPIView):
         return context
     
 class ProductQnAFilterAPIView(views.APIView):
-    """
-    Filter products based on frontend questions and answers.
-    Uses case-insensitive substring matching (__icontains).
-    """
     pagination_class = CustomLimitPagination
+    permission_classes = [permissions.IsAuthenticated]
     def post(self, request, *args, **kwargs):
-
         data = request.data  # Expected list of {question, answers}
         if not isinstance(data, list):
             return Response(
@@ -332,6 +328,7 @@ class ProductQnAFilterAPIView(views.APIView):
             )
 
         query = Q()
+        cat = data[0].get("sub_category")
 
         for item in data:
             question_label = item.get("question")
@@ -340,12 +337,10 @@ class ProductQnAFilterAPIView(views.APIView):
             if not question_label or not answer_labels:
                 continue  # Skip empty entries
 
-            # Case-insensitive substring match for question
             question_obj = Question.objects.filter(label__icontains=question_label).first()
             if not question_obj:
-                continue  # Skip if question not found
+                continue
 
-            # Build Q for all answers under this question (case-insensitive substring match)
             q_obj = Q()
             for ans_label in answer_labels:
                 q_obj |= Q(
@@ -353,9 +348,14 @@ class ProductQnAFilterAPIView(views.APIView):
                     question_answers__answers__label__icontains=ans_label
                 )
 
-            query |= q_obj  # Combine Q for multiple questions with OR
+            query |= q_obj
 
-        # Fetch products matching at least one question-answer pair
-        products = Product.objects.filter(query).distinct()
-        serializer = ProductSerializer(products, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        # Get all matching products
+        products = Product.objects.filter(query, sub_category=cat).distinct()
+
+        # 🧠 Apply pagination manually
+        paginator = self.pagination_class()
+        paginated_products = paginator.paginate_queryset(products, request, view=self)
+
+        serializer = ProductSerializer(paginated_products, many=True)
+        return paginator.get_paginated_response(serializer.data)
