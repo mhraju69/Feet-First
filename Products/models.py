@@ -5,7 +5,6 @@ from django.forms import ValidationError
 User = get_user_model()
 from cloudinary_storage.storage import MediaCloudinaryStorage
 from Accounts.models import *
-# from Others.models import Ques, Ans
 from Brands.models import Brand
 
 # Create your models here.
@@ -17,82 +16,21 @@ class Color(models.Model):
     def __str__(self):
         return f"{self.color} ({self.hex_code})"
 
-class Category(models.TextChoices):
-    EVERYDAY_SHOES = "everyday-shoes", "Everyday Shoes"
-    SPORTS_SHOES = "sports-shoes", "Sports Shoes"
+class Category(models.Model):
+    name = models.CharField(max_length=255)
+    slug = models.SlugField(unique=True)
 
-class SubCategory(models.TextChoices):
-    RUNNING_SHOES = "running-shoes", "Running Shoes"
-    CYCLING_SHOES = "cycling-shoes", "Cycling Shoes"
-    HOCKEY_SHOES = "hockey-shoes", "Hockey Shoes"
-    SKI_BOOTS = "ski-boots", "Ski Boots"
-    BASKETBALL_SHOES = "basketball-shoes", "Basketball Shoes"
-    GOLF_SHOES = "golf-shoes", "Golf Shoes"
-    FOOTBALL_SHOES = "football-shoes", "Football Shoes"
-    TENNIS_SHOES = "tennis-shoes", "Tennis Shoes"
-    CLIMBING_SHOES = "climbing-shoes", "Climbing Shoes"
-    CASUAL_SNEAKER = "casual-sneaker", "Casual Sneaker"
-    ELEGANT_SHOES = "elegant-shoes", "Elegant Shoes"
-    COMFORTABLE_SHOES = "comfortable-shoes", "Comfortable Shoes"
-    SANDALS = "sandals", "Sandals"
-    WORK_SHOES = "work-shoes", "Work Shoes"
-    MISCELLANEOUS = "miscellaneous", "Miscellaneous"
-    MOUNTAIN_TREKKING_SHOES = "mountain-trekking-shoes", "Mountain Trekking Shoes"
-
-class Width(models.IntegerChoices):
-    NARROW = 0, "Narrow"
-    NARROW_NORMAL = 1, "Narrow-Normal"
-    NORMAL = 2, "Normal"
-    NORMAL_WIDE = 3, "Normal-Wide"
-    WIDE = 4, "Wide"
-
-class ToeBox(models.TextChoices):
-    NARROW = "narrow", "Narrow"
-    NORMAL = "normal", "Normal"
-    WIDE = "wide", "Wide"
-
-class SizeSystem(models.TextChoices):
-    EU = "EU", "European"
-    USM = "USM", "US Men"
-    USW = "USW", "US Women"
-
-class SizeTable(models.Model):
-    brand = models.ForeignKey(Brand, on_delete=models.CASCADE, related_name="size_brand")
-    name = models.CharField(max_length=100, help_text="e.g. Standard , Wide")
     def __str__(self):
-        return f"{self.brand.name} - {self.name}"
-    class Meta:
-        unique_together = ('brand', 'name')
+        return self.name
+
+class SubCategory(models.Model):
+    name = models.CharField(max_length=255)
+    slug = models.SlugField(unique=True)
+    category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name='subcategories')
+
+    def __str__(self):
+        return self.name
     
-class Color(models.Model):
-    color = models.CharField(max_length=20, unique=True,verbose_name='Primary Color Name')
-    hex_code = models.CharField(max_length=7, help_text="Hex color code, e.g. #FFFFFF")
-    details = models.TextField(blank=True, null=True)
-    def __str__(self):
-        return f"{self.color} ({self.hex_code})"
-
-class Category(models.TextChoices):
-    EVERYDAY_SHOES = "everyday-shoes", "Everyday Shoes"
-    SPORTS_SHOES = "sports-shoes", "Sports Shoes"
-
-class SubCategory(models.TextChoices):
-    RUNNING_SHOES = "running-shoes", "Running Shoes"
-    CYCLING_SHOES = "cycling-shoes", "Cycling Shoes"
-    HOCKEY_SHOES = "hockey-shoes", "Hockey Shoes"
-    SKI_BOOTS = "ski-boots", "Ski Boots"
-    BASKETBALL_SHOES = "basketball-shoes", "Basketball Shoes"
-    GOLF_SHOES = "golf-shoes", "Golf Shoes"
-    FOOTBALL_SHOES = "football-shoes", "Football Shoes"
-    TENNIS_SHOES = "tennis-shoes", "Tennis Shoes"
-    CLIMBING_SHOES = "climbing-shoes", "Climbing Shoes"
-    CASUAL_SNEAKER = "casual-sneaker", "Casual Sneaker"
-    ELEGANT_SHOES = "elegant-shoes", "Elegant Shoes"
-    COMFORTABLE_SHOES = "comfortable-shoes", "Comfortable Shoes"
-    SANDALS = "sandals", "Sandals"
-    WORK_SHOES = "work-shoes", "Work Shoes"
-    MISCELLANEOUS = "miscellaneous", "Miscellaneous"
-    MOUNTAIN_TREKKING_SHOES = "mountain-trekking-shoes", "Mountain Trekking Shoes"
-
 class Width(models.IntegerChoices):
     NARROW = 0, "Narrow"
     NARROW_NORMAL = 1, "Narrow-Normal"
@@ -149,8 +87,9 @@ class Product(models.Model):
     description = models.TextField()
 
     # Category/Subcategory
-    main_category = models.CharField(max_length=50, choices=Category.choices)
-    sub_category = models.CharField(max_length=50, choices=SubCategory.choices)
+    main_category = models.ForeignKey(Category, related_name='category', on_delete=models.CASCADE , null=True, blank=True)
+    sub_category = models.ForeignKey(SubCategory, related_name='sub_category', on_delete=models.CASCADE , null=True, blank=True)
+
     # sizes = models.ManyToManyField(SizeTable, related_name="products")
     gender = models.TextField(max_length=20, choices=(('male','Male'),('female','Female')))
         

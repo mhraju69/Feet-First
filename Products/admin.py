@@ -64,6 +64,39 @@ class QuantityInline(TabularInline):
     model = Quantity
     extra = 1  
 
+class SubCategoryAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self):
+        if not self.request.user.is_authenticated:
+            return SubCategory.objects.none()
+        
+        qs = SubCategory.objects.all()
+        
+        # Get the forwarded category value from the main_category field
+        category_id = self.forwarded.get('main_category', None)
+        
+        if category_id:
+            qs = qs.filter(category_id=category_id)
+        
+        if self.q:
+            qs = qs.filter(name__icontains=self.q)
+        
+        return qs.order_by('name')
+    
+class ProductSubcategoryForm(forms.ModelForm):
+    class Meta:
+        model = Product
+        fields = '__all__'
+        widgets = {
+            'sub_category': autocomplete.ModelSelect2(
+                url='subcategory-autocomplete',
+                forward=['main_category'],
+                attrs={
+                    'data-placeholder': 'Select a subcategory...',
+                    'data-minimum-input-length': 0,
+                }
+            ),
+        }
+        
 @admin.register(Color)
 class ColorAdmin(ModelAdmin):
     list_display = ('color', 'hex_code')
@@ -101,6 +134,7 @@ class ShoesAnswerAdmin(ModelAdmin):
 
 @admin.register(Product)
 class ProductAdmin(ModelAdmin):
+    form = ProductSubcategoryForm
     list_display = (
         'name',
         'main_category', 'sub_category', 'gender',
@@ -172,8 +206,6 @@ class FavoriteAdmin(ModelAdmin):
     has_add_permission = lambda self, request, obj=None: False
     # has_delete_permission = lambda self, request, obj=None: False
 
-# @admin.register(SizeTable)
-# class SizeTableAdmin(ModelAdmin):
-#     list_display = ('brand', 'name')
-
 admin.site.register(FootScan,ModelAdmin)
+admin.site.register(Category,ModelAdmin)
+admin.site.register(SubCategory,ModelAdmin)
