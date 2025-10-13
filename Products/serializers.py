@@ -77,9 +77,9 @@ class ProductDetailsSerializer(serializers.ModelSerializer):
         model = Product
         fields = [
             "id", "name", "colors", "images", "technical_data", 'description',
-            "brand", "sub_category", "sizes",
+            "brand", "sub_category",
             "further_information", "price", "discount", 
-            "stock_quantity", "partner", "match_data", 'favourite', 'gender', 'qna'
+             "partner", "match_data", 'favourite', 'gender','sizes', 'qna'
         ]
     
     def get_match_data(self, obj):
@@ -98,14 +98,19 @@ class ProductDetailsSerializer(serializers.ModelSerializer):
         return None
     
     def get_sizes(self, obj):
-        """Return simple list of available sizes"""
-        sizes = []
-        for size_table in obj.sizes.all():
-            for size in size_table.sizes.all():
-                if size.value not in sizes:  # Avoid duplicates
-                    sizes.append(size.value)
-        return sorted(sizes)  # Return sorted list
-    
+        sizes_list = []
+
+        quantities = obj.quantities.select_related('size', 'size__brand').all()
+        for q in quantities:
+            # Get all size values from the related SizeTable
+            size_values = list(q.size.sizes.values_list('value', flat=True))
+            sizes_list.append({
+                "size": size_values,
+                "quantity": q.quantity
+            })
+
+        return sizes_list
+
     def get_favourite(self, obj):
         request = self.context.get("request")
         if request and request.user.is_authenticated:

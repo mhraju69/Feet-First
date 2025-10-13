@@ -60,6 +60,10 @@ class SizeInline(TabularInline):
     model = Size
     extra = 1
 
+class QuantityInline(TabularInline):  
+    model = Quantity
+    extra = 1  
+
 @admin.register(Color)
 class ColorAdmin(ModelAdmin):
     list_display = ('color', 'hex_code')
@@ -100,7 +104,7 @@ class ProductAdmin(ModelAdmin):
     list_display = (
         'name',
         'main_category', 'sub_category', 'gender',
-        'price', 'stock_quantity',
+        'price',
         'is_active'
     )
     search_fields = ('name',)
@@ -108,8 +112,8 @@ class ProductAdmin(ModelAdmin):
         'gender', 'is_active', 'main_category', 'sub_category',
         'width', 'toe_box', 'brand', 'colors',
     )
-    autocomplete_fields = ['colors', 'sizes', 'brand']
-    inlines = [ProductImageInline, ProductQuestionAnswerInline]
+    autocomplete_fields = ['colors', 'brand']
+    inlines = [ProductImageInline, ProductQuestionAnswerInline,QuantityInline]
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
@@ -163,6 +167,13 @@ class ProductAdmin(ModelAdmin):
 class FavoriteAdmin(ModelAdmin):
     list_display = ('user',)
     search_fields = ('user__email',)
+    readonly_fields = ('user','products')
     autocomplete_fields = ['products']
     has_add_permission = lambda self, request, obj=None: False
     # has_delete_permission = lambda self, request, obj=None: False
+
+# @admin.register(SizeTable)
+# class SizeTableAdmin(ModelAdmin):
+#     list_display = ('brand', 'name')
+
+admin.site.register(FootScan,ModelAdmin)

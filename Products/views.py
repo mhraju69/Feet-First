@@ -92,7 +92,7 @@ class ProductDetailView(generics.RetrieveAPIView):
 
     def get_queryset(self):
         return super().get_queryset().select_related('brand').prefetch_related(
-            'images', 'colors', 'sizes__sizes'
+            'images', 'colors'
         )
 
     def get_serializer_context(self):
@@ -319,43 +319,75 @@ class SuggestedProductsView(generics.ListAPIView):
 class ProductQnAFilterAPIView(views.APIView):
     pagination_class = CustomLimitPagination
     permission_classes = [permissions.IsAuthenticated]
+
     def post(self, request, *args, **kwargs):
-        data = request.data  # Expected list of {question, answers}
-        if not isinstance(data, list):
+        data = request.data
+
+        # ✅ Check input validity
+        if not isinstance(data, dict):
             return Response(
-                {"error": "Invalid data format, expected a list."},
+                {"error": "Invalid data format, expected a JSON object."},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        query = Q()
-        cat = data[0].get("sub_category")
+        cat = data.get("sub_category")
+        questions_data = data.get("questions", [])
 
-        for item in data:
+        # যদি কোনো প্রশ্ন না থাকে → খালি pagination রিটার্ন
+        if not questions_data:
+            return self.empty_paginated_response(request)
+
+        final_query = Q()
+
+        for item in questions_data:
             question_label = item.get("question")
             answer_labels = item.get("answers", [])
 
+            # ❌ question বা answer না থাকলে স্কিপ না করে — সরাসরি empty pagination ফেরত
             if not question_label or not answer_labels:
-                continue  # Skip empty entries
+                return self.empty_paginated_response(request)
 
+            # প্রশ্ন খুঁজে পাওয়া যাচ্ছে কি?
             question_obj = Question.objects.filter(label__icontains=question_label).first()
             if not question_obj:
-                continue
+                return self.empty_paginated_response(request)
 
+            # ✅ প্রতিটি question এর অন্তত ১টা answer মিললে হবে
             q_obj = Q()
             for ans_label in answer_labels:
-                q_obj |= Q(
-                    question_answers__question=question_obj,
-                    question_answers__answers__label__icontains=ans_label
-                )
+                if ans_label and ans_label.strip():
+                    q_obj |= Q(
+                        question_answers__question=question_obj,
+                        question_answers__answers__label__icontains=ans_label
+                    )
 
-            query |= q_obj
+            # কোনো valid answer না থাকলে বা answer খালি থাকলে — empty pagination
+            if not q_obj.children:
+                return self.empty_paginated_response(request)
 
-        # Get all matching products
-        products = Product.objects.filter(query, sub_category=cat).distinct()
+            # ✅ সব প্রশ্নের শর্তগুলো AND দিয়ে যুক্ত
+            final_query &= q_obj
 
-        # 🧠 Apply pagination manually
+        # ✅ সব প্রশ্ন+answer match হলে, এখন sub_category দিয়ে ফিল্টার করো
+        if not cat:
+            return self.empty_paginated_response(request)
+
+        products = Product.objects.filter(final_query, sub_category=cat).distinct()
+
+        # ✅ যদি কোনো পণ্য না মেলে, খালি pagination রিটার্ন
+        if not products.exists():
+            return self.empty_paginated_response(request)
+
+        # ✅ pagination + serialization
         paginator = self.pagination_class()
         paginated_products = paginator.paginate_queryset(products, request, view=self)
-
         serializer = ProductSerializer(paginated_products, many=True)
+        return paginator.get_paginated_response(serializer.data)
+
+    # 🔸 Helper method → খালি pagination রেসপন্স
+    def empty_paginated_response(self, request):
+        paginator = self.pagination_class()
+        empty_queryset = Product.objects.none()
+        paginated = paginator.paginate_queryset(empty_queryset, request, view=self)
+        serializer = ProductSerializer(paginated, many=True)
         return paginator.get_paginated_response(serializer.data)

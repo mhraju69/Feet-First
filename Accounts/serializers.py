@@ -117,6 +117,6 @@ class PartnerSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created_at", "updated_at", "user"]
 
     def get_address(self, obj):
-        address = obj.addresses.first()
-        if address:
-            return AddressSerializer(address).data
+        addr = obj.addresses.first()
+        if addr:
+            return f"{addr.street_address}, {addr.address_line2}, {addr.city}"
