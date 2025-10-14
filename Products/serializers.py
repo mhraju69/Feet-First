@@ -77,6 +77,7 @@ class ProductDetailsSerializer(serializers.ModelSerializer):
     colors = serializers.SerializerMethodField()
     match_data = serializers.SerializerMethodField()
     brand = BrandSerializer(read_only=True)
+    sub_category = serializers.SerializerMethodField()
     favourite = serializers.SerializerMethodField()
     qna = serializers.SerializerMethodField()
 
@@ -88,7 +89,12 @@ class ProductDetailsSerializer(serializers.ModelSerializer):
             "further_information", "price", "discount", 
              "partner", "match_data", 'favourite', 'gender','sizes', 'qna'
         ]
-    
+    def get_sub_category(self, obj):
+        if obj.sub_category:
+            return obj.sub_category.name
+        else:
+            return None
+        
     def get_match_data(self, obj):
         """Return simplified match analysis with just score, sizes, and warnings"""
         scan = self.context.get("scan")

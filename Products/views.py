@@ -34,6 +34,7 @@ class ProductListView(generics.ListAPIView):
         if sub:
             sub_cat = SubCategory.objects.filter(slug=sub).first()
             queryset = queryset.filter(sub_category=sub_cat)
+            return queryset
         
         # Filter by gender
         gender = self.request.query_params.get("gender")
@@ -62,7 +63,7 @@ class ProductListView(generics.ListAPIView):
         scan = FootScan.objects.filter(user=self.request.user).first()
         
         context['scan'] = scan
-        context['match'] = match and match.lower() == "true"
+        context['match'] = match and match.lower() == "true"    
         
         return context
 
