@@ -117,10 +117,7 @@ class Product(models.Model):
 
     # --- IMPROVED MATCHING LOGIC ---   
     def match_with_scan(self, scan):
-        """
-        Enhanced matching algorithm with better scoring and size recommendations.
-        Returns detailed match information including multiple size options.
-        """
+
         if not scan:
             return {
                 "score": 0,
@@ -132,9 +129,7 @@ class Product(models.Model):
         # Use the larger foot for sizing (industry standard)
         foot_length = scan.max_length()
         foot_width = scan.max_width()
-        
-        print(f"🔍 DEBUG: Foot measurements - Length: {foot_length}mm, Width: {foot_width}mm")
-        
+                
         # Initialize scoring components
         score_components = {
             'length': 0,
@@ -157,7 +152,6 @@ class Product(models.Model):
         
         # Get unique size tables through the Quantity relationship
         quantities = self.quantities.select_related('size').all()
-        print(f"🔍 DEBUG: Found {quantities.count()} quantity records")
         
         for quantity in quantities:
             size_table = quantity.size
@@ -166,12 +160,9 @@ class Product(models.Model):
             if size_table.id in seen_size_tables:
                 continue
             seen_size_tables.add(size_table.id)
-            
-            print(f"🔍 DEBUG: Processing size table: {size_table.name}")
-            
+                        
             # Get all sizes from this size table
             sizes = size_table.sizes.all()
-            print(f"🔍 DEBUG: Size table has {sizes.count()} sizes")
             
             for size in sizes:
                 all_sizes.append({
@@ -181,27 +172,21 @@ class Product(models.Model):
                     'max_length': size.insole_max_mm,
                     'avg_length': (size.insole_min_mm + size.insole_max_mm) / 2
                 })
-                print(f"🔍 DEBUG: Added size {size.type} {size.value} - {size.insole_min_mm}-{size.insole_max_mm}mm")
         
         if not all_sizes:
             warnings.append("No size data available for this product")
-            print("⚠️ DEBUG: No sizes found!")
             return {
                 "score": 0,
                 "recommended_sizes": [],
                 "fit_analysis": {},
                 "warnings": warnings
             }
-        
-        print(f"🔍 DEBUG: Total sizes to evaluate: {len(all_sizes)}")
-        
+                
         # Calculate required insole length ranges
         ideal_insole = foot_length + IDEAL_TOE_SPACE
         min_acceptable = foot_length + MIN_TOE_SPACE
         max_acceptable = foot_length + MAX_TOE_SPACE
-        
-        print(f"🔍 DEBUG: Ideal insole: {ideal_insole}mm, Range: {min_acceptable}-{max_acceptable}mm")
-        
+                
         # Find best fitting sizes
         best_length_score = 0
         all_size_scores = []  # Track all sizes with their scores
@@ -210,9 +195,7 @@ class Product(models.Model):
             size_avg = size_info['avg_length']
             size_min = size_info['min_length']
             size_max = size_info['max_length']
-            
-            print(f"🔍 DEBUG: Evaluating size {size_info['size'].type} {size_info['size'].value} (avg: {size_avg}mm)")
-            
+                        
             # Check if size fits within acceptable range
             if min_acceptable <= size_avg <= max_acceptable:
                 # Calculate how close to ideal
@@ -252,9 +235,7 @@ class Product(models.Model):
                 
                 size_recommendations.append(size_rec)
                 all_size_scores.append(length_score)
-                
-                print(f"✅ DEBUG: Size {size_info['size'].value} - {fit_type} (score: {length_score}, deviation: {deviation}mm)")
-                
+                                
                 best_length_score = max(best_length_score, length_score)
             else:
                 # Size is outside acceptable range, but still track for fallback
@@ -282,13 +263,9 @@ class Product(models.Model):
                         fit_type = "much too large"
                 
                 all_size_scores.append(length_score)
-                print(f"⚠️ DEBUG: Size {size_info['size'].value} - {fit_type} (score: {length_score})")
-        
-        print(f"🔍 DEBUG: Found {len(size_recommendations)} recommended sizes")
-        
+                
         # If no perfect matches, add the closest sizes as recommendations
         if not size_recommendations and all_sizes:
-            print("⚠️ DEBUG: No perfect sizes found, looking for closest alternatives...")
             
             # Find the 3 closest sizes
             sizes_with_distance = []
@@ -338,18 +315,14 @@ class Product(models.Model):
                 })
                 
                 best_length_score = max(best_length_score, length_score)
-                print(f"📌 DEBUG: Added alternative size {size_info['size'].value} (distance: {distance}mm)")
         
         # Calculate the final length score component
         score_components['length'] = best_length_score * 40
-        print(f"🔍 DEBUG: Length score: {score_components['length']:.1f}/40")
         
         # --- 2. WIDTH MATCHING (35% weight) ---
         foot_width_category = scan.width_category()
         product_width = self.width
-        
-        print(f"🔍 DEBUG: Foot width category: {foot_width_category}, Product width: {product_width}")
-        
+                
         width_diff = abs(foot_width_category - product_width)
         
         if width_diff == 0:
@@ -379,14 +352,11 @@ class Product(models.Model):
             warnings.append("Strong width mismatch - please choose another model")
         
         score_components['width'] = width_score * 35
-        print(f"🔍 DEBUG: Width score: {score_components['width']:.1f}/35")
         
         # --- 3. TOE BOX MATCHING (15% weight) ---
         foot_toe_box = scan.toe_box_category()
         product_toe_box = self.toe_box
-        
-        print(f"🔍 DEBUG: Foot toe box: {foot_toe_box}, Product toe box: {product_toe_box}")
-        
+                
         if foot_toe_box == product_toe_box:
             toe_box_score = 1.0
             toe_box_match = "Perfect toe box match"
@@ -403,25 +373,20 @@ class Product(models.Model):
                 warnings.append("Toe box may feel too spacious")
         
         score_components['toe_box'] = toe_box_score * 15
-        print(f"🔍 DEBUG: Toe box score: {score_components['toe_box']:.1f}/15")
         
         # --- 4. GENDER MATCHING (10% weight) ---
         # This is a soft match - doesn't disqualify but affects score
         user_gender = getattr(scan.user, 'gender', None)
-        
-        print(f"🔍 DEBUG: User gender: {user_gender}, Product gender: {self.gender}")
-        
+                
         if user_gender and user_gender.lower() == self.gender.lower():
             gender_score = 1.0
         else:
             gender_score = 0.5  # Still acceptable, just noted
         
         score_components['gender'] = gender_score * 10
-        print(f"🔍 DEBUG: Gender score: {score_components['gender']:.1f}/10")
         
         # --- CALCULATE TOTAL SCORE ---
         total_score = sum(score_components.values())
-        print(f"🔍 DEBUG: Total score: {total_score:.1f}/100")
         
         # Sort size recommendations by score, then by deviation
         size_recommendations.sort(key=lambda x: (-x['score'], x.get('deviation', 999)))
@@ -433,7 +398,6 @@ class Product(models.Model):
         for rec in size_recommendations:
             rec.pop('deviation', None)
         
-        print(f"✅ DEBUG: Final recommendations: {len(size_recommendations)}")
         
         # Additional warnings based on total score
         if total_score < 50:

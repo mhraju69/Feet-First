@@ -25,6 +25,7 @@ class ProductListView(generics.ListAPIView):
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     search_fields = ['name', 'description', 'brand__name']
     filterset_fields = [ 'sub_category__slug', 'gender', 'brand']
+    
 
     def get_queryset(self):
         queryset = Product.objects.filter(is_active=True).select_related('brand').prefetch_related('images', 'colors')
