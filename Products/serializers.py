@@ -91,7 +91,7 @@ class ProductDetailsSerializer(serializers.ModelSerializer):
         ]
     def get_sub_category(self, obj):
         if obj.sub_category:
-            return obj.sub_category.name
+            return obj.sub_category.slug
         else:
             return None
         
