@@ -23,6 +23,7 @@ class ProductSerializer(serializers.ModelSerializer):
     colors = serializers.SerializerMethodField()
     brand = serializers.SerializerMethodField()
     favourite = serializers.SerializerMethodField()
+    sub_category = serializers.SerializerMethodField()
     
     class Meta:
         model = Product
@@ -30,6 +31,12 @@ class ProductSerializer(serializers.ModelSerializer):
             'id', 'image', 'name', 'colors', 'gender', 'price', 
             'match_data', 'brand', 'favourite', 'sub_category'
         ]
+
+    def get_sub_category(self, obj):
+        if obj.sub_category:
+            return obj.sub_category.name
+        else:
+            return None
 
     def get_image(self, obj):
         primary = obj.images.first()

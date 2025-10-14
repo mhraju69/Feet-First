@@ -24,7 +24,7 @@ class ProductListView(generics.ListAPIView):
     pagination_class = CustomLimitPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     search_fields = ['name', 'description', 'brand__name']
-    filterset_fields = ['main_category', 'sub_category', 'gender', 'brand']
+    filterset_fields = [ 'sub_category__slug', 'gender', 'brand']
 
     def get_queryset(self):
         queryset = Product.objects.filter(is_active=True).select_related('brand').prefetch_related('images', 'colors')
@@ -32,7 +32,8 @@ class ProductListView(generics.ListAPIView):
         # Filter by sub_category if provided
         sub = self.request.query_params.get("sub_category")
         if sub:
-            queryset = queryset.filter(sub_category=sub)
+            sub_cat = SubCategory.objects.filter(slug=sub).first()
+            queryset = queryset.filter(sub_category=sub_cat)
         
         # Filter by gender
         gender = self.request.query_params.get("gender")
@@ -323,7 +324,7 @@ class ProductQnAFilterAPIView(views.APIView):
     def post(self, request, *args, **kwargs):
         data = request.data
 
-        # ✅ Check input validity
+        # ✅ Input validation
         if not isinstance(data, dict):
             return Response(
                 {"error": "Invalid data format, expected a JSON object."},
@@ -333,61 +334,113 @@ class ProductQnAFilterAPIView(views.APIView):
         cat = data.get("sub_category")
         questions_data = data.get("questions", [])
 
-        # যদি কোনো প্রশ্ন না থাকে → খালি pagination রিটার্ন
+        print(f"🔍 DEBUG: Received sub_category = '{cat}'")
+        print(f"🔍 DEBUG: Received {len(questions_data)} questions")
+
+        # If no questions provided, return empty
         if not questions_data:
+            print("⚠️ DEBUG: No questions provided")
             return self.empty_paginated_response(request)
 
-        final_query = Q()
+        if not cat:
+            print("⚠️ DEBUG: No sub_category provided")
+            return self.empty_paginated_response(request)
 
-        for item in questions_data:
-            question_label = item.get("question")
-            answer_labels = item.get("answers", [])
+        # Start with all products in the sub_category
+        try:
+            # First, get products by sub_category (using slug since you have slug field)
+            subcategory_products = Product.objects.filter(sub_category__slug=cat)
+            print(f"🔍 DEBUG: Found {subcategory_products.count()} products in sub_category '{cat}'")
+            
+            if not subcategory_products.exists():
+                print("⚠️ DEBUG: No products found in this sub_category")
+                return self.empty_paginated_response(request)
+                
+        except Exception as e:
+            print(f"❌ DEBUG: Error filtering by sub_category: {e}")
+            return self.empty_paginated_response(request)
 
-            # ❌ question বা answer না থাকলে স্কিপ না করে — সরাসরি empty pagination ফেরত
+        # Build query for each question
+        final_queryset = subcategory_products
+        
+        for i, question_item in enumerate(questions_data):
+            question_label = question_item.get("question")
+            answer_labels = question_item.get("answers", [])
+            
+            print(f"🔍 DEBUG: Processing Q{i+1}: '{question_label}'")
+            print(f"🔍 DEBUG: Answers: {answer_labels}")
+
             if not question_label or not answer_labels:
+                print("⚠️ DEBUG: Empty question or answers")
                 return self.empty_paginated_response(request)
 
-            # প্রশ্ন খুঁজে পাওয়া যাচ্ছে কি?
+            # Find the question object
             question_obj = Question.objects.filter(label__icontains=question_label).first()
             if not question_obj:
+                print(f"⚠️ DEBUG: Question '{question_label}' not found")
                 return self.empty_paginated_response(request)
+            
+            print(f"🔍 DEBUG: Found question: {question_obj}")
 
-            # ✅ প্রতিটি question এর অন্তত ১টা answer মিললে হবে
-            q_obj = Q()
-            for ans_label in answer_labels:
-                if ans_label and ans_label.strip():
-                    q_obj |= Q(
+            # For this question, we need to find products that have AT LEAST ONE of the answers
+            question_query = Q()
+            valid_answers = 0
+            
+            for answer_label in answer_labels:
+                if answer_label and answer_label.strip():
+                    # Check if any products have this question-answer combination
+                    answer_match_count = final_queryset.filter(
                         question_answers__question=question_obj,
-                        question_answers__answers__label__icontains=ans_label
-                    )
+                        question_answers__answers__label__icontains=answer_label
+                    ).count()
+                    
+                    print(f"🔍 DEBUG:   Answer '{answer_label}' matches {answer_match_count} products")
+                    
+                    if answer_match_count > 0:
+                        question_query |= Q(
+                            question_answers__question=question_obj,
+                            question_answers__answers__label__icontains=answer_label
+                        )
+                        valid_answers += 1
 
-            # কোনো valid answer না থাকলে বা answer খালি থাকলে — empty pagination
-            if not q_obj.children:
+            print(f"🔍 DEBUG: Valid answers found: {valid_answers}")
+            
+            if valid_answers == 0:
+                print(f"⚠️ DEBUG: No valid answers found for question '{question_label}'")
                 return self.empty_paginated_response(request)
 
-            # ✅ সব প্রশ্নের শর্তগুলো AND দিয়ে যুক্ত
-            final_query &= q_obj
+            # Apply this question's filter to the queryset
+            previous_count = final_queryset.count()
+            final_queryset = final_queryset.filter(question_query).distinct()
+            current_count = final_queryset.count()
+            
+            print(f"🔍 DEBUG: After Q{i+1}: {previous_count} → {current_count} products remaining")
 
-        # ✅ সব প্রশ্ন+answer match হলে, এখন sub_category দিয়ে ফিল্টার করো
-        if not cat:
+            if current_count == 0:
+                print(f"⚠️ DEBUG: No products left after question {i+1}")
+                return self.empty_paginated_response(request)
+
+        # Final result
+        print(f"✅ DEBUG: Final product count: {final_queryset.count()}")
+        
+        if not final_queryset.exists():
+            print("⚠️ DEBUG: No products match all criteria")
             return self.empty_paginated_response(request)
 
-        products = Product.objects.filter(final_query, sub_category=cat).distinct()
-
-        # ✅ যদি কোনো পণ্য না মেলে, খালি pagination রিটার্ন
-        if not products.exists():
-            return self.empty_paginated_response(request)
-
-        # ✅ pagination + serialization
+        # Pagination and serialization
         paginator = self.pagination_class()
-        paginated_products = paginator.paginate_queryset(products, request, view=self)
+        paginated_products = paginator.paginate_queryset(final_queryset, request, view=self)
         serializer = ProductSerializer(paginated_products, many=True)
+        
+        print(f"✅ DEBUG: Successfully returning {len(paginated_products)} products")
         return paginator.get_paginated_response(serializer.data)
 
-    # 🔸 Helper method → খালি pagination রেসপন্স
+    # Helper method for empty response
     def empty_paginated_response(self, request):
         paginator = self.pagination_class()
         empty_queryset = Product.objects.none()
         paginated = paginator.paginate_queryset(empty_queryset, request, view=self)
         serializer = ProductSerializer(paginated, many=True)
         return paginator.get_paginated_response(serializer.data)
+    
+

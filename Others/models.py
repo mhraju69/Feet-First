@@ -2,216 +2,7 @@ from django.db import models
 from cloudinary_storage.storage import MediaCloudinaryStorage
 from Products.models import Product
 from itertools import chain
-
-# Create your models here.
-class ShoesQuestion(models.TextChoices):
-    # General / reusable
-    FIT_PREFERENCE = "fit_preference", "How do you prefer your shoes to fit?"
-    SHAFT_HEIGHT = "shaft_height", "Which shaft height do you prefer?"
-    WATERPROOF = "waterproof", "Should the shoe be waterproof?"
-    PLAYING_SURFACE = "playing_surface", "On which surface do you mainly play?"
-
-    # Running
-    PURPOSE = "purpose", "What purpose are you looking for running shoes for?"
-    SURFACE = "surface", "On which surface will you mainly be running?"
-    FOOT_TYPE = "foot_type", "Do you know your foot type or pronation?"
-    RUNNING_PROBLEMS = "running_problems", "Have you ever had any problems or pain while running?"
-    CUSHIONING_STABILITY = "cushioning_stability", "What role does cushioning play in relation to stability?"
-    SOLE_HEIGHT = "sole_height", "Do you prefer a higher sole or a normal to mid-range sole height?"
-
-    # Trail Running
-    TRAIL_USAGE = "trail_usage", "How will you primarily use your trail running shoes?"
-
-    # Interval Training
-    INTERVAL_SURFACE = "interval_surface", "On which surface do you run your interval training?"
-    INTERVAL_DISTANCE = "interval_distance", "Which distance do you run in your interval training?"
-
-    # Racing
-    RACING_TYPE = "racing_type", "What type of racing shoes are you looking for?"
-    RACING_DISTANCE = "racing_distance", "For which distance are you looking for racing shoes?"
-    DROP_PREFERENCE = "drop_preference", "What drop do you prefer?"
-    CYCLING_TYPE = "cycling_type", "What type of cycling do you do?"
-    PEDAL_TYPE = "pedal_type", "What type of pedals do you use?"
-    STIFFNESS_INDEX = "stiffness_index", "Which stiffness index suits you?"
-    CUSTOM_INSOLE = "custom_insole", "Do you want to take your performance to the next level with an individually customized insole?"
-
-    # Soccer
-    PRIORITY = "priority", "What is more important to you - speed or stability?"
-    PRICE_RANGE = "price_range", "Which price range do you prefer for your soccer shoes?"
-    ANKLE_SUPPORT = "ankle_support", "Do you need more ankle protection or more freedom of movement?"
-
-    # Climbing
-    CLIMBING_PURPOSE = "climbing_purpose", "What do you need the climbing shoes for?"
-    FOOT_SHAPE = "foot_shape", "What foot shape do you have?"
-    SOLE_PRIORITY = "sole_priority", "What is most important to you about the sole of your climbing shoe?"
-    SHAPE_PREFERENCE = "shape_preference", "Which shape do you prefer?"
-
-    # Court Sports
-    COURT_SURFACE = "court_surface", "On which surface do you mainly play?"
-    PERFORMANCE_DURABILITY = "performance_durability", "Is performance or durability more important to you?"
-    MOVEMENT_TYPE = "movement_type", "Do you move more sideways or often sprint forward and backward?"
-
-    # Golf
-    STABILITY_COMFORT = "stability_comfort", "What is more important to you - stability or comfort?"
-    SOLE_TYPE = "sole_type", "Which sole type do you need?"
-    WATERPROOF_BREATHABILITY = "waterproof_breathability", "How important are waterproofing and breathability for your golf shoes?"
-
-    # Hiking
-    TERRAIN = "terrain", "On which surface will you mainly use the shoe?"
-
-    # Everyday
-    SHOE_TYPE = "shoe_type", "Which everyday shoes are you looking for?"
-    ORTHOPEDIC_INSOLES = "orthopedic_insoles", "Do you own orthopedic insoles?"
-
-class ShoesAnswer(models.TextChoices):
-    # General / reusable
-    PERFECT_FIT = "perfect_fit", "Perfect fit based on 3D scan"
-    SNUG = "snug", "Rather snug, as I like my shoes to fit tightly"
-    ROOMY = "roomy", "Rather roomy, for more freedom of movement"
-    NORMAL_FIT = "normal_fit", "Normal fit - ideal for everyday use"
-    NEUTRAL = "neutral", "Neutral - Comfortable for long tours & beginners"
-    
-    YES = "yes", "Yes"
-    NO = "no", "No"
-    
-    WATERPROOF = "waterproof", "Should the shoe be waterproof?"
-    SHAFT_HEIGHT = "shaft_height", "Which shaft height do you prefer?"
-    PLAYING_SURFACE = "playing_surface", "On which surface do you mainly play?"
-    SHOE_TYPE = "shoe_type", "Which everyday shoes are you looking for?"
-    
-    # Running types
-    ALLROUNDER = "allrounder", "All-rounder"
-    RACE_MARATHON = "race_marathon", "Race/Marathon"
-    TRAIL_RUNNING = "trail_running", "Trail running (off-road)"
-    INTERVAL_TRAINING = "interval_training", "Interval runs/Track workouts"
-    LONG_DISTANCE = "long_distance", "Long distances/Long runs"
-    WALKING = "walking", "Walking shoes"
-
-    # Cushioning & stability
-    MAX_CUSHIONING = "max_cushioning", "Maximum cushioning - focus on comfort"
-    BALANCED = "balanced", "Balanced - good ratio of cushioning & stability"
-    MORE_STABILITY = "more_stability", "More stability - focus on control"
-
-    # Sole height
-    HIGHER_SOLE = "higher_sole", "Higher sole - focus on comfort"
-    NORMAL_MID_SOLE = "normal_mid_sole", "Normal to mid-range sole - natural rolling"
-
-    # Trail usage
-    TRAILS_ONLY = "trails_only", "Only on trails & off-road"
-    HYBRID_USE = "hybrid_use", "Mix of trail & road (hybrid use)"
-
-    # Waterproof
-    YES_WATERPROOF = "yes_waterproof", "Yes, waterproof and breathable"
-    NO_WATERPROOF = "no_waterproof", "No, lighter and ventilated"
-
-    # Shaft height
-    LOW = "low", "Low (below the ankle)"
-    MID_HIGH = "mid_high", "Mid/High (ankle-high or above)"
-
-    # Interval distances
-    SHORT_DISTANCE = "short_distance", "Short distance (100-400 m)"
-    MIDDLE_LONG_DISTANCE = "middle_long_distance", "Middle & long distance (800 m - 10,000 m)"
-
-    # Racing
-    WITH_CARBON = "with_carbon", "Racing shoes with carbon"
-    WITHOUT_CARBON = "without_carbon", "Racing shoes without carbon"
-
-    SHORT_RACE = "short_race", "Short distance (5-10 km)"
-    HALF_MARATHON = "half_marathon", "Half marathon (21.1 km)"
-    MARATHON = "marathon", "Marathon (42.2 km & more)"
-
-    STANDARD_DROP = "standard_drop", "6-10 mm - proven choice"
-    MINIMAL_DROP = "minimal_drop", "≤ 6 mm - direct push-off"
-
-    # Cycling
-    ROAD_BIKE = "road_bike", "Road bike"
-    MOUNTAIN_BIKE = "mountain_bike", "Mountain bike"
-    GRAVEL = "gravel", "Gravel"
-    CLIPLESS = "clipless", "Clipless pedals"
-    PLATFORM = "platform", "Platform pedals"
-    HYBRID = "hybrid", "Hybrid pedals"
-    FLEXIBLE = "flexible", "5-7 - more flexibility, comfort"
-    BALANCED_STIFFNESS = "balanced_stiffness", "8-10 - balance of comfort & efficiency"
-    MAX_STIFFNESS = "max_stiffness", "11-15 - maximum power transfer"
-
-    TIGHT = "tight", "Tight, athletic fit"
-    BALANCED_FIT = "balanced_fit", "Balanced fit (performance & comfort)"
-    COMFORTABLE = "comfortable", "Comfortable fit (more space)"
-
-    CUSTOM_INSOLE = "custom_insole", "Individually customized insole"
-
-    # Soccer
-    PRIORITY = "priority", "What is more important - speed or stability?"
-    PRICE_RANGE = "price_range", "Preferred price range"
-    NATURAL_GRASS = "natural_grass", "Natural grass (FG)"
-    ARTIFICIAL_TURF = "artificial_turf", "Artificial turf (AG)"
-    INDOOR_COURT = "indoor_court", "Indoor court (IC)"
-    SPEED = "speed", "Speed - lightweight, quick starts"
-    STABILITY = "stability", "Stability - secure fit, optimal control"
-    VERSATILITY = "versatility", "Versatility - balance of speed & support"
-    ENTRY_LEVEL = "entry_level", "Entry-level (€50-100)"
-    MID_RANGE = "mid_range", "Mid-range (€100-200)"
-    PREMIUM = "premium", "Premium (> €200)"
-    ANKLE_SUPPORT = "ankle_support", "More ankle protection or freedom of movement"
-
-    # Climbing
-    CLIMBING_PURPOSE = "climbing_purpose", "Purpose of climbing shoes"
-    FOOT_SHAPE = "foot_shape", "Foot shape"
-    SOLE_PRIORITY = "sole_priority", "Important sole feature"
-    SHAPE_PREFERENCE = "shape_preference", "Preferred shape"
-    MULTI_PITCH = "multi_pitch", "Multi-pitch/alpine"
-    BOULDERING = "bouldering", "Bouldering"
-    SPORT_CLIMBING = "sport_climbing", "Sport climbing"
-    CRACK_CLIMBING = "crack_climbing", "Crack climbing"
-    EGYPTIAN = "egyptian", "Egyptian"
-    ROMAN = "roman", "Roman"
-    GREEK = "greek", "Greek"
-    AUTO_ANALYSIS = "auto_analysis", "Automatic scan analysis"
-    FEEL_PRECISION = "feel_precision", "Maximum feel and precision"
-    SUPPORT_COMFORT = "support_comfort", "Support and comfort"
-    DURABILITY = "durability", "Durability & robustness"
-    BALANCE_DURABILITY = "balance_durability", "Balance of durability and performance"
-    MODERATE_CURVE = "moderate_curve", "Moderate curvature - comfort & precision"
-    AGGRESSIVE_CURVE = "aggressive_curve", "Strongly curved - maximum precision"
-
-    # Court sports / Tennis
-    COURT_SURFACE = "court_surface", "On which surface do you mainly play?"
-    PERFORMANCE_DURABILITY = "performance_durability", "Performance or durability?"
-    MOVEMENT_TYPE = "movement_type", "Sideways or forward/backward movements?"
-    CLAY = "clay", "Clay court"
-    HARD = "hard", "Hard court"
-    GRASS = "grass", "Grass court"
-    ALL_COURT = "all_court", "All court"
-    PERFORMANCE = "performance", "Maximum performance"
-    COMFORT = "comfort", "Comfortable play"
-    SPIKELESS = "spikeless", "Spikeless"
-    SPIKES = "spikes", "Spikes"
-    MAX_WATERPROOF = "max_waterproof", "Maximum waterproofing"
-    BALANCED_WB = "balanced_wb", "Balanced waterproof & breathable"
-    MAX_BREATHABILITY = "max_breathability", "Maximum ventilation"
-
-    # Hiking / Outdoors
-    TERRAIN = "terrain", "Surface you will mainly use the shoe on"
-    NORMAL_TOURS = "normal_tours", "Normal mountain tours"
-    HIGH_ALTITUDE = "high_altitude", "High-altitude tours"
-    HIGH_CUT = "high_cut", "High-Cut support"
-    MID_CUT = "mid_cut", "Mid-Cut balance"
-    LOW_CUT = "low_cut", "Low-Cut, lightweight"
-    BREATHABLE = "breathable", "Breathable, non-waterproof"
-    WATERPROOF_MEMBRANE = "waterproof_membrane", "Waterproof membrane (e.g., Gore-Tex®)"
-
-    # Everyday shoes
-    SNEAKERS = "sneakers", "Sneakers"
-    SANDALS = "sandals", "Sandals"
-    DRESS_SHOES = "dress_shoes", "Dress shoes"
-    WORK_SHOES = "work_shoes", "Work shoes"
-    SPORTS_SHOES = "sports_shoes", "Sports shoes"
-    COMFORT_SHOES = "comfort_shoes", "Comfort shoes"
-
-    # Insoles
-    YES_INSOLES = "yes_insoles", "Yes"
-    NO_INSOLES = "no_insoles", "No"
-    PLANNED_INSOLES = "planned_insoles", "Planned"
+from Products.models import *
 
 class FAQ(models.Model):
     question_de = models.CharField(max_length=200 , verbose_name ="Question (German)")
@@ -241,14 +32,12 @@ class News(models.Model):
     def __str__(self):
         return f"{self.title_de} - {self.title_it}"
 
-
 class Question(models.Model):
     key = models.CharField(max_length=255, unique=True)
     label = models.TextField()
 
     def __str__(self):
         return self.label
-
 
 class Answer(models.Model):
     question = models.ForeignKey(Question, on_delete=models.CASCADE, related_name="answers", null=True, blank=True)
@@ -274,3 +63,126 @@ class ProductQuestionAnswer(models.Model):
         return f"{self.product.name} - {self.question.label}"
     class Meta:
         verbose_name = 'Question & Answer'
+
+class FootScan(models.Model):   
+    user = models.OneToOneField(
+        User,
+        limit_choices_to={'role': 'customer'},
+        on_delete=models.CASCADE,
+        related_name="foot_scans",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    # Foot length (mm)
+    left_length = models.DecimalField(max_digits=6, decimal_places=2, help_text="Left foot length in mm")
+    right_length = models.DecimalField(max_digits=6, decimal_places=2, help_text="Right foot length in mm")
+
+    # Foot width (mm)
+    left_width = models.DecimalField(max_digits=6, decimal_places=2, help_text="Left foot width in mm")
+    right_width = models.DecimalField(max_digits=6, decimal_places=2, help_text="Right foot width in mm")
+
+    # Arch Index (for future insole recommendation)
+    left_arch_index = models.DecimalField(max_digits=6, decimal_places=2, blank=True, null=True)
+    right_arch_index = models.DecimalField(max_digits=6, decimal_places=2, blank=True, null=True)
+
+    # Heel Angle
+    left_heel_angle = models.DecimalField(max_digits=6, decimal_places=2, blank=True, null=True,
+                                          help_text="Left heel angle in degrees")
+    right_heel_angle = models.DecimalField(max_digits=6, decimal_places=2, blank=True, null=True,
+                                           help_text="Right heel angle in degrees")
+
+    # --- Utility Methods ---
+    def average_length(self):
+        """Returns average length of both feet in mm."""
+        return float((self.left_length + self.right_length) / 2)
+
+    def average_width(self):
+        """Returns average width of both feet in mm."""
+        return float((self.left_width + self.right_width) / 2)
+
+    def max_length(self):
+        """Returns the bigger foot length (used for shoe sizing)."""
+        return float(max(self.left_length, self.right_length))
+
+    def max_width(self):
+        """Returns the wider foot (used for shoe sizing)."""
+        return float(max(self.left_width, self.right_width))
+
+    # --- IMPROVED Category mappings ---
+    def width_category(self):
+        """
+        Improved width categorization using width-to-length ratio.
+        More accurate than absolute width values.
+        Returns: 0=Narrow, 1=Narrow-Normal, 2=Normal, 3=Normal-Wide, 4=Wide
+        """
+        length = self.max_length()
+        width = self.max_width()
+        
+        # Calculate width-to-length ratio (typical range: 0.35 - 0.45)
+        ratio = width / length if length > 0 else 0
+        
+        # Refined thresholds based on biomechanical research
+        if ratio < 0.37:
+            return 0  # Narrow
+        elif ratio < 0.39:
+            return 1  # Narrow-Normal
+        elif ratio < 0.41:
+            return 2  # Normal
+        elif ratio < 0.43:
+            return 3  # Normal-Wide
+        else:
+            return 4  # Wide
+
+    def toe_box_category(self):
+        """
+        Improved toe box categorization.
+        Returns: "narrow", "normal", "wide"
+        """
+        length = self.max_length()
+        width = self.max_width()
+        
+        # Use ratio for better accuracy
+        ratio = width / length if length > 0 else 0
+        
+        if ratio < 0.38:
+            return "narrow"
+        elif ratio < 0.42:
+            return "normal"
+        else:
+            return "wide"
+    
+    def get_width_label(self):
+        """Get human-readable width label."""
+        return Width(self.width_category()).label
+    
+    def get_foot_type(self):
+        """Determine overall foot type for better recommendations."""
+        arch_avg = None
+        if self.left_arch_index and self.right_arch_index:
+            arch_avg = (float(self.left_arch_index) + float(self.right_arch_index)) / 2
+        
+        width_cat = self.width_category()
+        
+        foot_type = []
+        
+        # Width type
+        if width_cat <= 1:
+            foot_type.append("narrow")
+        elif width_cat >= 3:
+            foot_type.append("wide")
+        else:
+            foot_type.append("average width")
+        
+        # Arch type (if available)
+        if arch_avg:
+            if arch_avg < 0.21:
+                foot_type.append("high arch")
+            elif arch_avg > 0.26:
+                foot_type.append("flat")
+            else:
+                foot_type.append("normal arch")
+        
+        return ", ".join(foot_type)
+
+    def __str__(self):
+        return f"FootScan for {self.user.email} ({self.get_foot_type()})"

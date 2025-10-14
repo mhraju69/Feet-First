@@ -3,6 +3,7 @@ from django.db import models
 from datetime import timedelta
 from django.conf import settings
 from django.utils import timezone
+from django.core.exceptions import ValidationError
 from cloudinary_storage.storage import MediaCloudinaryStorage
 from django.contrib.auth.models import BaseUserManager, AbstractBaseUser, PermissionsMixin
 
@@ -64,6 +65,10 @@ class User(AbstractBaseUser, PermissionsMixin):
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = []
 
+    def clean(self):
+        if self.role == 'partner':
+            if self.lat is None or self.lng is None:
+                raise ValidationError("Latitude and Longitude is necessary for Partner role.")
     def __str__(self):
         return self.email
     def save(self, *args, **kwargs):
@@ -72,6 +77,7 @@ class User(AbstractBaseUser, PermissionsMixin):
         if self.role == 'partner':
             self.is_staff = True
             self.is_active = True
+
         if self.suspend:
             self.is_active = False
         super().save(*args, **kwargs)

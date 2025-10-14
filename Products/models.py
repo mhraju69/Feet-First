@@ -151,7 +151,9 @@ class Product(models.Model):
         MAX_TOE_SPACE = 18
         
         all_sizes = []
-        for size_table in self.sizes.all():
+        # Get sizes through the Quantity relationship
+        for quantity in self.quantities.select_related('size').all():
+            size_table = quantity.size
             for size in size_table.sizes.all():
                 all_sizes.append({
                     'size': size,
@@ -281,7 +283,7 @@ class Product(models.Model):
             toe_box_score = 1.0
             toe_box_match = "Perfect toe box match"
         elif (foot_toe_box == "normal" and product_toe_box in ["narrow", "wide"]) or \
-             (product_toe_box == "normal" and foot_toe_box in ["narrow", "wide"]):
+            (product_toe_box == "normal" and foot_toe_box in ["narrow", "wide"]):
             toe_box_score = 0.70
             toe_box_match = "Acceptable toe box"
         else:
@@ -355,129 +357,6 @@ class Quantity(models.Model):
         unique_together = ('product', 'size'),
         verbose_name = "Size & Quantity"
         verbose_name_plural = "Sizes & Quantity"
-
-class FootScan(models.Model):   
-    user = models.OneToOneField(
-        User,
-        limit_choices_to={'role': 'customer'},
-        on_delete=models.CASCADE,
-        related_name="foot_scans",
-    )
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    # Foot length (mm)
-    left_length = models.DecimalField(max_digits=6, decimal_places=2, help_text="Left foot length in mm")
-    right_length = models.DecimalField(max_digits=6, decimal_places=2, help_text="Right foot length in mm")
-
-    # Foot width (mm)
-    left_width = models.DecimalField(max_digits=6, decimal_places=2, help_text="Left foot width in mm")
-    right_width = models.DecimalField(max_digits=6, decimal_places=2, help_text="Right foot width in mm")
-
-    # Arch Index (for future insole recommendation)
-    left_arch_index = models.DecimalField(max_digits=6, decimal_places=2, blank=True, null=True)
-    right_arch_index = models.DecimalField(max_digits=6, decimal_places=2, blank=True, null=True)
-
-    # Heel Angle
-    left_heel_angle = models.DecimalField(max_digits=6, decimal_places=2, blank=True, null=True,
-                                          help_text="Left heel angle in degrees")
-    right_heel_angle = models.DecimalField(max_digits=6, decimal_places=2, blank=True, null=True,
-                                           help_text="Right heel angle in degrees")
-
-    # --- Utility Methods ---
-    def average_length(self):
-        """Returns average length of both feet in mm."""
-        return float((self.left_length + self.right_length) / 2)
-
-    def average_width(self):
-        """Returns average width of both feet in mm."""
-        return float((self.left_width + self.right_width) / 2)
-
-    def max_length(self):
-        """Returns the bigger foot length (used for shoe sizing)."""
-        return float(max(self.left_length, self.right_length))
-
-    def max_width(self):
-        """Returns the wider foot (used for shoe sizing)."""
-        return float(max(self.left_width, self.right_width))
-
-    # --- IMPROVED Category mappings ---
-    def width_category(self):
-        """
-        Improved width categorization using width-to-length ratio.
-        More accurate than absolute width values.
-        Returns: 0=Narrow, 1=Narrow-Normal, 2=Normal, 3=Normal-Wide, 4=Wide
-        """
-        length = self.max_length()
-        width = self.max_width()
-        
-        # Calculate width-to-length ratio (typical range: 0.35 - 0.45)
-        ratio = width / length if length > 0 else 0
-        
-        # Refined thresholds based on biomechanical research
-        if ratio < 0.37:
-            return 0  # Narrow
-        elif ratio < 0.39:
-            return 1  # Narrow-Normal
-        elif ratio < 0.41:
-            return 2  # Normal
-        elif ratio < 0.43:
-            return 3  # Normal-Wide
-        else:
-            return 4  # Wide
-
-    def toe_box_category(self):
-        """
-        Improved toe box categorization.
-        Returns: "narrow", "normal", "wide"
-        """
-        length = self.max_length()
-        width = self.max_width()
-        
-        # Use ratio for better accuracy
-        ratio = width / length if length > 0 else 0
-        
-        if ratio < 0.38:
-            return "narrow"
-        elif ratio < 0.42:
-            return "normal"
-        else:
-            return "wide"
-    
-    def get_width_label(self):
-        """Get human-readable width label."""
-        return Width(self.width_category()).label
-    
-    def get_foot_type(self):
-        """Determine overall foot type for better recommendations."""
-        arch_avg = None
-        if self.left_arch_index and self.right_arch_index:
-            arch_avg = (float(self.left_arch_index) + float(self.right_arch_index)) / 2
-        
-        width_cat = self.width_category()
-        
-        foot_type = []
-        
-        # Width type
-        if width_cat <= 1:
-            foot_type.append("narrow")
-        elif width_cat >= 3:
-            foot_type.append("wide")
-        else:
-            foot_type.append("average width")
-        
-        # Arch type (if available)
-        if arch_avg:
-            if arch_avg < 0.21:
-                foot_type.append("high arch")
-            elif arch_avg > 0.26:
-                foot_type.append("flat")
-            else:
-                foot_type.append("normal arch")
-        
-        return ", ".join(foot_type)
-
-    def __str__(self):
-        return f"FootScan for {self.user.email} ({self.get_foot_type()})"
 
 class ProductImage(models.Model):
     product = models.ForeignKey(Product, related_name='images', on_delete=models.CASCADE)
