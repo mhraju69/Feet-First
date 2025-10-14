@@ -12,6 +12,11 @@ class OthersConfig(AppConfig):
         def populate_questions(sender, **kwargs):
             
             QUESTION_ANSWERS_MAP = {
+                "How do you prefer to wear your all-rounder running shoes?": [
+                        ("perfect_fit_all_round", "The perfect running shoe fit based on my 3D scan"),
+                        ("roomy_all_round", "Rather wide, as I prefer more freedom of movement"),
+                        ("snug_all_round", "Rather tight, as I like to wear my shoes firmly on my foot")
+                    ],
                     "For what purpose are you looking for running shoes?": [
                         ("allrounder", "All-rounder"),
                         ("trail_running", "Trail running (terrain)"),

@@ -325,7 +325,6 @@ class ProductQnAFilterAPIView(views.APIView):
     def post(self, request, *args, **kwargs):
         data = request.data
 
-        # ✅ Input validation
         if not isinstance(data, dict):
             return Response(
                 {"error": "Invalid data format, expected a JSON object."},
@@ -335,30 +334,22 @@ class ProductQnAFilterAPIView(views.APIView):
         cat = data.get("sub_category")
         questions_data = data.get("questions", [])
 
-        print(f"🔍 DEBUG: Received sub_category = '{cat}'")
-        print(f"🔍 DEBUG: Received {len(questions_data)} questions")
-
         # If no questions provided, return empty
         if not questions_data:
-            print("⚠️ DEBUG: No questions provided")
             return self.empty_paginated_response(request)
 
         if not cat:
-            print("⚠️ DEBUG: No sub_category provided")
             return self.empty_paginated_response(request)
 
         # Start with all products in the sub_category
         try:
             # First, get products by sub_category (using slug since you have slug field)
             subcategory_products = Product.objects.filter(sub_category__slug=cat)
-            print(f"🔍 DEBUG: Found {subcategory_products.count()} products in sub_category '{cat}'")
-            
+
             if not subcategory_products.exists():
-                print("⚠️ DEBUG: No products found in this sub_category")
                 return self.empty_paginated_response(request)
                 
         except Exception as e:
-            print(f"❌ DEBUG: Error filtering by sub_category: {e}")
             return self.empty_paginated_response(request)
 
         # Build query for each question
@@ -368,21 +359,14 @@ class ProductQnAFilterAPIView(views.APIView):
             question_label = question_item.get("question")
             answer_labels = question_item.get("answers", [])
             
-            print(f"🔍 DEBUG: Processing Q{i+1}: '{question_label}'")
-            print(f"🔍 DEBUG: Answers: {answer_labels}")
-
             if not question_label or not answer_labels:
-                print("⚠️ DEBUG: Empty question or answers")
                 return self.empty_paginated_response(request)
 
             # Find the question object
             question_obj = Question.objects.filter(label__icontains=question_label).first()
             if not question_obj:
-                print(f"⚠️ DEBUG: Question '{question_label}' not found")
                 return self.empty_paginated_response(request)
             
-            print(f"🔍 DEBUG: Found question: {question_obj}")
-
             # For this question, we need to find products that have AT LEAST ONE of the answers
             question_query = Q()
             valid_answers = 0
@@ -394,20 +378,15 @@ class ProductQnAFilterAPIView(views.APIView):
                         question_answers__question=question_obj,
                         question_answers__answers__label__icontains=answer_label
                     ).count()
-                    
-                    print(f"🔍 DEBUG:   Answer '{answer_label}' matches {answer_match_count} products")
-                    
+                                        
                     if answer_match_count > 0:
                         question_query |= Q(
                             question_answers__question=question_obj,
                             question_answers__answers__label__icontains=answer_label
                         )
                         valid_answers += 1
-
-            print(f"🔍 DEBUG: Valid answers found: {valid_answers}")
             
             if valid_answers == 0:
-                print(f"⚠️ DEBUG: No valid answers found for question '{question_label}'")
                 return self.empty_paginated_response(request)
 
             # Apply this question's filter to the queryset
@@ -415,17 +394,10 @@ class ProductQnAFilterAPIView(views.APIView):
             final_queryset = final_queryset.filter(question_query).distinct()
             current_count = final_queryset.count()
             
-            print(f"🔍 DEBUG: After Q{i+1}: {previous_count} → {current_count} products remaining")
-
             if current_count == 0:
-                print(f"⚠️ DEBUG: No products left after question {i+1}")
                 return self.empty_paginated_response(request)
-
-        # Final result
-        print(f"✅ DEBUG: Final product count: {final_queryset.count()}")
-        
+            
         if not final_queryset.exists():
-            print("⚠️ DEBUG: No products match all criteria")
             return self.empty_paginated_response(request)
 
         # Pagination and serialization
@@ -433,7 +405,6 @@ class ProductQnAFilterAPIView(views.APIView):
         paginated_products = paginator.paginate_queryset(final_queryset, request, view=self)
         serializer = ProductSerializer(paginated_products, many=True)
         
-        print(f"✅ DEBUG: Successfully returning {len(paginated_products)} products")
         return paginator.get_paginated_response(serializer.data)
 
     # Helper method for empty response
