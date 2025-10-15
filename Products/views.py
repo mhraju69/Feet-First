@@ -18,11 +18,10 @@ class CustomLimitPagination(PageNumberPagination):
     page_size_query_param = 'limit'
     max_page_size = 50
 
-
 class ProductListView(generics.ListAPIView):
     serializer_class = ProductSerializer
     permission_classes = [permissions.IsAuthenticated]
-    pagination_class = CustomLimitPagination
+    pagination_class = CustomLimitPagination    
 
     # enable filters + search
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
@@ -343,8 +342,7 @@ class SuggestedProductsView(generics.ListAPIView):
         context["scan"] = scan
         context["match"] = True
         return context
-    
-    
+           
 class ProductQnAFilterAPIView(views.APIView):
     pagination_class = CustomLimitPagination
     permission_classes = [permissions.IsAuthenticated]

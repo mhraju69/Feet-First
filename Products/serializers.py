@@ -33,9 +33,9 @@ class ProductSerializer(serializers.ModelSerializer):
         ]
 
     def get_sub_category(self, obj):
-        if obj.sub_category:
+        try:
             return obj.sub_category.slug
-        else:
+        except SubCategory.DoesNotExist:
             return None
 
     def get_image(self, obj):
@@ -90,9 +90,9 @@ class ProductDetailsSerializer(serializers.ModelSerializer):
              "partner", "match_data", 'favourite', 'gender','sizes', 'qna'
         ]
     def get_sub_category(self, obj):
-        if obj.sub_category:
+        try:
             return obj.sub_category.slug
-        else:
+        except SubCategory.DoesNotExist:
             return None
         
     def get_match_data(self, obj):
