@@ -18,54 +18,78 @@ class CustomLimitPagination(PageNumberPagination):
     page_size_query_param = 'limit'
     max_page_size = 50
 
+
 class ProductListView(generics.ListAPIView):
     serializer_class = ProductSerializer
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = CustomLimitPagination
+
+    # enable filters + search
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     search_fields = ['name', 'description', 'brand__name']
-    filterset_fields = [ 'sub_category__slug', 'gender', 'brand']
-    
+    filterset_fields = ['sub_category__slug', 'gender', 'brand']
+
+    # base queryset
+    queryset = Product.objects.filter(is_active=True).select_related('brand').prefetch_related('images', 'colors')
 
     def get_queryset(self):
-        queryset = Product.objects.filter(is_active=True).select_related('brand').prefetch_related('images', 'colors')
+        """
+        Build the queryset with optional sub_category & gender filters,
+        then optionally sort by match score if requested.
+        """
+        queryset = super().get_queryset()  # ✅ allows filters/search to work
 
-        # Filter by sub_category if provided
+        # --- Extra filters ---
         sub = self.request.query_params.get("sub_category")
         if sub:
             sub_cat = SubCategory.objects.filter(slug=sub).first()
-            queryset = queryset.filter(sub_category=sub_cat)
-            return queryset
-        
-        # Filter by gender
+            if sub_cat:
+                queryset = queryset.filter(sub_category=sub_cat)
+
         gender = self.request.query_params.get("gender")
         if gender:
             queryset = queryset.filter(gender=gender)
 
-        # Get match param and user's foot scan
+        # --- Match sorting ---
         match = self.request.query_params.get("match")
         scan = FootScan.objects.filter(user=self.request.user).first()
 
-        # Sort by match score if requested and scan exists
         if match and match.lower() == "true" and scan:
-            # Convert to list for sorting
-            products_list = list(queryset)
-            products_list.sort(
-                key=lambda product: product.match_with_scan(scan)["score"],
-                reverse=True
+            products = list(queryset)
+            products.sort(
+                key=lambda p: p.match_with_scan(scan).get("score", 0),
+                reverse=True  # higher score first
             )
-            return products_list
+            return products
 
-        return queryset
+        # Default: order by latest (descending id)
+        return queryset.order_by('-id')
+
+    def list(self, request, *args, **kwargs):
+        """
+        Apply DRF search + filter backends even when get_queryset() returns a list.
+        """
+        queryset = self.get_queryset()
+
+        # ✅ Apply search and filters manually
+        if not isinstance(queryset, list):
+            queryset = self.filter_queryset(queryset)
+
+        # ✅ Handle pagination
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
         match = self.request.query_params.get("match")
         scan = FootScan.objects.filter(user=self.request.user).first()
-        
-        context['scan'] = scan
-        context['match'] = match and match.lower() == "true"    
-        
+        context["scan"] = scan
+        context["match"] = match and match.lower() == "true"
         return context
 
 class ProductsCountView(views.APIView):
@@ -267,8 +291,8 @@ class SuggestedProductsView(generics.ListAPIView):
     pagination_class = CustomLimitPagination
 
     def get_queryset(self):
-        product_id = self.kwargs.get('product_id')
-        
+        product_id = self.kwargs.get("product_id")
+
         if not product_id:
             return Product.objects.none()
 
@@ -276,48 +300,50 @@ class SuggestedProductsView(generics.ListAPIView):
             product = Product.objects.get(id=product_id, is_active=True)
         except Product.DoesNotExist:
             return Product.objects.none()
-        size = product.sizes.all()
-        # size_values = Size.objects.filter(table__in=size)
-        print(size)
-        # Get scan for better suggestions
+
+        # ✅ Get all SizeTable IDs linked to this product via Quantity
+        size_table_ids = Quantity.objects.filter(product=product).values_list("size_id", flat=True)
+
+        # ✅ Prepare base queryset
+        queryset = (
+            Product.objects.filter(
+                is_active=True,
+                sub_category=product.sub_category,
+                gender=product.gender,
+                quantities__size_id__in=size_table_ids,  # match same size tables
+            )
+            .exclude(id=product_id)
+            .select_related("brand")
+            .prefetch_related("images", "colors")
+            .distinct()
+        )
+
+        # ✅ Add scan-based ranking (if exists)
         scan = FootScan.objects.filter(user=self.request.user).first()
-        
-        # Base criteria: same sub_category and gender
-        queryset = Product.objects.filter(
-            is_active=True,
-            sub_category=product.sub_category,
-            gender=product.gender,
-            sizes__in=size
 
-        ).exclude(id=product_id).select_related('brand').prefetch_related('images', 'colors')
-
-        # If scan exists, prioritize products with similar width/toe box
         if scan:
             foot_width_cat = scan.width_category()
             foot_toe_box = scan.toe_box_category()
-            
-            # Convert to list and sort by relevance
+
             products_list = list(queryset)
             products_list.sort(
                 key=lambda p: (
-                    # Prioritize matching width (primary)
-                    abs(p.width - foot_width_cat),
-                    # Then matching toe box
-                    0 if p.toe_box == foot_toe_box else 1,
-                    # Then overall match score
-                    -p.match_with_scan(scan)["score"]
+                    abs(getattr(p, "width", 0) - foot_width_cat),
+                    0 if getattr(p, "toe_box", None) == foot_toe_box else 1,
+                    -p.match_with_scan(scan).get("score", 0),
                 )
             )
-            return products_list[:20]  # Limit to top 20
+            return products_list[:20]  # Top 20 matches
 
         return queryset[:20]
-    
+
     def get_serializer_context(self):
         context = super().get_serializer_context()
         scan = FootScan.objects.filter(user=self.request.user).first()
-        context['scan'] = scan
-        context['match'] = True  # Always show match data for suggestions
+        context["scan"] = scan
+        context["match"] = True
         return context
+    
     
 class ProductQnAFilterAPIView(views.APIView):
     pagination_class = CustomLimitPagination
