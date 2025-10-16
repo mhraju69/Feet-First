@@ -24,13 +24,13 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "5433:5432"
 
   nginx:
     image: nginx:stable-alpine
     container_name: nginx
     ports:
-      - "8000:8000"
+      - "8888:8888"
       # - "443:443" # enable for SSL
     volumes:
       - ./deploy/nginx:/etc/nginx/conf.d
