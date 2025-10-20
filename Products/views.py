@@ -28,15 +28,24 @@ class ProductListView(generics.ListAPIView):
     search_fields = ['name', 'description', 'brand__name']
     filterset_fields = ['sub_category__slug', 'gender', 'brand']
 
-    # base queryset
+    # base querysets
     queryset = Product.objects.filter(is_active=True).select_related('brand').prefetch_related('images', 'colors')
+  
 
     def get_queryset(self):
         """
-        Build the queryset with optional sub_category & gender filters,
-        then optionally sort by match score if requested.
+        Build the queryset dynamically depending on the 'brandName' param.
+        Apply additional filters and optional match score sorting.
         """
-        queryset = super().get_queryset()  # ✅ allows filters/search to work
+        queryset  = self.queryset
+        # --- Choose base queryset based on brandName ---
+        brand = self.request.query_params.get("brandName")
+        print('Brand',brand)
+        if brand:
+            queryset = queryset.filter(brand__name__iexact=brand)
+        else:
+            # No brand requested, exclude Imotana by default
+            queryset = queryset.exclude(brand__name__iexact="imotana")
 
         # --- Extra filters ---
         sub = self.request.query_params.get("sub_category")
@@ -63,6 +72,7 @@ class ProductListView(generics.ListAPIView):
 
         # Default: order by latest (descending id)
         return queryset.order_by('-id')
+
 
     def list(self, request, *args, **kwargs):
         """

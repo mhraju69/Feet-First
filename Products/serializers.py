@@ -60,7 +60,12 @@ class ProductSerializer(serializers.ModelSerializer):
     
     
     def get_brand(self, obj):
-        return obj.brand.name
+        if obj.brand:
+            return {
+                "name": obj.brand.name,
+                "image": obj.brand.image.url if obj.brand.image else None  # assuming your Brand model has a 'logo' ImageField
+            }
+        return None
     
     def get_colors(self, obj):
         return [color.hex_code for color in obj.colors.all()]
@@ -94,22 +99,34 @@ class ProductDetailsSerializer(serializers.ModelSerializer):
             return obj.sub_category.slug
         except SubCategory.DoesNotExist:
             return None
-        
+            
     def get_match_data(self, obj):
         """Return simplified match analysis with just score, sizes, and warnings"""
         scan = self.context.get("scan")
         if scan:
             match_result = obj.match_with_scan(scan)
-            # Simplify to just return score, recommended sizes, and warnings
             if match_result:
-                simplified_sizes = [size_rec['size_value'] for size_rec in match_result.get('recommended_sizes', [])]
+                score_dict = {}
                 
-                return {
-                    'score': match_result.get('score'),
-                    'recommended_sizes': simplified_sizes,
-                }
-        return None
-    
+                size_scores = match_result.get('size_scores', [])
+                
+                for size_score in size_scores:
+                    size_name = size_score.get('size', '')
+                    score_value = size_score.get('score', 0)
+                    
+                    size_parts = size_name.split()
+                    if len(size_parts) >= 2:
+                        size_key = size_parts[1]
+                    else:
+                        size_key = size_name
+                    
+                    score_dict[size_key] = f"{score_value}%"
+                
+                # ✅ RETURN DIRECT DICTIONARY WITHOUT 'score' KEY
+                return score_dict
+        
+        return {}
+
     def get_sizes(self, obj):
         sizes_list = []
 

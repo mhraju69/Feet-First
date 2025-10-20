@@ -91,7 +91,7 @@ class Product(models.Model):
     sub_category = models.ForeignKey(SubCategory, related_name='sub_category', on_delete=models.CASCADE )
 
     # sizes = models.ManyToManyField(SizeTable, related_name="products")
-    gender = models.TextField(max_length=20, choices=(('male','Male'),('female','Female')))
+    gender = models.TextField(max_length=20, choices=(('male','Male'),('female','Female'),('unisex','Unisex')))
         
     # Width & Toe box
     width = models.IntegerField(choices=Width.choices, default=Width.NORMAL)
@@ -117,60 +117,42 @@ class Product(models.Model):
 
     # --- IMPROVED MATCHING LOGIC ---   
     def match_with_scan(self, scan):
-
         if not scan:
             return {
                 "score": 0,
                 "recommended_sizes": [],
+                "size_scores": [],
                 "fit_analysis": {},
                 "warnings": ["No foot scan data available"]
             }
 
-        # Use the larger foot for sizing (industry standard)
+        # Use the larger foot for sizing
         foot_length = scan.max_length()
         foot_width = scan.max_width()
-                
-        # Initialize scoring components
-        score_components = {
-            'length': 0,
-            'width': 0,
-            'toe_box': 0,
-            'gender': 0,
-        }
         
         warnings = []
         size_recommendations = []
+        all_size_scores = []  # Store scores for ALL sizes
         
-        # --- 1. LENGTH MATCHING (40% weight) ---
-        # Shoe should be 10-15mm longer than foot for comfort
-        IDEAL_TOE_SPACE = 12  # mm
-        MIN_TOE_SPACE = 8
-        MAX_TOE_SPACE = 18
-        
+        # --- GET ALL SIZES ---
         all_sizes = []
         seen_size_tables = set()
         
-        # Get unique size tables through the Quantity relationship
         quantities = self.quantities.select_related('size').all()
         
         for quantity in quantities:
             size_table = quantity.size
-            
-            # Avoid processing the same size table multiple times
             if size_table.id in seen_size_tables:
                 continue
             seen_size_tables.add(size_table.id)
-                        
-            # Get all sizes from this size table
-            sizes = size_table.sizes.all()
             
+            sizes = size_table.sizes.all()
             for size in sizes:
                 all_sizes.append({
                     'size': size,
                     'table': size_table,
                     'min_length': size.insole_min_mm,
                     'max_length': size.insole_max_mm,
-                    'avg_length': (size.insole_min_mm + size.insole_max_mm) / 2
                 })
         
         if not all_sizes:
@@ -178,255 +160,116 @@ class Product(models.Model):
             return {
                 "score": 0,
                 "recommended_sizes": [],
+                "size_scores": [],
                 "fit_analysis": {},
                 "warnings": warnings
             }
-                
-        # Calculate required insole length ranges
-        ideal_insole = foot_length + IDEAL_TOE_SPACE
-        min_acceptable = foot_length + MIN_TOE_SPACE
-        max_acceptable = foot_length + MAX_TOE_SPACE
-                
-        # Find best fitting sizes
-        best_length_score = 0
-        all_size_scores = []  # Track all sizes with their scores
         
+        # --- CALCULATE SCORE FOR EACH SIZE ---
         for size_info in all_sizes:
-            size_avg = size_info['avg_length']
             size_min = size_info['min_length']
             size_max = size_info['max_length']
-                        
-            # Check if size fits within acceptable range
-            if min_acceptable <= size_avg <= max_acceptable:
-                # Calculate how close to ideal
-                deviation = abs(size_avg - ideal_insole)
-                
-                if deviation <= 2:
-                    length_score = 1.0
-                    fit_type = "perfect"
-                elif deviation <= 4:
-                    length_score = 0.95
-                    fit_type = "excellent"
-                elif deviation <= 6:
-                    length_score = 0.85
-                    fit_type = "good"
-                else:
-                    length_score = 0.70
-                    fit_type = "acceptable"
-                
-                # Determine fit preference
-                if size_avg < ideal_insole:
-                    fit_note = "snug fit"
-                elif size_avg > ideal_insole:
-                    fit_note = "roomy fit"
-                else:
-                    fit_note = "true to size"
-                
-                size_rec = {
-                    'size_value': size_info['size'].value,
-                    'size_type': size_info['size'].type,
-                    'size_table': size_info['table'].name,
-                    'fit_type': fit_type,
-                    'fit_note': fit_note,
-                    'score': length_score,
-                    'insole_length': f"{size_info['min_length']}-{size_info['max_length']}mm",
-                    'deviation': deviation
-                }
-                
-                size_recommendations.append(size_rec)
-                all_size_scores.append(length_score)
-                                
-                best_length_score = max(best_length_score, length_score)
-            else:
-                # Size is outside acceptable range, but still track for fallback
-                if size_avg < min_acceptable:
-                    diff = min_acceptable - size_avg
-                    if diff <= 5:
-                        length_score = 0.5
-                        fit_type = "too small but wearable"
-                    elif diff <= 10:
-                        length_score = 0.3
-                        fit_type = "too small"
-                    else:
-                        length_score = 0.0
-                        fit_type = "much too small"
-                else:  # size_avg > max_acceptable
-                    diff = size_avg - max_acceptable
-                    if diff <= 5:
-                        length_score = 0.6
-                        fit_type = "slightly large"
-                    elif diff <= 10:
-                        length_score = 0.4
-                        fit_type = "too large"
-                    else:
-                        length_score = 0.0
-                        fit_type = "much too large"
-                
-                all_size_scores.append(length_score)
-                
-        # If no perfect matches, add the closest sizes as recommendations
-        if not size_recommendations and all_sizes:
+            size_value = size_info['size'].value
+            size_type = size_info['size'].type
             
-            # Find the 3 closest sizes
-            sizes_with_distance = []
-            for size_info in all_sizes:
-                distance = abs(size_info['avg_length'] - ideal_insole)
-                sizes_with_distance.append({
-                    'size_info': size_info,
-                    'distance': distance
-                })
-            
-            # Sort by distance and take top 3
-            sizes_with_distance.sort(key=lambda x: x['distance'])
-            
-            for item in sizes_with_distance[:3]:
-                size_info = item['size_info']
-                distance = item['distance']
-                
-                # Calculate a score based on distance
-                if distance <= 5:
-                    length_score = 0.6
-                    fit_type = "close fit"
-                elif distance <= 10:
-                    length_score = 0.4
-                    fit_type = "workable"
-                elif distance <= 15:
-                    length_score = 0.3
-                    fit_type = "not ideal"
-                else:
-                    length_score = 0.2
-                    fit_type = "poor fit"
-                
-                # Determine if too small or too large
-                if size_info['avg_length'] < ideal_insole:
-                    fit_note = "runs small"
-                else:
-                    fit_note = "runs large"
-                
-                size_recommendations.append({
-                    'size_value': size_info['size'].value,
-                    'size_type': size_info['size'].type,
-                    'size_table': size_info['table'].name,
-                    'fit_type': fit_type,
-                    'fit_note': fit_note,
-                    'score': length_score,
-                    'insole_length': f"{size_info['min_length']}-{size_info['max_length']}mm",
-                    'deviation': distance
-                })
-                
-                best_length_score = max(best_length_score, length_score)
-        
-        # Calculate the final length score component
-        score_components['length'] = best_length_score * 40
-        
-        # --- 2. WIDTH MATCHING (35% weight) ---
-        foot_width_category = scan.width_category()
-        product_width = self.width
-                
-        width_diff = abs(foot_width_category - product_width)
-        
-        if width_diff == 0:
-            width_score = 1.0
-            width_match = "Perfect width match"
-        elif width_diff == 1:
-            width_score = 0.80
-            if foot_width_category > product_width:
-                width_match = "Slightly narrower than ideal"
-                warnings.append("Consider trying a wide version if available")
+            # 1. LENGTH SCORING (50%)
+            if size_min <= foot_length <= size_max:
+                length_score = 1.0  # 100%
             else:
-                width_match = "Slightly wider than ideal"
-        elif width_diff == 2:
-            width_score = 0.50
-            if foot_width_category > product_width:
-                width_match = "May feel tight"
-                warnings.append("This shoe may feel narrow for your foot")
+                if foot_length < size_min:
+                    deviation = size_min - foot_length
+                else:
+                    deviation = foot_length - size_max
+                
+                if deviation <= 4:
+                    length_score = 0.8  # 80%
+                elif deviation <= 8:
+                    length_score = 0.6  # 60%
+                elif deviation <= 12:
+                    length_score = 0.4  # 40%
+                elif deviation <= 16:
+                    length_score = 0.2  # 20%
+                else:
+                    length_score = 0.0  # 0%
+            
+            # 2. WIDTH SCORING (30%)
+            foot_width_category = scan.width_category()
+            product_width = self.width
+            width_diff = abs(foot_width_category - product_width)
+            
+            if width_diff == 0:
+                width_score = 1.0   # 100%
+            elif width_diff == 1:
+                width_score = 0.75  # 75%
+            elif width_diff == 2:
+                width_score = 0.5   # 50%
+            elif width_diff == 3:
+                width_score = 0.25  # 25%
             else:
-                width_match = "May feel loose"
-        elif width_diff == 3:
-            width_score = 0.25
-            width_match = "Poor width match"
-            warnings.append("Width mismatch - not recommended")
-        else:
-            width_score = 0.0
-            width_match = "Incompatible width"
-            warnings.append("Strong width mismatch - please choose another model")
+                width_score = 0.0   # 0%
+            
+            # 3. TOE BOX SCORING (20%)
+            foot_toe_box = scan.toe_box_category()
+            product_toe_box = self.toe_box
+            
+            if foot_toe_box == product_toe_box:
+                toe_box_score = 1.0  # 100%
+            else:
+                toe_box_score = 0.0  # 0%
+            
+            # CALCULATE TOTAL SCORE FOR THIS SIZE
+            total_size_score = (length_score * 50) + (width_score * 30) + (toe_box_score * 20)
+            
+            # ✅ STORE ONLY SIZE AND SCORE
+            size_score_info = {
+                "size": f"{size_type} {size_value}",
+                "score": round(total_size_score, 1)
+            }
+            
+            all_size_scores.append(size_score_info)
+            
+            # Also add to recommendations for top 3
+            size_rec = {
+                'size_value': size_value,
+                'size_type': size_type,
+                'total_score': round(total_size_score, 1)
+            }
+            
+            size_recommendations.append(size_rec)
         
-        score_components['width'] = width_score * 35
+        # --- FINAL CALCULATIONS ---
+        # Sort by score (highest first)
+        all_size_scores.sort(key=lambda x: -x['score'])
+        size_recommendations.sort(key=lambda x: -x['total_score'])
         
-        # --- 3. TOE BOX MATCHING (15% weight) ---
-        foot_toe_box = scan.toe_box_category()
-        product_toe_box = self.toe_box
-                
-        if foot_toe_box == product_toe_box:
-            toe_box_score = 1.0
-            toe_box_match = "Perfect toe box match"
-        elif (foot_toe_box == "normal" and product_toe_box in ["narrow", "wide"]) or \
-            (product_toe_box == "normal" and foot_toe_box in ["narrow", "wide"]):
-            toe_box_score = 0.70
-            toe_box_match = "Acceptable toe box"
-        else:
-            toe_box_score = 0.30
-            toe_box_match = "Toe box mismatch"
-            if foot_toe_box == "wide" and product_toe_box == "narrow":
-                warnings.append("Toe box may feel cramped")
-            elif foot_toe_box == "narrow" and product_toe_box == "wide":
-                warnings.append("Toe box may feel too spacious")
+        # Get top 3 recommendations
+        top_recommendations = size_recommendations[:3]
         
-        score_components['toe_box'] = toe_box_score * 15
+        # Overall product score = best size score
+        overall_score = all_size_scores[0]['score'] if all_size_scores else 0
         
-        # --- 4. GENDER MATCHING (10% weight) ---
-        # This is a soft match - doesn't disqualify but affects score
-        user_gender = getattr(scan.user, 'gender', None)
-                
-        if user_gender and user_gender.lower() == self.gender.lower():
-            gender_score = 1.0
-        else:
-            gender_score = 0.5  # Still acceptable, just noted
-        
-        score_components['gender'] = gender_score * 10
-        
-        # --- CALCULATE TOTAL SCORE ---
-        total_score = sum(score_components.values())
-        
-        # Sort size recommendations by score, then by deviation
-        size_recommendations.sort(key=lambda x: (-x['score'], x.get('deviation', 999)))
-        
-        # Limit to top 3 recommendations
-        size_recommendations = size_recommendations[:3]
-        
-        # Remove deviation from final output (was just for sorting)
-        for rec in size_recommendations:
-            rec.pop('deviation', None)
-        
-        
-        # Additional warnings based on total score
-        if total_score < 50:
-            warnings.append("Low compatibility - consider other models")
-        elif total_score < 70:
-            warnings.append("Moderate fit - try before buying if possible")
-        
-        # Build detailed fit analysis
+        # Build fit analysis
         fit_analysis = {
-            'length_match': f"{score_components['length']:.1f}/40",
-            'width_match': width_match,
-            'width_score': f"{score_components['width']:.1f}/35",
-            'toe_box_match': toe_box_match,
-            'toe_box_score': f"{score_components['toe_box']:.1f}/15",
-            'gender_score': f"{score_components['gender']:.1f}/10",
             'foot_measurements': {
                 'length': f"{foot_length:.1f}mm",
                 'width': f"{foot_width:.1f}mm",
-                'width_category': Width(foot_width_category).label,
-                'toe_box_category': foot_toe_box
+                'width_category': Width(scan.width_category()).label,
+                'toe_box_category': scan.toe_box_category().capitalize()
+            },
+            'shoe_specs': {
+                'width': Width(self.width).label,
+                'toe_box': self.toe_box.capitalize()
             }
         }
         
         return {
-            "score": round(total_score, 1),
-            "recommended_sizes": size_recommendations,
+            "score": overall_score,  # Overall product score
+            "recommended_sizes": top_recommendations,  # Top 3 sizes
+            "size_scores": all_size_scores,  # ✅ ONLY size and score for all sizes
             "fit_analysis": fit_analysis,
-            "warnings": warnings if warnings else ["Good match!"]
+            "warnings": warnings if warnings else ["Excellent match!"]
         }
+
 
 class Quantity(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='quantities')
