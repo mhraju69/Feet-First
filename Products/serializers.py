@@ -107,26 +107,27 @@ class ProductDetailsSerializer(serializers.ModelSerializer):
             match_result = obj.match_with_scan(scan)
             if match_result:
                 score_dict = {}
-                
+
                 size_scores = match_result.get('size_scores', [])
-                
+
                 for size_score in size_scores:
                     size_name = size_score.get('size', '')
                     score_value = size_score.get('score', 0)
-                    
+
+                    # ✅ KEEP ORIGINAL FRACTIONS BUT EXTRACT SIZE PART
                     size_parts = size_name.split()
                     if len(size_parts) >= 2:
-                        size_key = size_parts[1]
+                        # Join all parts after the first one (to keep fractions intact)
+                        size_key = ' '.join(size_parts[1:])
                     else:
                         size_key = size_name
-                    
-                    score_dict[size_key] = f"{score_value}%"
-                
-                # ✅ RETURN DIRECT DICTIONARY WITHOUT 'score' KEY
-                return score_dict
-        
-        return {}
 
+                    score_dict[size_key] = f"{score_value}"
+
+                return score_dict
+
+        return {}
+        
     def get_sizes(self, obj):
         sizes_list = []
 
