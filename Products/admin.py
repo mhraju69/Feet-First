@@ -206,10 +206,11 @@ class FavoriteAdmin(ModelAdmin):
     has_add_permission = lambda self, request, obj=None: False
     # has_delete_permission = lambda self, request, obj=None: False
 
-# @admin.register(Category)
-# class CategoryAdmin(ModelAdmin):
-#     has_add_permission = lambda self, request, obj=None: False
-#     has_delete_permission = lambda self, request, obj=None: False
+@admin.register(ApprovedPartnerProduct)
+class ApprovedPartnerProductAdmin(ModelAdmin):
+    autocomplete_fields = ['products']
+    has_add_permission = lambda self, request, obj=None: False
+    has_delete_permission = lambda self, request, obj=None: False
 
 # @admin.register(SubCategory)
 # class SubCategoryAdmin(ModelAdmin):

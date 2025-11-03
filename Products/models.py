@@ -74,12 +74,6 @@ class Size(models.Model):
         ordering = ['type', 'insole_min_mm']
 
 class Product(models.Model):
-    partner = models.ForeignKey(
-        User,
-        limit_choices_to={'role': 'partner'},
-        related_name='products',
-        on_delete=models.CASCADE
-    )
 
     # Basic info
     name = models.CharField(max_length=200, verbose_name='Name')
@@ -270,7 +264,6 @@ class Product(models.Model):
             "warnings": warnings if warnings else ["Excellent match!"]
         }
 
-
 class Quantity(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='quantities')
     size = models.ForeignKey('SizeTable', on_delete=models.CASCADE, related_name='size_quantities')
@@ -315,3 +308,15 @@ class Favorite(models.Model):
     def __str__(self):
         return f"{self.user.email}'s favorites"
     
+class ApprovedPartnerProduct(models.Model):
+    partner = models.ForeignKey(
+        User,
+        limit_choices_to={'role': 'partner'},
+        related_name='approved_products',
+        on_delete=models.CASCADE
+    )
+    products = models.ManyToManyField('Product', related_name='approved_partners')
+    updated = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Approved: {self.partner.email}"

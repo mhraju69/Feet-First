@@ -52,7 +52,6 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     lat= models.FloatField(blank=True, null=True,verbose_name='Latitude')
     lng = models.FloatField(blank=True, null=True,verbose_name='Longitude')
-    match_score = models.FloatField(default=0.0)
     notes = models.TextField(blank=True, null=True)
 
     objects = UserManager()
@@ -74,9 +73,6 @@ class User(AbstractBaseUser, PermissionsMixin):
     def save(self, *args, **kwargs):
         if self.password and not self.password.startswith('pbkdf2_sha256$'):
             self.set_password(self.password)
-        if self.role == 'partner':
-            self.is_staff = True
-            self.is_active = True
 
         if self.suspend:
             self.is_active = False

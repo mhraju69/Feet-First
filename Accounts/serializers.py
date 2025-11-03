@@ -62,6 +62,7 @@ class LoginSerializer(serializers.Serializer):
             otp = user.user_otp.first()
             if otp and otp.is_expired():
                 send_otp(user.email, 'login')
+            return {"error": "Account is not activated. An OTP has been sent to your email for activation."}
 
         # Generate JWT tokens
         refresh = RefreshToken.for_user(user)

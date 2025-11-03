@@ -213,3 +213,11 @@ class QnASerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductQuestionAnswer
         fields = ['question', 'answers']
+
+class ApproveProductSerializer(serializers.Serializer):
+    products = ProductSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = ApprovedPartnerProduct
+        fields = ['id', 'user', 'products']
+        read_only_fields = ['user']

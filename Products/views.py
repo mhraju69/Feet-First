@@ -450,4 +450,38 @@ class ProductQnAFilterAPIView(views.APIView):
         serializer = ProductSerializer(paginated, many=True)
         return paginator.get_paginated_response(serializer.data)
     
+class ApprovedPartnerProductUpdateView(views.APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        """
+        Get the current partner's approved products.
+        """
+        approved_obj, created = ApprovedPartnerProduct.objects.get_or_create(partner=request.user)
+        serializer = ApproveProductSerializer(approved_obj, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def patch(self, request, *args, **kwargs):
+        approved_obj, created = ApprovedPartnerProduct.objects.get_or_create(partner=request.user)
+
+        product_id = request.data.get('product_id')
+        action = request.data.get('action')
+
+        if not product_id or action not in ['add', 'remove']:
+            return Response({"error": "Invalid request."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            product = Product.objects.get(id=product_id, is_active=True)
+        except Product.DoesNotExist:
+            return Response({"error": "Product not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        if action == 'add':
+            approved_obj.products.add(product)
+            message = "Product added to approved list"
+        else:
+            approved_obj.products.remove(product)
+            message = "Product removed from approved list"
+
+        approved_obj.save()
+        return Response({"message": message}, status=status.HTTP_200_OK)
 
