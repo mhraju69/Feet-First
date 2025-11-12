@@ -102,6 +102,10 @@ class ColorAdmin(ModelAdmin):
     list_display = ('color', 'hex_code')
     search_fields = ["color", 'hex_code']
 
+@admin.register(Features)
+class FeaturesAdmin(ModelAdmin):
+    search_fields = ["text"]
+
 @admin.register(SizeTable)
 class SizeTableAdmin(ModelAdmin):
     list_display = ('name', 'brand')
@@ -146,7 +150,7 @@ class ProductAdmin(ModelAdmin):
         'gender', 'is_active', 'main_category', 'sub_category',
         'width', 'toe_box', 'brand', 'colors',
     )
-    autocomplete_fields = ['colors', 'brand']
+    autocomplete_fields = ['colors', 'brand','features']
     inlines = [ProductImageInline, ProductQuestionAnswerInline,QuantityInline]
 
     def get_queryset(self, request):

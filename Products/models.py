@@ -73,6 +73,14 @@ class Size(models.Model):
     class Meta:
         ordering = ['type', 'insole_min_mm']
 
+class Features(models.Model):
+    image = models.ImageField(upload_to='products/',storage=MediaCloudinaryStorage(),help_text="Image size should be less than 1MB",blank=True,null = True)
+    title = models.CharField(max_length=50)
+    details = models.TextField()
+
+    def __str__(self):
+        return self.text
+
 class Product(models.Model):
 
     # Basic info
@@ -102,10 +110,10 @@ class Product(models.Model):
     is_active = models.BooleanField(default=True)
 
     colors = models.ManyToManyField("Color", help_text="Type name to search color")
-
+    features = models.ManyToManyField(Features, help_text="Type text to search features",null=True,blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-
+    
     def __str__(self):
         return f"{self.brand.name} - {self.name}"
 

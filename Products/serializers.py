@@ -85,15 +85,32 @@ class ProductDetailsSerializer(serializers.ModelSerializer):
     sub_category = serializers.SerializerMethodField()
     favourite = serializers.SerializerMethodField()
     qna = serializers.SerializerMethodField()
+    features = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
         fields = [
             "id", "name", "colors", "images", "technical_data", 'description',
-            "brand", "sub_category",
+            "brand", "sub_category","features",
             "further_information", "price", "discount", 
-             "partner", "match_data", 'favourite', 'gender','sizes', 'qna'
+             "match_data", 'favourite', 'gender','sizes', 'qna'
         ]
+
+    def get_features(self, obj):
+        try:
+            features = obj.features.all()
+            return [
+                {
+                    "title": f.title,
+                    "details" : f.details,
+                    "image": f.image.url if f.image else None
+                }
+                for f in features
+            ]
+        except Exception:
+            return []
+    
+    
     def get_sub_category(self, obj):
         try:
             return obj.sub_category.slug
