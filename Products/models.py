@@ -79,7 +79,7 @@ class Features(models.Model):
     details = models.TextField()
 
     def __str__(self):
-        return self.text
+        return self.title
 
 class Product(models.Model):
 

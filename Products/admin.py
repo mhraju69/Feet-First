@@ -124,8 +124,8 @@ class ShoesQuestionAdmin(ModelAdmin):
     readonly_fields = ('key', 'label')
     list_display = ["label"]
     search_fields = ["label"]
-    has_add_permission = lambda self, request, obj=None: False
-    has_delete_permission = lambda self, request, obj=None: False
+    # has_add_permission = lambda self, request, obj=None: False
+    # has_delete_permission = lambda self, request, obj=None: False
 
 @admin.register(Answer)
 class ShoesAnswerAdmin(ModelAdmin):
@@ -133,8 +133,8 @@ class ShoesAnswerAdmin(ModelAdmin):
     search_fields = ["label", "question__label"]
     readonly_fields = ("question", 'key', 'label')
     list_filter = ["label"]
-    has_add_permission = lambda self, request, obj=None: False
-    has_delete_permission = lambda self, request, obj=None: False
+    # has_add_permission = lambda self, request, obj=None: False
+    # has_delete_permission = lambda self, request, obj=None: False
 
 @admin.register(Product)
 class ProductAdmin(ModelAdmin):

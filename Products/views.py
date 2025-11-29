@@ -183,8 +183,8 @@ class DownloadFootScanExcel(views.APIView):
                 ("Foot Type", foot_scan.get_foot_type()),
             ]
             row = 4
-            for label, value in user_info:
-                ws[f'A{row}'] = label
+            for key, value in user_info:
+                ws[f'A{row}'] = key
                 ws[f'B{row}'] = value
                 row += 1
 
@@ -230,12 +230,12 @@ class DownloadFootScanExcel(views.APIView):
                 ("Average Width", f"{foot_scan.average_width():.2f} mm"),
                 ("Maximum Length (for sizing)", f"{foot_scan.max_length():.2f} mm"),
                 ("Maximum Width (for sizing)", f"{foot_scan.max_width():.2f} mm"),
-                ("Width Category", foot_scan.get_width_label()),
+                ("Width Category", foot_scan.get_width_key()),
                 ("Toe Box Category", foot_scan.toe_box_category()),
             ]
             row += 1
-            for label, value in summary:
-                ws[f'A{row}'] = label
+            for key, value in summary:
+                ws[f'A{row}'] = key
                 ws[f'B{row}'] = value
                 row += 1
 
@@ -378,8 +378,11 @@ class ProductQnAFilterAPIView(views.APIView):
 
         # Start with all products in the sub_category
         try:
-            # First, get products by sub_category (using slug since you have slug field)
-            subcategory_products = Product.objects.filter(sub_category__slug=cat)
+            # Get products by sub_category slug
+            subcategory_products = Product.objects.filter(
+                sub_category__slug=cat,
+                is_active=True
+            ).select_related('brand').prefetch_related('images', 'colors')
 
             if not subcategory_products.exists():
                 return self.empty_paginated_response(request)
@@ -390,48 +393,44 @@ class ProductQnAFilterAPIView(views.APIView):
         # Build query for each question
         final_queryset = subcategory_products
         
-        for i, question_item in enumerate(questions_data):
-            question_label = question_item.get("question")
+        for question_item in questions_data:
+            question_key = question_item.get("question")
             answer_labels = question_item.get("answers", [])
             
-            if not question_label or not answer_labels:
-                return self.empty_paginated_response(request)
-
-            # Find the question object
-            question_obj = Question.objects.filter(label__icontains=question_label).first()
-            if not question_obj:
+            if not question_key or not answer_labels:
+                continue
+            
+            # Find the question object by EXACT key match
+            try:
+                question_obj = Question.objects.get(key=question_key)
+            except Question.DoesNotExist:
+                # If question doesn't exist, no products can match
                 return self.empty_paginated_response(request)
             
-            # For this question, we need to find products that have AT LEAST ONE of the answers
-            question_query = Q()
-            valid_answers = 0
+            # For this question, find products that have AT LEAST ONE of the provided answers
+            # Build OR query for all answer options
+            answer_query = Q()
             
             for answer_label in answer_labels:
                 if answer_label and answer_label.strip():
-                    # Check if any products have this question-answer combination
-                    answer_match_count = final_queryset.filter(
+                    # Match answer by EXACT label
+                    answer_query |= Q(
                         question_answers__question=question_obj,
-                        question_answers__answers__label__icontains=answer_label
-                    ).count()
-                                        
-                    if answer_match_count > 0:
-                        question_query |= Q(
-                            question_answers__question=question_obj,
-                            question_answers__answers__label__icontains=answer_label
-                        )
-                        valid_answers += 1
+                        question_answers__answers__label=answer_label
+                    )
             
-            if valid_answers == 0:
+            # If no valid answers, skip this question
+            if not answer_query:
+                continue
+            
+            # Filter products: must have this question with at least one matching answer
+            final_queryset = final_queryset.filter(answer_query).distinct()
+            
+            # If no products left, return empty
+            if not final_queryset.exists():
                 return self.empty_paginated_response(request)
-
-            # Apply this question's filter to the queryset
-            previous_count = final_queryset.count()
-            final_queryset = final_queryset.filter(question_query).distinct()
-            current_count = final_queryset.count()
-            
-            if current_count == 0:
-                return self.empty_paginated_response(request)
-            
+        
+        # Final check
         if not final_queryset.exists():
             return self.empty_paginated_response(request)
 
