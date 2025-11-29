@@ -390,8 +390,8 @@ class ProductQnAFilterAPIView(views.APIView):
         except Exception as e:
             return self.empty_paginated_response(request)
 
-        # Build query for each question
-        final_queryset = subcategory_products
+        # Build OR query across ALL questions - product matches if it has ANY of the questions
+        combined_query = Q()
         
         for question_item in questions_data:
             question_key = question_item.get("question")
@@ -404,31 +404,24 @@ class ProductQnAFilterAPIView(views.APIView):
             try:
                 question_obj = Question.objects.get(key=question_key)
             except Question.DoesNotExist:
-                # If question doesn't exist, no products can match
-                return self.empty_paginated_response(request)
+                # If question doesn't exist, skip it
+                continue
             
-            # For this question, find products that have AT LEAST ONE of the provided answers
-            # Build OR query for all answer options
-            answer_query = Q()
-            
+            # For this question, build OR query for all answer options
             for answer_label in answer_labels:
                 if answer_label and answer_label.strip():
-                    # Match answer by EXACT label
-                    answer_query |= Q(
+                    # Add to combined OR query
+                    combined_query |= Q(
                         question_answers__question=question_obj,
                         question_answers__answers__label=answer_label
                     )
-            
-            # If no valid answers, skip this question
-            if not answer_query:
-                continue
-            
-            # Filter products: must have this question with at least one matching answer
-            final_queryset = final_queryset.filter(answer_query).distinct()
-            
-            # If no products left, return empty
-            if not final_queryset.exists():
-                return self.empty_paginated_response(request)
+        
+        # If no valid query built, return empty
+        if not combined_query:
+            return self.empty_paginated_response(request)
+        
+        # Filter products: match ANY of the question/answer combinations
+        final_queryset = subcategory_products.filter(combined_query).distinct()
         
         # Final check
         if not final_queryset.exists():
