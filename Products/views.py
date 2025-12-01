@@ -395,9 +395,9 @@ class ProductQnAFilterAPIView(views.APIView):
         
         for question_item in questions_data:
             question_key = question_item.get("question")
-            answer_labels = question_item.get("answers", [])
+            answer_keys = question_item.get("answers", [])
             
-            if not question_key or not answer_labels:
+            if not question_key or not answer_keys:
                 continue
             
             # Find the question object by EXACT key match
@@ -408,12 +408,12 @@ class ProductQnAFilterAPIView(views.APIView):
                 continue
             
             # For this question, build OR query for all answer options
-            for answer_label in answer_labels:
-                if answer_label and answer_label.strip():
+            for answer_key in answer_keys:
+                if answer_key and answer_key.strip():
                     # Add to combined OR query
                     combined_query |= Q(
                         question_answers__question=question_obj,
-                        question_answers__answers__label=answer_label
+                        question_answers__answers__key=answer_key
                     )
         
         # If no valid query built, return empty

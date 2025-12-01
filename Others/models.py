@@ -43,6 +43,7 @@ class Answer(models.Model):
     question = models.ForeignKey(Question, on_delete=models.CASCADE, related_name="answers", null=True, blank=True)
     key = models.CharField(max_length=255)
     label = models.TextField()
+    slug = models.CharField(max_length=255, blank=True, null=True, help_text="English slug for the answer")
 
     def __str__(self):
         return f"{self.label}"
