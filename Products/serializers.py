@@ -24,7 +24,7 @@ class ProductSerializer(serializers.ModelSerializer):
     brand = serializers.SerializerMethodField()
     favourite = serializers.SerializerMethodField()
     sub_category = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = Product
         fields = [
@@ -231,10 +231,11 @@ class QnASerializer(serializers.ModelSerializer):
         model = ProductQuestionAnswer
         fields = ['question', 'answers']
 
-class ApproveProductSerializer(serializers.Serializer):
-    products = ProductSerializer(many=True, read_only=True)
+class PartnerProductSerializer(serializers.ModelSerializer):
+    product = ProductSerializer(read_only=True)
+    partner_email = serializers.EmailField(source='partner.email', read_only=True)
 
     class Meta:
-        model = ApprovedPartnerProduct
-        fields = ['id', 'user', 'products']
-        read_only_fields = ['user']
+        model = PartnerProduct
+        fields = ['id', 'product', 'partner', 'partner_email', 'price', 'discount', 'stock_quantity', 'is_active', 'created_at', 'updated_at']
+        read_only_fields = ['partner', 'created_at', 'updated_at']

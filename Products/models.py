@@ -316,15 +316,19 @@ class Favorite(models.Model):
     def __str__(self):
         return f"{self.user.email}'s favorites"
     
-class ApprovedPartnerProduct(models.Model):
-    partner = models.ForeignKey(
-        User,
-        limit_choices_to={'role': 'partner'},
-        related_name='approved_products',
-        on_delete=models.CASCADE
-    )
-    products = models.ManyToManyField('Product', related_name='approved_partners')
-    updated = models.DateTimeField(auto_now=True)
-
+class PartnerProduct(models.Model):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='partner_prices',)
+    partner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='product_prices')
+    price = models.DecimalField(max_digits=10, decimal_places=2, help_text="Partner's custom price for this product")
+    discount = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True, help_text="Partner's custom discount")
+    stock_quantity = models.PositiveIntegerField(default=0, help_text="Partner's stock quantity")
+    is_active = models.BooleanField(default=True, help_text="Is this product active for this partner")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        unique_together = ('partner', 'product')
+        ordering = ['-created_at']
+    
     def __str__(self):
-        return f"Approved: {self.partner.email}"
+        return f"{self.partner.email} - {self.product.name} - ${self.price}"

@@ -30,15 +30,17 @@ class ProductListView(generics.ListAPIView):
     filterset_fields = ['sub_category__slug', 'gender', 'brand']
 
     # base querysets
-    queryset = Product.objects.filter(is_active=True).select_related('brand').prefetch_related('images', 'colors')
-  
-
     def get_queryset(self):
         """
         Build the queryset dynamically depending on the 'brandName' param.
         Apply additional filters and optional match score sorting.
         """
-        queryset  = self.queryset
+        # Get only active products that have at least one partner selling them
+        queryset = Product.objects.filter(
+            partner_prices__isnull=False,  # ensures product is linked to at least one PartnerProduct
+            is_active=True
+        ).select_related('brand').prefetch_related('images', 'colors').distinct()
+
         # --- Choose base queryset based on brandName ---
         brand = self.request.query_params.get("brandName")
 
@@ -453,44 +455,39 @@ class AllProductsForPartnerView(generics.ListAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        try:
-            approved_obj = ApprovedPartnerProduct.objects.get(partner=user)
-            approved_products = approved_obj.products.all()
-        except ApprovedPartnerProduct.DoesNotExist:
-            approved_products = Product.objects.none()
+        # Get all product IDs that this partner has already added
+        partner_product_ids = PartnerProduct.objects.filter(partner=user).values_list('product_id', flat=True)
         
-        queryset = Product.objects.filter(is_active=True).exclude(id__in=approved_products)
+        # Return all active products that are NOT in the partner's inventory
+        queryset = Product.objects.filter(is_active=True).exclude(id__in=partner_product_ids).order_by('-id')
         return queryset
 
 class ApprovedPartnerProductView(generics.ListAPIView):
+    """View to show all products in the partner's inventory"""
     permission_classes = [permissions.IsAuthenticated, IsPartner]
     pagination_class = CustomLimitPagination
-    serializer_class = ProductSerializer
+    serializer_class = PartnerProductSerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ['name', 'description', 'brand__name']
-    filterset_fields = ['sub_category__slug', 'gender', 'brand']
-    def get_object(self):
-        obj, created = ApprovedPartnerProduct.objects.get_or_create(partner=self.request.user)
-        return obj
+    search_fields = ['product__name', 'product__description', 'product__brand__name']
+    filterset_fields = ['product__sub_category__slug', 'product__gender', 'product__brand']
 
     def get_queryset(self):
-        return self.get_object().products.all()  
+        # Return all PartnerProduct entries for this partner
+        return PartnerProduct.objects.filter(partner=self.request.user).select_related('product', 'product__brand').prefetch_related('product__images', 'product__colors')  
 
-class ApprovedPartnerProductUpdateView(generics.UpdateAPIView):
+class ApprovedPartnerProductUpdateView(views.APIView):
+    """View to add or remove products from partner's inventory"""
     permission_classes = [permissions.IsAuthenticated, IsPartner]
 
-    def get_object(self,*args, **kwargs):
-        obj, created = ApprovedPartnerProduct.objects.get_or_create(partner=self.request.user)
-        return obj
-
     def patch(self, request, *args, **kwargs):
-        approved_obj = self.get_object()
         product_id = kwargs.get('product_id')
         action = kwargs.get('action')
         price = request.data.get('price')
+        discount = request.data.get('discount', None)
+        stock_quantity = request.data.get('stock_quantity', 0)
 
-        if not product_id or action not in ['add', 'remove'] or not price:
-            return Response({"error": "Invalid request."}, status=status.HTTP_400_BAD_REQUEST)
+        if not product_id or action not in ['add', 'remove']:
+            return Response({"error": "Invalid request. Provide product_id and action (add/remove)."}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             product = Product.objects.get(id=product_id, is_active=True)
@@ -498,11 +495,32 @@ class ApprovedPartnerProductUpdateView(generics.UpdateAPIView):
             return Response({"error": "Product not found."}, status=status.HTTP_404_NOT_FOUND)
 
         if action == 'add':
-            approved_obj.products.add(product)
-            message = "Product added Successfully"
-        else:
-            approved_obj.products.remove(product)
-            message = "Product removed Successfully"
+            if not price:
+                return Response({"error": "Price is required when adding a product."}, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Create or update PartnerProduct entry
+            partner_product, created = PartnerProduct.objects.update_or_create(
+                partner=request.user,
+                product=product,
+                defaults={
+                    'price': price,
+                    'discount': discount,
+                    'stock_quantity': stock_quantity,
+                    'is_active': True
+                }
+            )
+            message = "Product added to inventory" if created else "Product updated in inventory"
+        else:  # action == 'remove'
+            # Delete PartnerProduct entry
+            deleted_count, _ = PartnerProduct.objects.filter(
+                partner=request.user,
+                product=product
+            ).delete()
+            
+            if deleted_count == 0:
+                return Response({"error": "Product not found in your inventory."}, status=status.HTTP_404_NOT_FOUND)
+            
+            message = "Product removed from inventory"
 
-        approved_obj.save()
         return Response({"message": message}, status=status.HTTP_200_OK)
+
