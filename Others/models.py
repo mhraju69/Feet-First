@@ -1,7 +1,7 @@
 from django.db import models
 from cloudinary_storage.storage import MediaCloudinaryStorage
 from Products.models import Product
-from itertools import chain
+from datetime import datetime
 from Products.models import *
 
 class FAQ(models.Model):
@@ -187,3 +187,39 @@ class FootScan(models.Model):
 
     def __str__(self):
         return f"FootScan for {self.user.email} ({self.get_foot_type()})"
+
+class Payment(models.Model):
+    payment_from = models.ForeignKey(User, on_delete=models.CASCADE)
+    payment_to = models.ForeignKey(User, on_delete=models.CASCADE,related_name="payments")
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    transaction_id = models.CharField(max_length=100, verbose_name="Transaction ID",blank=True,null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+class Order(models.Model):
+    ORDER_STATUS = (
+        ("pending", "Pending"),
+        ("confirmed", "Confirmed"),
+        ("shipped", "Shipped"),
+        ("delivered", "Delivered"),
+    )
+    order_id = models.CharField(max_length=100, verbose_name="Order ID")
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    name = models.CharField(max_length=100)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    quantity = models.IntegerField(default=1)
+    size = models.CharField(max_length=10)
+    color = models.CharField(max_length=10)
+    status = models.CharField(max_length=10, default="pending", choices=ORDER_STATUS)
+    tracking = models.CharField(max_length=100, verbose_name="Tracking ID")
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def save(self, *args, **kwargs):
+        self.tracking = f"DE{random.randint(1000000000, 9999999999)}"
+        if not self.id:
+            super().save(*args, **kwargs)
+        
+        if not self.order_id:
+            self.order_id = f"ORD-{datetime.now().year}-{self.id:03d}"
+            super().save(update_fields=['order_id'])
+        else:
+            super().save(*args, **kwargs)

@@ -1,16 +1,8 @@
-from django.shortcuts import render
-
-# Create your views here.
 # views.py
-from rest_framework import generics, permissions
+from rest_framework import generics, permissions ,views
 from .models import *
 from .serializers import *
-
-# 1️⃣ Get all questions
-# class QuesListAPIView(generics.ListAPIView):
-#     queryset = Ans.objects.select_related('parent').all()
-#     serializer_class = QuesSerializer
-#     permission_classes = [permissions.IsAuthenticated] 
+from django.views.decorators.csrf import csrf_exempt
 
 class FAQAPIView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]  

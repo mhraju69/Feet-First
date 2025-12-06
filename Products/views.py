@@ -2,6 +2,7 @@ from .utils import *
 from .models import *
 from io import BytesIO
 from .serializers import *
+from core.permission import *
 from datetime import datetime
 from openpyxl import Workbook
 from django.db.models import Q
@@ -40,7 +41,7 @@ class ProductListView(generics.ListAPIView):
         queryset  = self.queryset
         # --- Choose base queryset based on brandName ---
         brand = self.request.query_params.get("brandName")
-        print('Brand',brand)
+
         if brand:
             queryset = queryset.filter(brand__name__iexact=brand)
         else:
@@ -441,25 +442,54 @@ class ProductQnAFilterAPIView(views.APIView):
         paginated = paginator.paginate_queryset(empty_queryset, request, view=self)
         serializer = ProductSerializer(paginated, many=True)
         return paginator.get_paginated_response(serializer.data)
-    
-class ApprovedPartnerProductUpdateView(views.APIView):
-    permission_classes = [permissions.IsAuthenticated]
 
-    def get(self, request, *args, **kwargs):
-        """
-        Get the current partner's approved products.
-        """
-        approved_obj, created = ApprovedPartnerProduct.objects.get_or_create(partner=request.user)
-        serializer = ApproveProductSerializer(approved_obj, context={'request': request})
-        return Response(serializer.data, status=status.HTTP_200_OK)
+class AllProductsForPartnerView(generics.ListAPIView):
+    permission_classes = [permissions.IsAuthenticated, IsPartner]
+    pagination_class = CustomLimitPagination
+    serializer_class = ProductSerializer
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ['name', 'description', 'brand__name']
+    filterset_fields = ['sub_category__slug', 'gender', 'brand']
+
+    def get_queryset(self):
+        user = self.request.user
+        try:
+            approved_obj = ApprovedPartnerProduct.objects.get(partner=user)
+            approved_products = approved_obj.products.all()
+        except ApprovedPartnerProduct.DoesNotExist:
+            approved_products = Product.objects.none()
+        
+        queryset = Product.objects.filter(is_active=True).exclude(id__in=approved_products)
+        return queryset
+
+class ApprovedPartnerProductView(generics.ListAPIView):
+    permission_classes = [permissions.IsAuthenticated, IsPartner]
+    pagination_class = CustomLimitPagination
+    serializer_class = ProductSerializer
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ['name', 'description', 'brand__name']
+    filterset_fields = ['sub_category__slug', 'gender', 'brand']
+    def get_object(self):
+        obj, created = ApprovedPartnerProduct.objects.get_or_create(partner=self.request.user)
+        return obj
+
+    def get_queryset(self):
+        return self.get_object().products.all()  
+
+class ApprovedPartnerProductUpdateView(generics.UpdateAPIView):
+    permission_classes = [permissions.IsAuthenticated, IsPartner]
+
+    def get_object(self,*args, **kwargs):
+        obj, created = ApprovedPartnerProduct.objects.get_or_create(partner=self.request.user)
+        return obj
 
     def patch(self, request, *args, **kwargs):
-        approved_obj, created = ApprovedPartnerProduct.objects.get_or_create(partner=request.user)
+        approved_obj = self.get_object()
+        product_id = kwargs.get('product_id')
+        action = kwargs.get('action')
+        price = request.data.get('price')
 
-        product_id = request.data.get('product_id')
-        action = request.data.get('action')
-
-        if not product_id or action not in ['add', 'remove']:
+        if not product_id or action not in ['add', 'remove'] or not price:
             return Response({"error": "Invalid request."}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
@@ -469,11 +499,10 @@ class ApprovedPartnerProductUpdateView(views.APIView):
 
         if action == 'add':
             approved_obj.products.add(product)
-            message = "Product added to approved list"
+            message = "Product added Successfully"
         else:
             approved_obj.products.remove(product)
-            message = "Product removed from approved list"
+            message = "Product removed Successfully"
 
         approved_obj.save()
         return Response({"message": message}, status=status.HTTP_200_OK)
-

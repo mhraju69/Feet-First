@@ -4,5 +4,5 @@ class OthersConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
     name = 'Others'
 
-    def ready():
+    def ready(self):
         import Others.signals

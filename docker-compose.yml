@@ -30,7 +30,7 @@ services:
     image: nginx:stable-alpine
     container_name: nginx
     ports:
-      - "8888:8888"
+      - "8888:80"
       # - "443:443" # enable for SSL
     volumes:
       - ./deploy/nginx:/etc/nginx/conf.d

@@ -11,4 +11,7 @@ urlpatterns = [
     path('qna-match/', ProductQnAFilterAPIView.as_view(), name='answer-autocomplete'),
     path('footscan/download/', DownloadFootScanExcel.as_view(), name='download_foot_scan'),
     path('suggestions/<int:product_id>/', SuggestedProductsView.as_view(), name='product_suggestions'),
+    path('all/', AllProductsForPartnerView.as_view(), name='approved_partner_product_update'),
+    path('partner/', ApprovedPartnerProductView.as_view(), name='approved_partner_product_update'),
+    path('partner/<int:product_id>/<str:action>/', ApprovedPartnerProductUpdateView.as_view(), name='approved_partner_product_update'),
 ]
