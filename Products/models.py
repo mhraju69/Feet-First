@@ -323,6 +323,8 @@ class PartnerProduct(models.Model):
     discount = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True, help_text="Partner's custom discount")
     stock_quantity = models.PositiveIntegerField(default=0, help_text="Partner's stock quantity")
     is_active = models.BooleanField(default=True, help_text="Is this product active for this partner")
+    local = models.BooleanField(default=True, help_text="Is this product available locally")
+    online = models.BooleanField(default=True, help_text="Is this product available online")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     

@@ -233,9 +233,7 @@ class QnASerializer(serializers.ModelSerializer):
 
 class PartnerProductSerializer(serializers.ModelSerializer):
     product = ProductSerializer(read_only=True)
-    partner_email = serializers.EmailField(source='partner.email', read_only=True)
 
     class Meta:
         model = PartnerProduct
-        fields = ['id', 'product', 'partner', 'partner_email', 'price', 'discount', 'stock_quantity', 'is_active', 'created_at', 'updated_at']
-        read_only_fields = ['partner', 'created_at', 'updated_at']
+        fields = ['id', 'price','stock_quantity', 'is_active', 'product']
