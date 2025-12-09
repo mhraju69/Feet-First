@@ -232,8 +232,16 @@ class QnASerializer(serializers.ModelSerializer):
         fields = ['question', 'answers']
 
 class PartnerProductSerializer(serializers.ModelSerializer):
-    product = ProductSerializer(read_only=True)
-
+    name = serializers.SerializerMethodField()
+    brand = serializers.SerializerMethodField()
+    sub_category = serializers.SerializerMethodField()
     class Meta:
         model = PartnerProduct
-        fields = ['id', 'price','stock_quantity', 'is_active', 'product']
+        fields = ['id', 'price','stock_quantity', 'is_active', 'name', 'brand', 'sub_category']
+
+    def get_name(self, obj):
+        return obj.product.name
+    def get_brand(self, obj):
+        return obj.product.brand.name
+    def get_sub_category(self, obj):
+        return obj.product.sub_category.name
