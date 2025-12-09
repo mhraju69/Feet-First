@@ -194,9 +194,9 @@ DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL")
 CONTACT_EMAIL = os.getenv("CONTACT_EMAIL")
 
 CORS_ALLOW_CREDENTIALS = True
-ALLOWED_HOSTS = ['localhost','10.10.13.59','ape-in-eft.ngrok-free.app','127.0.0.1','admin.feetf1rst.com']
+ALLOWED_HOSTS = ['localhost','10.10.13.59','ape-in-eft.ngrok-free.app','127.0.0.1','admin.feetf1rst.com','http://localhost:5174','http://10.10.13.81']
 CSRF_TRUSTED_ORIGINS = ['http://127.0.0.1:8888', 'https://yourdomain.com','https://ape-in-eft.ngrok-free.app',"http://127.0.0.1:5500",
-    "http://localhost:5500","http://localhost:8000","http://admin.feetf1rst.com"]
+    "http://localhost:5500","http://localhost:8000","http://admin.feetf1rst.com","http://localhost:5174","http://10.10.13.81"]
 
 
 # CORS_ALLOW_ALL_ORIGINS = True

@@ -1,3 +1,4 @@
+from Products.models import PartnerProduct
 from django.db import models
 from cloudinary_storage.storage import MediaCloudinaryStorage
 from Products.models import Product
@@ -199,6 +200,7 @@ class Order(models.Model):
     ORDER_STATUS = (
         ("pending", "Pending"),
         ("confirmed", "Confirmed"),
+        ("packaging", "Packaging"),
         ("shipped", "Shipped"),
         ("delivered", "Delivered"),
     )
@@ -223,3 +225,35 @@ class Order(models.Model):
             super().save(update_fields=['order_id'])
         else:
             super().save(*args, **kwargs)
+
+class MonthlySales(models.Model):
+    product = models.ForeignKey(PartnerProduct, on_delete=models.CASCADE, related_name="monthly_sales")
+    year = models.IntegerField(help_text="Year of the sales data")
+    month = models.IntegerField(help_text="Month of the sales data (1-12)")
+    sale_count = models.IntegerField(default=0, help_text="Total number of units sold in this month")
+    total_revenue = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, 
+                                       help_text="Total revenue generated in this month")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Monthly Sales"
+        verbose_name_plural = "Monthly Sales"
+        ordering = ['-year', '-month']
+        unique_together = ['product', 'year', 'month']
+        indexes = [
+            models.Index(fields=['year', 'month']),
+            models.Index(fields=['product', 'year', 'month']),
+        ]
+    
+    def __str__(self):
+        return f"{self.product.name} - {self.year}/{self.month:02d} - {self.sale_count} units"
+    
+    @property
+    def month_name(self):
+        """Returns the full month name"""
+        month_names = [
+            'January', 'February', 'March', 'April', 'May', 'June',
+            'July', 'August', 'September', 'October', 'November', 'December'
+        ]
+        return month_names[self.month - 1] if 1 <= self.month <= 12 else 'Unknown'
