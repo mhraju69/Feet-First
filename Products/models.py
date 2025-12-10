@@ -92,7 +92,7 @@ class Product(models.Model):
     main_category = models.ForeignKey(Category, related_name='category', on_delete=models.CASCADE )
     sub_category = models.ForeignKey(SubCategory, related_name='sub_category', on_delete=models.CASCADE )
 
-    # sizes = models.ManyToManyField(SizeTable, related_name="products")
+    sizes = models.ManyToManyField(SizeTable, related_name="products")
     gender = models.TextField(max_length=20, choices=(('male','Male'),('female','Female'),('unisex','Unisex')))
         
     # Width & Toe box
@@ -104,7 +104,6 @@ class Product(models.Model):
     further_information = models.TextField(blank=True, null=True)
     
     # Commerce
-    price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     discount = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     # stock_quantity = models.PositiveIntegerField(default=0)
     is_active = models.BooleanField(default=True)
@@ -140,10 +139,8 @@ class Product(models.Model):
         all_sizes = []
         seen_size_tables = set()
         
-        quantities = self.quantities.select_related('size').all()
-        
-        for quantity in quantities:
-            size_table = quantity.size
+        # Use sizes ManyToManyField directly
+        for size_table in self.sizes.all():
             if size_table.id in seen_size_tables:
                 continue
             seen_size_tables.add(size_table.id)
@@ -272,19 +269,6 @@ class Product(models.Model):
             "warnings": warnings if warnings else ["Excellent match!"]
         }
 
-class Quantity(models.Model):
-    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='quantities')
-    size = models.ForeignKey('SizeTable', on_delete=models.CASCADE, related_name='size_quantities')
-    quantity = models.PositiveIntegerField(default=0)
-
-    def __str__(self):
-        return f"{self.product.name} - {self.size.name} ({self.quantity})"
-
-    class Meta:
-        unique_together = ('product', 'size'),
-        verbose_name = "Size & Quantity"
-        verbose_name_plural = "Sizes & Quantity"
-
 class ProductImage(models.Model):
     product = models.ForeignKey(Product, related_name='images', on_delete=models.CASCADE)
     image = models.ImageField(upload_to='products/',storage=MediaCloudinaryStorage(),blank=False, null=False,help_text="Image size should be less than 1MB")
@@ -317,8 +301,10 @@ class Favorite(models.Model):
         return f"{self.user.email}'s favorites"
     
 class PartnerProduct(models.Model):
-    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='partner_prices',)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='partner_prices')
     partner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='product_prices')
+    size = models.ManyToManyField(SizeTable, related_name='partner_product_sizes', help_text="Size table for this product")
+    color = models.ManyToManyField(Color, related_name='partner_product_colors', help_text="Color variant for this product")
     price = models.DecimalField(max_digits=10, decimal_places=2, help_text="Partner's custom price for this product")
     discount = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True, help_text="Partner's custom discount")
     stock_quantity = models.PositiveIntegerField(default=0, help_text="Partner's stock quantity")

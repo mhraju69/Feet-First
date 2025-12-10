@@ -28,7 +28,7 @@ class ProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = [
-            'id', 'image', 'name', 'colors', 'gender', 'price', 
+            'id', 'image', 'name', 'colors', 'gender', 
             'match_data', 'brand', 'favourite', 'sub_category'
         ]
 
@@ -92,7 +92,7 @@ class ProductDetailsSerializer(serializers.ModelSerializer):
         fields = [
             "id", "name", "colors", "images", "technical_data", 'description',
             "brand", "sub_category","features",
-            "further_information", "price", "discount", 
+            "further_information", "discount", 
              "match_data", 'favourite', 'gender','sizes', 'qna'
         ]
 
@@ -148,13 +148,13 @@ class ProductDetailsSerializer(serializers.ModelSerializer):
     def get_sizes(self, obj):
         sizes_list = []
 
-        quantities = obj.quantities.select_related('size', 'size__brand').all()
-        for q in quantities:
+        # Use sizes ManyToManyField directly
+        for size_table in obj.sizes.select_related('brand').all():
             # Get all size values from the related SizeTable
-            size_values = list(q.size.sizes.values_list('value', flat=True))
+            size_values = list(size_table.sizes.values_list('value', flat=True))
             sizes_list.append({
                 "size": size_values,
-                "quantity": q.quantity
+                "table_name": size_table.name
             })
 
         return sizes_list
@@ -235,13 +235,32 @@ class PartnerProductSerializer(serializers.ModelSerializer):
     name = serializers.SerializerMethodField()
     brand = serializers.SerializerMethodField()
     sub_category = serializers.SerializerMethodField()
+    size = serializers.SerializerMethodField()
+    color = serializers.SerializerMethodField()
+    
     class Meta:
         model = PartnerProduct
-        fields = ['id', 'price','stock_quantity', 'is_active', 'name', 'brand', 'sub_category']
+        fields = ['id', 'price', 'discount', 'stock_quantity', 'is_active', 'name', 'brand', 'sub_category', 'size', 'color']
 
     def get_name(self, obj):
         return obj.product.name
+    
     def get_brand(self, obj):
         return obj.product.brand.name
+    
     def get_sub_category(self, obj):
         return obj.product.sub_category.name
+    
+    def get_size(self, obj):
+        return {
+            'id': obj.size.id,
+            'name': obj.size.name,
+            'brand': obj.size.brand.name
+        }
+    
+    def get_color(self, obj):
+        return {
+            'id': obj.color.id,
+            'name': obj.color.color,
+            'hex_code': obj.color.hex_code
+        }

@@ -60,9 +60,6 @@ class SizeInline(TabularInline):
     model = Size
     extra = 1
 
-class QuantityInline(TabularInline):  
-    model = Quantity
-    extra = 1  
 
 class SubCategoryAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self):
@@ -142,7 +139,6 @@ class ProductAdmin(ModelAdmin):
     list_display = (
         'name',
         'main_category', 'sub_category', 'gender',
-        'price',
         'is_active'
     )
     search_fields = ('name',)
@@ -151,7 +147,7 @@ class ProductAdmin(ModelAdmin):
         'width', 'toe_box', 'brand', 'colors',
     )
     autocomplete_fields = ['colors', 'brand','features']
-    inlines = [ProductImageInline, ProductQuestionAnswerInline,QuantityInline]
+    inlines = [ProductImageInline, ProductQuestionAnswerInline]
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)

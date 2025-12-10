@@ -36,7 +36,7 @@ class DashboardAPIView(views.APIView):
             created_at__gte=current_month_start,
             created_at__lte=current_month_end
         ).exclude(status='pending').annotate(
-            total_price=F('quantity') * F('product__price')
+            total_price=F('quantity') * F('price')
         ).aggregate(
             total_sales=Sum('total_price', output_field=DecimalField())
         )
@@ -47,7 +47,7 @@ class DashboardAPIView(views.APIView):
             created_at__gte=last_month_start,
             created_at__lte=last_month_end
         ).exclude(status='pending').annotate(
-            total_price=F('quantity') * F('product__price')
+            total_price=F('quantity') * F('price')
         ).aggregate(
             total_sales=Sum('total_price', output_field=DecimalField())
         )

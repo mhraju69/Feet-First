@@ -313,8 +313,8 @@ class SuggestedProductsView(generics.ListAPIView):
         except Product.DoesNotExist:
             return Product.objects.none()
 
-        # ✅ Get all SizeTable IDs linked to this product via Quantity
-        size_table_ids = Quantity.objects.filter(product=product).values_list("size_id", flat=True)
+        # ✅ Get all SizeTable IDs linked to this product via sizes ManyToMany
+        size_table_ids = product.sizes.values_list('id', flat=True)
 
         # ✅ Prepare base queryset
         queryset = (
@@ -322,7 +322,7 @@ class SuggestedProductsView(generics.ListAPIView):
                 is_active=True,
                 sub_category=product.sub_category,
                 gender=product.gender,
-                quantities__size_id__in=size_table_ids,  # match same size tables
+                sizes__id__in=size_table_ids,  # match same size tables
             )
             .exclude(id=product_id)
             .select_related("brand")
@@ -485,6 +485,8 @@ class ApprovedPartnerProductUpdateView(views.APIView):
         price = request.data.get('price')
         discount = request.data.get('discount', None)
         stock_quantity = request.data.get('stock_quantity', 0)
+        size_id = request.data.get('size_id')
+        color_id = request.data.get('color_id')
 
         if not product_id or action not in ['add', 'remove']:
             return Response({"error": "Invalid request. Provide product_id and action (add/remove)."}, status=status.HTTP_400_BAD_REQUEST)
@@ -498,10 +500,28 @@ class ApprovedPartnerProductUpdateView(views.APIView):
             if not price:
                 return Response({"error": "Price is required when adding a product."}, status=status.HTTP_400_BAD_REQUEST)
             
+            if not size_id:
+                return Response({"error": "Size is required when adding a product."}, status=status.HTTP_400_BAD_REQUEST)
+            
+            if not color_id:
+                return Response({"error": "Color is required when adding a product."}, status=status.HTTP_400_BAD_REQUEST)
+            
+            try:
+                size = SizeTable.objects.get(id=size_id)
+            except SizeTable.DoesNotExist:
+                return Response({"error": "Size not found."}, status=status.HTTP_404_NOT_FOUND)
+            
+            try:
+                color = Color.objects.get(id=color_id)
+            except Color.DoesNotExist:
+                return Response({"error": "Color not found."}, status=status.HTTP_404_NOT_FOUND)
+            
             # Create or update PartnerProduct entry
             partner_product, created = PartnerProduct.objects.update_or_create(
                 partner=request.user,
                 product=product,
+                size=size,
+                color=color,
                 defaults={
                     'price': price,
                     'discount': discount,
