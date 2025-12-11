@@ -38,15 +38,14 @@ class ProductListView(generics.ListAPIView):
         Build the queryset from PartnerProduct for multi-vendor system.
         Apply filters and optional match score sorting.
         """
-        # Get only active partner products with stock
+        # Get only active partner products
         queryset = PartnerProduct.objects.filter(
             is_active=True,
-            stock_quantity__gt=0,
             product__is_active=True
         ).select_related(
             'product', 'product__brand', 'product__sub_category',
             'partner'
-        ).prefetch_related('product__images', 'size', 'color')
+        ).prefetch_related('product__images', 'size_quantities__size', 'color')
         
         # DEBUG: Print queryset count
         print(f"DEBUG: Initial queryset count: {queryset.count()}")
@@ -54,7 +53,7 @@ class ProductListView(generics.ListAPIView):
             print("DEBUG: No products found! Checking conditions...")
             print(f"  - Total PartnerProducts: {PartnerProduct.objects.count()}")
             print(f"  - Active: {PartnerProduct.objects.filter(is_active=True).count()}")
-            print(f"  - With stock: {PartnerProduct.objects.filter(stock_quantity__gt=0).count()}")
+            print(f"  - With stock: {sum(pp.total_stock_quantity for pp in PartnerProduct.objects.all())}")
             print(f"  - Product active: {PartnerProduct.objects.filter(product__is_active=True).count()}")
 
         # --- Brand filter ---
@@ -149,8 +148,7 @@ class ProductsCountView(views.APIView):
         gender = request.query_params.get("gender")
 
         queryset = PartnerProduct.objects.filter(
-            is_active=True, 
-            stock_quantity__gt=0,
+            is_active=True,
             product__is_active=True
         )
         
@@ -178,7 +176,7 @@ class ProductDetailView(generics.RetrieveAPIView):
         return super().get_queryset().select_related(
             'product', 'product__brand', 'product__sub_category',
             'partner'
-        ).prefetch_related('product__images', 'product__colors', 'product__features', 'size', 'color')
+        ).prefetch_related('product__images', 'product__colors', 'product__features', 'size_quantities__size', 'color')
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -374,7 +372,6 @@ class SuggestedProductsView(generics.ListAPIView):
         # Prepare base queryset - find similar PartnerProducts
         queryset = PartnerProduct.objects.filter(
             is_active=True,
-            stock_quantity__gt=0,
             product__is_active=True,
             product__sub_category=product.sub_category,
             product__gender=product.gender,
@@ -384,7 +381,7 @@ class SuggestedProductsView(generics.ListAPIView):
         ).select_related(
             'product', 'product__brand', 'product__sub_category',
             'partner'
-        ).prefetch_related('product__images', 'size', 'color').distinct()
+        ).prefetch_related('product__images', 'size_quantities__size', 'color').distinct()
 
         # Add scan-based ranking (if exists)
         scan = FootScan.objects.filter(user=self.request.user).first()
@@ -470,13 +467,12 @@ class ProductQnAFilterAPIView(views.APIView):
         # Get PartnerProducts matching the Q&A filter
         queryset = PartnerProduct.objects.filter(
             is_active=True,
-            stock_quantity__gt=0,
             product__is_active=True,
             product__sub_category__slug=cat
         ).filter(combined_query).select_related(
             'product', 'product__brand', 'product__sub_category',
             'partner'
-        ).prefetch_related('product__images', 'size', 'color').distinct()
+        ).prefetch_related('product__images', 'size_quantities__size', 'color').distinct()
         
         # Final check
         if not queryset.exists():
@@ -540,14 +536,14 @@ class ApprovedPartnerProductUpdateView(views.APIView):
 
     def patch(self, request, *args, **kwargs):
         product_id = kwargs.get('product_id')
+        warehouse_id = request.data.get('warehouse_id', None)
         action = kwargs.get('action')
         price = request.data.get('price')
         discount = request.data.get('discount', None)
-        stock_quantity = request.data.get('stock_quantity', 0)
-        size_ids = request.data.get('sizes', [])
+        size_quantities = request.data.get('sizes', [])  # Expected: [{"size_id": 1, "quantity": 10}, ...]
         color_ids = request.data.get('colors', [])
 
-        if not product_id or action not in ['add', 'remove']:
+        if not product_id or action not in ['add', 'del']:
             return Response({"error": "Invalid request. Provide product_id and action (add/remove)."}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
@@ -559,14 +555,15 @@ class ApprovedPartnerProductUpdateView(views.APIView):
             if not price:
                 return Response({"error": "Price is required when adding a product."}, status=status.HTTP_400_BAD_REQUEST)
             
-            if not size_ids or not isinstance(size_ids, list):
-                return Response({"error": "Size IDs (as list) are required when adding a product."}, status=status.HTTP_400_BAD_REQUEST)
+            if not size_quantities or not isinstance(size_quantities, list):
+                return Response({"error": "Sizes with quantities are required. Format: [{\"size_id\": 1, \"quantity\": 10}, ...]"}, status=status.HTTP_400_BAD_REQUEST)
             
             if not color_ids or not isinstance(color_ids, list):
                 return Response({"error": "Color IDs (as list) are required when adding a product."}, status=status.HTTP_400_BAD_REQUEST)
             
             # Validate sizes
-            sizes = SizeTable.objects.filter(id__in=size_ids)
+            size_ids = [sq.get('size_id') for sq in size_quantities if sq.get('size_id')]
+            sizes = Size.objects.filter(id__in=size_ids)
             if sizes.count() != len(size_ids):
                 return Response({"error": "One or more sizes not found."}, status=status.HTTP_404_NOT_FOUND)
             
@@ -582,7 +579,6 @@ class ApprovedPartnerProductUpdateView(views.APIView):
                 defaults={
                     'price': price,
                     'discount': discount,
-                    'stock_quantity': stock_quantity,
                     'is_active': True
                 }
             )
@@ -591,17 +587,28 @@ class ApprovedPartnerProductUpdateView(views.APIView):
             if not created:
                 partner_product.price = price
                 partner_product.discount = discount
-                partner_product.stock_quantity = stock_quantity
                 partner_product.is_active = True
                 partner_product.save()
             
-            # Set ManyToMany relationships
-            partner_product.size.set(sizes)
+            # Set colors
             partner_product.color.set(colors)
             
+            # Handle size quantities - clear existing and create new
+            partner_product.size_quantities.all().delete()
+            for sq_data in size_quantities:
+                size_id = sq_data.get('size_id')
+                quantity = sq_data.get('quantity', 0)
+                if size_id and quantity >= 0:
+                    PartnerProductSize.objects.create(
+                        partner_product=partner_product,
+                        size_id=size_id,
+                        quantity=quantity
+                    )
+            warehouse = Warehouse.objects.get(id=warehouse_id)
+            warehouse.product.add(partner_product)
             message = "Product added to inventory" if created else "Product updated in inventory"
         else:  # action == 'remove'
-            # Delete PartnerProduct entry
+            # Delete PartnerProduct entry (will cascade delete PartnerProductSize)
             deleted_count, _ = PartnerProduct.objects.filter(
                 partner=request.user,
                 product=product

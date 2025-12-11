@@ -26,6 +26,8 @@ urlpatterns = [
     path('api/dashboard/', DashboardAPIView.as_view(), name='dashboard'),
     path('api/orders/', OrderPageAPIView.as_view(), name='order-page'),
     path('api/orders/info/', OrderAnalyticsAPIView.as_view(), name='order-info'),
+    path('api/warehouse/', WarehouseAPIView.as_view(), name='warehouse'),
+    path('api/warehouse/<int:pk>/', WarehouseUpdateDestroyAPIView.as_view(), name='warehouse-update'),
 ]
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

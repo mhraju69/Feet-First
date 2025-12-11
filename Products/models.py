@@ -300,14 +300,26 @@ class Favorite(models.Model):
     def __str__(self):
         return f"{self.user.email}'s favorites"
     
+class PartnerProductSize(models.Model):
+    """Intermediate model to store quantity for each size in a partner's product"""
+    partner_product = models.ForeignKey('PartnerProduct', on_delete=models.CASCADE, related_name='size_quantities')
+    size = models.ForeignKey(Size, on_delete=models.CASCADE, related_name='partner_products')
+    quantity = models.PositiveIntegerField(default=0, help_text="Stock quantity for this specific size")
+    
+    class Meta:
+        unique_together = ('partner_product', 'size')
+        ordering = ['size__insole_min_mm']
+    
+    def __str__(self):
+        return f"{self.partner_product.product.name} - {self.size} - Qty: {self.quantity}"
+
 class PartnerProduct(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='partner_prices')
     partner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='product_prices')
-    size = models.ManyToManyField(SizeTable, related_name='partner_product_sizes', help_text="Size table for this product")
+    sizes = models.ManyToManyField(Size, through='PartnerProductSize', related_name='partner_product_sizes', help_text="Sizes with quantities for this product")
     color = models.ManyToManyField(Color, related_name='partner_product_colors', help_text="Color variant for this product")
-    price = models.DecimalField(default=0.00,max_digits=10, decimal_places=2, help_text="Partner's custom price for this product")
+    price = models.DecimalField(default=0.00, max_digits=10, decimal_places=2, help_text="Partner's custom price for this product")
     discount = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True, help_text="Partner's custom discount")
-    stock_quantity = models.PositiveIntegerField(default=0, help_text="Partner's stock quantity")
     is_active = models.BooleanField(default=True, help_text="Is this product active for this partner")
     local = models.BooleanField(default=True, help_text="Is this product available locally")
     online = models.BooleanField(default=True, help_text="Is this product available online")
@@ -317,6 +329,11 @@ class PartnerProduct(models.Model):
     class Meta:
         unique_together = ('partner', 'product')
         ordering = ['-created_at']
+    
+    @property
+    def total_stock_quantity(self):
+        """Calculate total stock across all sizes"""
+        return sum(sq.quantity for sq in self.size_quantities.all())
     
     def __str__(self):
         return f"{self.partner.email} - {self.product.name} - ${self.price}"

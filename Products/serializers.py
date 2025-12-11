@@ -248,6 +248,18 @@ class QnASerializer(serializers.ModelSerializer):
         model = ProductQuestionAnswer
         fields = ['question', 'answers']
 
+class PartnerProductSizeSerializer(serializers.ModelSerializer):
+    """Serializer for size with quantity"""
+    size = serializers.SerializerMethodField()
+    size_id = serializers.IntegerField(source='size.id')
+    
+    class Meta:
+        model = PartnerProductSize
+        fields = ['size_id', 'size', 'quantity']
+    
+    def get_size(self, obj):
+        return [obj.size.value]
+
 class PartnerProductSerializer(serializers.ModelSerializer):
     """Serializer for partner's own inventory management"""
     name = serializers.SerializerMethodField()
@@ -255,10 +267,14 @@ class PartnerProductSerializer(serializers.ModelSerializer):
     sub_category = serializers.SerializerMethodField()
     size = serializers.SerializerMethodField()
     color = serializers.SerializerMethodField()
+    stock_quantity = serializers.SerializerMethodField()
     
     class Meta:
         model = PartnerProduct
         fields = ['id', 'price', 'discount', 'stock_quantity', 'is_active', 'name', 'brand', 'sub_category','online','local','size', 'color']
+    
+    def get_stock_quantity(self, obj):
+        return obj.total_stock_quantity
 
     def get_name(self, obj):
         return obj.product.name
@@ -270,15 +286,9 @@ class PartnerProductSerializer(serializers.ModelSerializer):
         return obj.product.sub_category.name
     
     def get_size(self, obj):
-        sizes_list = []
-
-        for size_table in obj.size.all():
-            for size in size_table.sizes.all():
-                sizes_list.append({
-                    "id": size.id,
-                    "size": f"{size.type} {size.value}"
-                })
-        return sizes_list
+        """Return sizes with their quantities"""
+        size_quantities = obj.size_quantities.select_related('size').all()
+        return PartnerProductSizeSerializer(size_quantities, many=True).data
     
     def get_color(self, obj):
         colors_list = []
@@ -373,6 +383,7 @@ class PartnerProductDetailSerializer(serializers.ModelSerializer):
     technical_data = serializers.CharField(source='product.technical_data')
     further_information = serializers.CharField(source='product.further_information')
     gender = serializers.CharField(source='product.gender')
+    quantity = serializers.SerializerMethodField()
     
     class Meta:
         model = PartnerProduct
@@ -380,7 +391,7 @@ class PartnerProductDetailSerializer(serializers.ModelSerializer):
             "id", "name", "colors", "images", "technical_data", 'description',
             "brand", "sub_category", "features",
             "further_information", "price", "discount", 
-            "match_data", 'favourite', 'gender', 'sizes', 'qna'
+            "match_data", 'favourite', 'gender', 'sizes','quantity','qna'
         ]
     
     def get_images(self, obj):
@@ -407,10 +418,13 @@ class PartnerProductDetailSerializer(serializers.ModelSerializer):
             return []
     
     def get_sizes(self, obj):
-        sizes_list = []
-        for size_table in obj.size.all():
-            sizes_list.extend(size_table.sizes.values_list('value', flat=True))
-        return sizes_list
+        """Return sizes with their quantities"""
+        size_quantities = obj.size_quantities.select_related('size').all()
+        return PartnerProductSizeSerializer(size_quantities, many=True).data
+    
+    def get_quantity(self, obj):
+        """Return total stock quantity"""
+        return obj.total_stock_quantity
     
     def get_colors(self, obj):
         return [i.hex_code for i in obj.color.all()]

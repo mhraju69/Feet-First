@@ -2,6 +2,7 @@
 from rest_framework import serializers
 from .models import *
 from Accounts.serializers import AddressSerializer
+from django.db.models import Sum
 
 class FAQSerializer(serializers.ModelSerializer):
     class Meta:
@@ -40,3 +41,27 @@ class OrderSerializer(serializers.ModelSerializer):
             "quantity" : obj.quantity,
             "address" : AddressSerializer(address).data,
         }
+
+class WarehouseSerializer(serializers.ModelSerializer):
+    stock = serializers.SerializerMethodField()
+    item = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Warehouse
+        fields = ("id","name", "address", "stock", "item", "created_at", "updated_at", "partner")
+        read_only_fields = ("stock", "item", "partner")
+
+    def get_stock(self, obj):
+        partner_products = obj.product.all()
+
+        total_stock = (
+            PartnerProductSize.objects
+            .filter(partner_product__in=partner_products)
+            .aggregate(total=Sum("quantity"))
+            .get("total")
+        )
+
+        return total_stock or 0
+
+    def get_item(self, obj):
+        return obj.product.count()

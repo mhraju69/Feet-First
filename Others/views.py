@@ -131,28 +131,23 @@ class DashboardAPIView(views.APIView):
         
         LOW_STOCK_THRESHOLD = 10
         
-        low_stock = PartnerProduct.objects.filter(
+        # Get all partner products with their total stock
+        partner_products = PartnerProduct.objects.filter(
             partner=partner,
-            is_active=True,
-            stock_quantity__lte=LOW_STOCK_THRESHOLD
-        ).select_related('product', 'product__brand').values(
-            'id',
-            'product__id',
-            'product__name',
-            'product__brand__name',
-            'stock_quantity'
-        )
+            is_active=True
+        ).select_related('product', 'product__brand').prefetch_related('size_quantities')
         
-        low_stock_list = [
-            {
-                'partner_product_id': item['id'],
-                'product_id': item['product__id'],
-                'product_name': item['product__name'],
-                'brand': item['product__brand__name'],
-                'stock_quantity': item['stock_quantity']
-            }
-            for item in low_stock
-        ]
+        low_stock_list = []
+        for pp in partner_products:
+            total_stock = pp.total_stock_quantity
+            if total_stock <= LOW_STOCK_THRESHOLD:
+                low_stock_list.append({
+                    'partner_product_id': pp.id,
+                    'product_id': pp.product.id,
+                    'product_name': pp.product.name,
+                    'brand': pp.product.brand.name,
+                    'stock_quantity': total_stock
+                })
         
         return low_stock_list[:20]
 
@@ -221,66 +216,65 @@ class DashboardAPIView(views.APIView):
         
         LOW_STOCK_THRESHOLD = 20
         
-        low_stock_best_sellers = PartnerProduct.objects.filter(
+        # Get partner products for best sellers
+        partner_products_best = PartnerProduct.objects.filter(
             partner=partner,
             product__id__in=best_seller_product_ids,
-            is_active=True,
-            stock_quantity__lt=LOW_STOCK_THRESHOLD
-        ).select_related('product', 'product__brand').values(
-            'id',
-            'product__id',
-            'product__name',
-            'product__brand__name',
-            'stock_quantity'
-        )
+            is_active=True
+        ).select_related('product', 'product__brand').prefetch_related('size_quantities')
         
         user_language = partner.language if hasattr(partner, 'language') else 'german'
         
         alerts = []
-        for item in low_stock_best_sellers:
-            product_name = item['product__name']
-            brand_name = item['product__brand__name'] if item['product__brand__name'] else ''
-            stock_qty = item['stock_quantity']
-            
-            full_product_name = f"{brand_name} {product_name}" if brand_name else product_name
-            
-            if user_language == 'italian':
-                message = f"Il modello ha una forte richiesta e scorte ridotte. Riordino consigliato: 15–20 paia."
-            else: 
-                message = f"Das Modell hat eine hohe Nachfrage und niedrige Bestände. Empfohlene Nachbestellung: 15-20 Paar."
-            
-            alerts.append({
-                'partner_product_id': item['id'],
-                'product_id': item['product__id'],
-                'product_name': full_product_name,
-                'current_stock': stock_qty,
-                'message': message
-            })
+        for pp in partner_products_best:
+            total_stock = pp.total_stock_quantity
+            if total_stock < LOW_STOCK_THRESHOLD:
+                product_name = pp.product.name
+                brand_name = pp.product.brand.name if pp.product.brand else ''
+                
+                full_product_name = f"{brand_name} {product_name}" if brand_name else product_name
+                
+                if user_language == 'italian':
+                    message = f"Il modello ha una forte richiesta e scorte ridotte. Riordino consigliato: 15–20 paia."
+                else: 
+                    message = f"Das Modell hat eine hohe Nachfrage und niedrige Bestände. Empfohlene Nachbestellung: 15-20 Paar."
+                
+                alerts.append({
+                    'partner_product_id': pp.id,
+                    'product_id': pp.product.id,
+                    'product_name': full_product_name,
+                    'current_stock': total_stock,
+                    'message': message
+                })
         
         # Get inactive products grouped by brand and subcategory
         from django.db.models import Count
         
         inactive_products = PartnerProduct.objects.filter(
             partner=partner,
-            is_active=False,
-            stock_quantity__gt=0  # Has stock but not activated
+            is_active=False
         ).select_related(
             'product',
             'product__brand',
             'product__sub_category'
-        ).values(
-            'product__brand__name',
-            'product__sub_category__name'
-        ).annotate(
-            count=Count('id')
-        ).order_by('-count')
+        ).prefetch_related('size_quantities')
+        
+        # Filter those with stock > 0
+        inactive_with_stock = [pp for pp in inactive_products if pp.total_stock_quantity > 0]
+        
+        # Group by brand and subcategory
+        from collections import defaultdict
+        grouped = defaultdict(int)
+        for pp in inactive_with_stock:
+            key = (pp.product.brand.name if pp.product.brand else 'Unknown Brand',
+                   pp.product.sub_category.name if pp.product.sub_category else 'Unknown Category')
+            grouped[key] += 1
+        
+        # Sort by count
+        sorted_groups = sorted(grouped.items(), key=lambda x: -x[1])
         
         inactive_alerts = []
-        for item in inactive_products:
-            brand_name = item['product__brand__name'] or 'Unknown Brand'
-            subcategory_name = item['product__sub_category__name'] or 'Unknown Category'
-            count = item['count']
-            
+        for (brand_name, subcategory_name), count in sorted_groups:
             if user_language == 'italian':
                 message = f"Avete {count} modelli di {subcategory_name} in magazzino che non sono ancora attivati nel Shoe Finder."
             else:
@@ -347,12 +341,17 @@ class DashboardAPIView(views.APIView):
         marketing_recommendations = []
         if current_season:
             # Get partner's available subcategories that match seasonal recommendations
-            partner_subcategories = PartnerProduct.objects.filter(
+            partner_products_seasonal = PartnerProduct.objects.filter(
                 partner=partner,
                 is_active=True,
-                stock_quantity__gt=0,
                 product__sub_category__name__in=current_season['subcategories']
-            ).values_list('product__sub_category__name', flat=True).distinct()
+            ).select_related('product__sub_category').prefetch_related('size_quantities')
+            
+            # Filter those with stock > 0
+            partner_subcategories = set()
+            for pp in partner_products_seasonal:
+                if pp.total_stock_quantity > 0:
+                    partner_subcategories.add(pp.product.sub_category.name)
             
             available_subcategories = list(partner_subcategories)
             
@@ -419,3 +418,20 @@ class OrderAnalyticsAPIView(views.APIView):
             'packaging': packaging,
             'shipping': shipping,
         })
+
+class WarehouseAPIView(generics.ListCreateAPIView):
+    permission_classes = [permissions.IsAuthenticated,IsPartner] 
+    serializer_class = WarehouseSerializer
+
+    def get_queryset(self):
+        return Warehouse.objects.filter(partner=self.request.user).select_related('partner').order_by('-created_at')
+    
+    def perform_create(self, serializer):
+        serializer.save(partner=self.request.user)
+
+class WarehouseUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [permissions.IsAuthenticated,IsPartner] 
+    serializer_class = WarehouseSerializer
+
+    def get_object(self):
+        return Warehouse.objects.get(id=self.kwargs['pk'])

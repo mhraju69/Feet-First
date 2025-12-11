@@ -102,6 +102,13 @@ class ColorAdmin(ModelAdmin):
 class FeaturesAdmin(ModelAdmin):
     search_fields = ["text"]
 
+@admin.register(Size)
+class SizeAdmin(ModelAdmin):
+    list_display = ('type', 'value', 'table', 'insole_min_mm', 'insole_max_mm')
+    search_fields = ['value', 'type']
+    list_filter = ['type', 'table']
+    autocomplete_fields = ['table']
+
 @admin.register(SizeTable)
 class SizeTableAdmin(ModelAdmin):
     list_display = ('name', 'brand')
@@ -205,7 +212,21 @@ class FavoriteAdmin(ModelAdmin):
     has_add_permission = lambda self, request, obj=None: False
     # has_delete_permission = lambda self, request, obj=None: False
 
+class PartnerProductSizeInline(TabularInline):
+    model = PartnerProductSize
+    extra = 1
+    fields = ['size', 'quantity']
+    raw_id_fields = ['size']  # Use raw_id instead of autocomplete
+
 @admin.register(PartnerProduct)
 class PartnerProductAdmin(ModelAdmin):
-    has_add_permission = lambda self, request, obj=None: False
-    has_delete_permission = lambda self, request, obj=None: False
+    list_display = ('product', 'partner', 'price', 'total_stock_quantity', 'is_active')
+    search_fields = ('product__name', 'partner__email')
+    list_filter = ('is_active', 'local', 'online')
+    autocomplete_fields = ['product', 'partner', 'color']
+    inlines = [PartnerProductSizeInline]
+    
+    def total_stock_quantity(self, obj):
+        return obj.total_stock_quantity
+    total_stock_quantity.short_description = 'Total Stock'
+

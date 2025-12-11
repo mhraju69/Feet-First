@@ -259,3 +259,14 @@ class MonthlySales(models.Model):
             'July', 'August', 'September', 'October', 'November', 'December'
         ]
         return month_names[self.month - 1] if 1 <= self.month <= 12 else 'Unknown'
+
+class Warehouse(models.Model):
+    partner = models.ForeignKey(User, on_delete=models.CASCADE)
+    name = models.CharField(max_length=100)
+    address = models.CharField(max_length=255)
+    product = models.ManyToManyField(PartnerProduct)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return self.name
