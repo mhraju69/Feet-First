@@ -9,6 +9,8 @@ from .models import *
 from .serializers import *
 from core.permission import *
 from Products.views import CustomLimitPagination
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import filters
 
 class FAQAPIView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]  
@@ -399,6 +401,21 @@ class OrderPageAPIView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated,IsPartner] 
     serializer_class = OrderSerializer
     pagination_class = CustomLimitPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filterset_fields = ['status']
+    search_fields = ['order_id', 'name', 'product__name','product__brand__name','product__sub_category__name']
 
     def get_queryset(self):
-        return Order.objects.filter(partner=self.request.user)
+        return Order.objects.filter(partner=self.request.user).select_related('user', 'product').order_by('-created_at')
+
+class OrderAnalyticsAPIView(views.APIView):
+    permission_classes = [permissions.IsAuthenticated,IsPartner]
+    def get(self, request):
+        new = Order.objects.filter(partner=self.request.user,status='completed').count()
+        packaging = Order.objects.filter(partner=self.request.user,status='packaging').count()
+        shipping = Order.objects.filter(partner=self.request.user,status='shipping').count()
+        return Response({
+            'new': new,
+            'packaging': packaging,
+            'shipping': shipping,
+        })

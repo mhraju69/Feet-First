@@ -25,6 +25,7 @@ urlpatterns = [
     # path('api/make-payment/', ConfirmOrderAPIView.as_view(), name='make-payment'),
     path('api/dashboard/', DashboardAPIView.as_view(), name='dashboard'),
     path('api/orders/', OrderPageAPIView.as_view(), name='order-page'),
+    path('api/orders/info/', OrderAnalyticsAPIView.as_view(), name='order-info'),
 ]
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
