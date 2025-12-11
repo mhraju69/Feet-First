@@ -8,6 +8,7 @@ from decimal import Decimal
 from .models import *
 from .serializers import *
 from core.permission import *
+from Products.views import CustomLimitPagination
 
 class FAQAPIView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]  
@@ -394,3 +395,10 @@ class DashboardAPIView(views.APIView):
             'alerts': best_selling_alerts,
         })
 
+class OrderPageAPIView(generics.ListAPIView):
+    permission_classes = [permissions.IsAuthenticated,IsPartner] 
+    serializer_class = OrderSerializer
+    pagination_class = CustomLimitPagination
+
+    def get_queryset(self):
+        return Order.objects.filter(partner=self.request.user)

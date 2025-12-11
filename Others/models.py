@@ -196,7 +196,7 @@ class Payment(models.Model):
     transaction_id = models.CharField(max_length=100, verbose_name="Transaction ID",blank=True,null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
-class Order(models.Model):
+class Order(models.Model):  
     ORDER_STATUS = (
         ("pending", "Pending"),
         ("confirmed", "Confirmed"),
@@ -205,7 +205,8 @@ class Order(models.Model):
         ("delivered", "Delivered"),
     )
     order_id = models.CharField(max_length=100, verbose_name="Order ID")
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="customer_orders")
+    partner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="partner_orders", null=True, blank=True, help_text="Partner who fulfilled this order")
     name = models.CharField(max_length=100)
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     price = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text="Price at time of purchase")

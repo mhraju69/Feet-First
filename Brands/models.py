@@ -5,7 +5,7 @@ from cloudinary_storage.storage import MediaCloudinaryStorage
 
 class Brand(models.Model):
     name = models.CharField(max_length=100, unique=True)
-    image = models.ImageField(upload_to='brand_images/', storage=MediaCloudinaryStorage(),help_text="Image size should be less than 1MB")
+    image = models.ImageField(upload_to='brand_images/', storage=MediaCloudinaryStorage(), blank=True, null=True, help_text="Image size should be less than 1MB")
     description = models.TextField(blank=True, null=True)
 
     def __str__(self):

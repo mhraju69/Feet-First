@@ -24,6 +24,7 @@ urlpatterns = [
     path('subcategory-autocomplete/',SubCategoryAutocomplete.as_view(),name='subcategory-autocomplete',),
     # path('api/make-payment/', ConfirmOrderAPIView.as_view(), name='make-payment'),
     path('api/dashboard/', DashboardAPIView.as_view(), name='dashboard'),
+    path('api/orders/', OrderPageAPIView.as_view(), name='order-page'),
 ]
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

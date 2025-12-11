@@ -60,7 +60,6 @@ class SizeInline(TabularInline):
     model = Size
     extra = 1
 
-
 class SubCategoryAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self):
         if not self.request.user.is_authenticated:
@@ -146,7 +145,7 @@ class ProductAdmin(ModelAdmin):
         'gender', 'is_active', 'main_category', 'sub_category',
         'width', 'toe_box', 'brand', 'colors',
     )
-    autocomplete_fields = ['colors', 'brand','features']
+    autocomplete_fields = ['colors', 'brand','features','sizes']
     inlines = [ProductImageInline, ProductQuestionAnswerInline]
 
     def get_queryset(self, request):

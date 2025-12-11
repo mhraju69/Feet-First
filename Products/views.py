@@ -20,62 +20,81 @@ class CustomLimitPagination(PageNumberPagination):
     max_page_size = 50
 
 class ProductListView(generics.ListAPIView):
-    serializer_class = ProductSerializer
+    """
+    Multi-vendor product listing.
+    Shows products from PartnerProduct with partner-specific prices, sizes, and colors.
+    """
+    serializer_class = PartnerProductListSerializer
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = CustomLimitPagination    
 
     # enable filters + search
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ['name', 'description', 'brand__name']
-    filterset_fields = ['sub_category__slug', 'gender', 'brand']
+    search_fields = ['product__name', 'product__description', 'product__brand__name']
+    filterset_fields = ['product__sub_category__slug', 'product__gender', 'product__brand']
 
-    # base querysets
     def get_queryset(self):
         """
-        Build the queryset dynamically depending on the 'brandName' param.
-        Apply additional filters and optional match score sorting.
+        Build the queryset from PartnerProduct for multi-vendor system.
+        Apply filters and optional match score sorting.
         """
-        # Get only active products that have at least one partner selling them
-        queryset = Product.objects.filter(
-            partner_prices__isnull=False,  # ensures product is linked to at least one PartnerProduct
-            is_active=True
-        ).select_related('brand').prefetch_related('images', 'colors').distinct()
+        # Get only active partner products with stock
+        queryset = PartnerProduct.objects.filter(
+            is_active=True,
+            stock_quantity__gt=0,
+            product__is_active=True
+        ).select_related(
+            'product', 'product__brand', 'product__sub_category',
+            'partner'
+        ).prefetch_related('product__images', 'size', 'color')
 
-        # --- Choose base queryset based on brandName ---
+        # --- Brand filter ---
         brand = self.request.query_params.get("brandName")
-
         if brand:
-            queryset = queryset.filter(brand__name__iexact=brand)
+            queryset = queryset.filter(product__brand__name__iexact=brand)
         else:
             # No brand requested, exclude Imotana by default
-            queryset = queryset.exclude(brand__name__iexact="imotana")
+            queryset = queryset.exclude(product__brand__name__iexact="imotana")
 
-        # --- Extra filters ---
+        # --- Sub category filter ---
         sub = self.request.query_params.get("sub_category")
         if sub:
-            sub_cat = SubCategory.objects.filter(slug=sub).first()
-            if sub_cat:
-                queryset = queryset.filter(sub_category=sub_cat)
+            queryset = queryset.filter(product__sub_category__slug=sub)
 
+        # --- Gender filter ---
         gender = self.request.query_params.get("gender")
         if gender:
-            queryset = queryset.filter(gender=gender)
+            queryset = queryset.filter(product__gender=gender)
+
+        # --- Size filter ---
+        size_id = self.request.query_params.get("size_id")
+        if size_id:
+            queryset = queryset.filter(size_id=size_id)
+
+        # --- Color filter ---
+        color_id = self.request.query_params.get("color_id")
+        if color_id:
+            queryset = queryset.filter(color_id=color_id)
+
+        # --- Partner filter ---
+        partner_id = self.request.query_params.get("partner_id")
+        if partner_id:
+            queryset = queryset.filter(partner_id=partner_id)
 
         # --- Match sorting ---
         match = self.request.query_params.get("match")
         scan = FootScan.objects.filter(user=self.request.user).first()
 
         if match and match.lower() == "true" and scan:
-            products = list(queryset)
-            products.sort(
-                key=lambda p: p.match_with_scan(scan).get("score", 0),
+            partner_products = list(queryset)
+            partner_products.sort(
+                key=lambda pp: pp.product.match_with_scan(scan).get("score", 0),
                 reverse=True  # higher score first
             )
-            return products
+            return partner_products
 
         # Default: order by latest (descending id)
         return queryset.order_by('-id')
-
 
     def list(self, request, *args, **kwargs):
         """
@@ -83,11 +102,11 @@ class ProductListView(generics.ListAPIView):
         """
         queryset = self.get_queryset()
 
-        # ✅ Apply search and filters manually
+        # Apply search and filters manually
         if not isinstance(queryset, list):
             queryset = self.filter_queryset(queryset)
 
-        # ✅ Handle pagination
+        # Handle pagination
         page = self.paginate_queryset(queryset)
         if page is not None:
             serializer = self.get_serializer(page, many=True)
@@ -105,34 +124,44 @@ class ProductListView(generics.ListAPIView):
         return context
 
 class ProductsCountView(views.APIView):
+    """Count available partner products (multi-vendor)"""
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, *args, **kwargs):
         sub = request.query_params.get("sub_category")
         gender = request.query_params.get("gender")
 
-        queryset = Product.objects.filter(is_active=True)
+        queryset = PartnerProduct.objects.filter(
+            is_active=True, 
+            stock_quantity__gt=0,
+            product__is_active=True
+        )
         
         if sub:
-            queryset = queryset.filter(sub_category=sub)
+            queryset = queryset.filter(product__sub_category__slug=sub)
         
         if gender:
-            queryset = queryset.filter(gender=gender)
+            queryset = queryset.filter(product__gender=gender)
         
         count = queryset.count()
 
         return Response({"count": count}, status=200)
 
 class ProductDetailView(generics.RetrieveAPIView):
-    serializer_class = ProductDetailsSerializer
+    """
+    Multi-vendor product detail view.
+    Retrieves a specific PartnerProduct with partner-specific price, size, color.
+    """
+    serializer_class = PartnerProductDetailSerializer
     permission_classes = [permissions.IsAuthenticated]
-    queryset = Product.objects.filter(is_active=True)
+    queryset = PartnerProduct.objects.filter(is_active=True, product__is_active=True)
     lookup_field = 'id'
 
     def get_queryset(self):
-        return super().get_queryset().select_related('brand').prefetch_related(
-            'images', 'colors'
-        )
+        return super().get_queryset().select_related(
+            'product', 'product__brand', 'product__sub_category',
+            'partner'
+        ).prefetch_related('product__images', 'product__colors', 'product__features', 'size', 'color')
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -298,54 +327,64 @@ class FavoriteUpdateView(views.APIView):
         return Response({"message": message}, status=status.HTTP_200_OK)
 
 class SuggestedProductsView(generics.ListAPIView):
-    serializer_class = ProductSerializer
+    """
+    Suggest similar partner products based on a given partner product.
+    Multi-vendor system: returns PartnerProducts with partner-specific pricing.
+    """
+    serializer_class = PartnerProductListSerializer
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = CustomLimitPagination
 
     def get_queryset(self):
-        product_id = self.kwargs.get("product_id")
+        partner_product_id = self.kwargs.get("product_id")
 
-        if not product_id:
-            return Product.objects.none()
+        if not partner_product_id:
+            return PartnerProduct.objects.none()
 
         try:
-            product = Product.objects.get(id=product_id, is_active=True)
-        except Product.DoesNotExist:
-            return Product.objects.none()
+            partner_product = PartnerProduct.objects.select_related('product').get(
+                id=partner_product_id, 
+                is_active=True,
+                product__is_active=True
+            )
+            product = partner_product.product
+        except PartnerProduct.DoesNotExist:
+            return PartnerProduct.objects.none()
 
-        # ✅ Get all SizeTable IDs linked to this product via sizes ManyToMany
+        # Get all SizeTable IDs linked to this product via sizes ManyToMany
         size_table_ids = product.sizes.values_list('id', flat=True)
 
-        # ✅ Prepare base queryset
-        queryset = (
-            Product.objects.filter(
-                is_active=True,
-                sub_category=product.sub_category,
-                gender=product.gender,
-                sizes__id__in=size_table_ids,  # match same size tables
-            )
-            .exclude(id=product_id)
-            .select_related("brand")
-            .prefetch_related("images", "colors")
-            .distinct()
-        )
+        # Prepare base queryset - find similar PartnerProducts
+        queryset = PartnerProduct.objects.filter(
+            is_active=True,
+            stock_quantity__gt=0,
+            product__is_active=True,
+            product__sub_category=product.sub_category,
+            product__gender=product.gender,
+            product__sizes__id__in=size_table_ids,  # match same size tables
+        ).exclude(
+            id=partner_product_id
+        ).select_related(
+            'product', 'product__brand', 'product__sub_category',
+            'partner'
+        ).prefetch_related('product__images', 'size', 'color').distinct()
 
-        # ✅ Add scan-based ranking (if exists)
+        # Add scan-based ranking (if exists)
         scan = FootScan.objects.filter(user=self.request.user).first()
 
         if scan:
             foot_width_cat = scan.width_category()
             foot_toe_box = scan.toe_box_category()
 
-            products_list = list(queryset)
-            products_list.sort(
-                key=lambda p: (
-                    abs(getattr(p, "width", 0) - foot_width_cat),
-                    0 if getattr(p, "toe_box", None) == foot_toe_box else 1,
-                    -p.match_with_scan(scan).get("score", 0),
+            partner_products_list = list(queryset)
+            partner_products_list.sort(
+                key=lambda pp: (
+                    abs(getattr(pp.product, "width", 0) - foot_width_cat),
+                    0 if getattr(pp.product, "toe_box", None) == foot_toe_box else 1,
+                    -pp.product.match_with_scan(scan).get("score", 0),
                 )
             )
-            return products_list[:20]  # Top 20 matches
+            return partner_products_list[:20]  # Top 20 matches
 
         return queryset[:20]
 
@@ -355,8 +394,12 @@ class SuggestedProductsView(generics.ListAPIView):
         context["scan"] = scan
         context["match"] = True
         return context
-           
+                  
 class ProductQnAFilterAPIView(views.APIView):
+    """
+    Filter products by Q&A in multi-vendor system.
+    Returns PartnerProducts with partner-specific pricing.
+    """
     pagination_class = CustomLimitPagination
     permission_classes = [permissions.IsAuthenticated]
 
@@ -379,21 +422,7 @@ class ProductQnAFilterAPIView(views.APIView):
         if not cat:
             return self.empty_paginated_response(request)
 
-        # Start with all products in the sub_category
-        try:
-            # Get products by sub_category slug
-            subcategory_products = Product.objects.filter(
-                sub_category__slug=cat,
-                is_active=True
-            ).select_related('brand').prefetch_related('images', 'colors')
-
-            if not subcategory_products.exists():
-                return self.empty_paginated_response(request)
-                
-        except Exception as e:
-            return self.empty_paginated_response(request)
-
-        # Build OR query across ALL questions - product matches if it has ANY of the questions
+        # Build OR query across ALL questions
         combined_query = Q()
         
         for question_item in questions_data:
@@ -407,42 +436,55 @@ class ProductQnAFilterAPIView(views.APIView):
             try:
                 question_obj = Question.objects.get(key=question_key)
             except Question.DoesNotExist:
-                # If question doesn't exist, skip it
                 continue
             
             # For this question, build OR query for all answer options
             for answer_key in answer_keys:
                 if answer_key and answer_key.strip():
-                    # Add to combined OR query
                     combined_query |= Q(
-                        question_answers__question=question_obj,
-                        question_answers__answers__key=answer_key
+                        product__question_answers__question=question_obj,
+                        product__question_answers__answers__key=answer_key
                     )
         
         # If no valid query built, return empty
         if not combined_query:
             return self.empty_paginated_response(request)
         
-        # Filter products: match ANY of the question/answer combinations
-        final_queryset = subcategory_products.filter(combined_query).distinct()
+        # Get PartnerProducts matching the Q&A filter
+        queryset = PartnerProduct.objects.filter(
+            is_active=True,
+            stock_quantity__gt=0,
+            product__is_active=True,
+            product__sub_category__slug=cat
+        ).filter(combined_query).select_related(
+            'product', 'product__brand', 'product__sub_category',
+            'partner'
+        ).prefetch_related('product__images', 'size', 'color').distinct()
         
         # Final check
-        if not final_queryset.exists():
+        if not queryset.exists():
             return self.empty_paginated_response(request)
+
+        # Get scan for context
+        scan = FootScan.objects.filter(user=request.user).first()
 
         # Pagination and serialization
         paginator = self.pagination_class()
-        paginated_products = paginator.paginate_queryset(final_queryset, request, view=self)
-        serializer = ProductSerializer(paginated_products, many=True)
+        paginated_products = paginator.paginate_queryset(queryset, request, view=self)
+        serializer = PartnerProductListSerializer(
+            paginated_products, 
+            many=True, 
+            context={'request': request, 'scan': scan}
+        )
         
         return paginator.get_paginated_response(serializer.data)
 
     # Helper method for empty response
     def empty_paginated_response(self, request):
         paginator = self.pagination_class()
-        empty_queryset = Product.objects.none()
+        empty_queryset = PartnerProduct.objects.none()
         paginated = paginator.paginate_queryset(empty_queryset, request, view=self)
-        serializer = ProductSerializer(paginated, many=True)
+        serializer = PartnerProductListSerializer(paginated, many=True)
         return paginator.get_paginated_response(serializer.data)
 
 class AllProductsForPartnerView(generics.ListAPIView):
@@ -485,8 +527,8 @@ class ApprovedPartnerProductUpdateView(views.APIView):
         price = request.data.get('price')
         discount = request.data.get('discount', None)
         stock_quantity = request.data.get('stock_quantity', 0)
-        size_id = request.data.get('size_id')
-        color_id = request.data.get('color_id')
+        size_ids = request.data.get('size_ids', [])  # Changed to accept list
+        color_ids = request.data.get('color_ids', [])  # Changed to accept list
 
         if not product_id or action not in ['add', 'remove']:
             return Response({"error": "Invalid request. Provide product_id and action (add/remove)."}, status=status.HTTP_400_BAD_REQUEST)
@@ -500,28 +542,26 @@ class ApprovedPartnerProductUpdateView(views.APIView):
             if not price:
                 return Response({"error": "Price is required when adding a product."}, status=status.HTTP_400_BAD_REQUEST)
             
-            if not size_id:
-                return Response({"error": "Size is required when adding a product."}, status=status.HTTP_400_BAD_REQUEST)
+            if not size_ids or not isinstance(size_ids, list):
+                return Response({"error": "Size IDs (as list) are required when adding a product."}, status=status.HTTP_400_BAD_REQUEST)
             
-            if not color_id:
-                return Response({"error": "Color is required when adding a product."}, status=status.HTTP_400_BAD_REQUEST)
+            if not color_ids or not isinstance(color_ids, list):
+                return Response({"error": "Color IDs (as list) are required when adding a product."}, status=status.HTTP_400_BAD_REQUEST)
             
-            try:
-                size = SizeTable.objects.get(id=size_id)
-            except SizeTable.DoesNotExist:
-                return Response({"error": "Size not found."}, status=status.HTTP_404_NOT_FOUND)
+            # Validate sizes
+            sizes = SizeTable.objects.filter(id__in=size_ids)
+            if sizes.count() != len(size_ids):
+                return Response({"error": "One or more sizes not found."}, status=status.HTTP_404_NOT_FOUND)
             
-            try:
-                color = Color.objects.get(id=color_id)
-            except Color.DoesNotExist:
-                return Response({"error": "Color not found."}, status=status.HTTP_404_NOT_FOUND)
+            # Validate colors
+            colors = Color.objects.filter(id__in=color_ids)
+            if colors.count() != len(color_ids):
+                return Response({"error": "One or more colors not found."}, status=status.HTTP_404_NOT_FOUND)
             
             # Create or update PartnerProduct entry
-            partner_product, created = PartnerProduct.objects.update_or_create(
+            partner_product, created = PartnerProduct.objects.get_or_create(
                 partner=request.user,
                 product=product,
-                size=size,
-                color=color,
                 defaults={
                     'price': price,
                     'discount': discount,
@@ -529,6 +569,19 @@ class ApprovedPartnerProductUpdateView(views.APIView):
                     'is_active': True
                 }
             )
+            
+            # If not created, update the fields
+            if not created:
+                partner_product.price = price
+                partner_product.discount = discount
+                partner_product.stock_quantity = stock_quantity
+                partner_product.is_active = True
+                partner_product.save()
+            
+            # Set ManyToMany relationships
+            partner_product.size.set(sizes)
+            partner_product.color.set(colors)
+            
             message = "Product added to inventory" if created else "Product updated in inventory"
         else:  # action == 'remove'
             # Delete PartnerProduct entry
