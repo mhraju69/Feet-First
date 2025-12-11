@@ -47,39 +47,55 @@ class ProductListView(generics.ListAPIView):
             'product', 'product__brand', 'product__sub_category',
             'partner'
         ).prefetch_related('product__images', 'size', 'color')
+        
+        # DEBUG: Print queryset count
+        print(f"DEBUG: Initial queryset count: {queryset.count()}")
+        if queryset.count() == 0:
+            print("DEBUG: No products found! Checking conditions...")
+            print(f"  - Total PartnerProducts: {PartnerProduct.objects.count()}")
+            print(f"  - Active: {PartnerProduct.objects.filter(is_active=True).count()}")
+            print(f"  - With stock: {PartnerProduct.objects.filter(stock_quantity__gt=0).count()}")
+            print(f"  - Product active: {PartnerProduct.objects.filter(product__is_active=True).count()}")
 
         # --- Brand filter ---
         brand = self.request.query_params.get("brandName")
         if brand:
             queryset = queryset.filter(product__brand__name__iexact=brand)
+            print(f"DEBUG: After brand filter '{brand}': {queryset.count()}")
         else:
             # No brand requested, exclude Imotana by default
             queryset = queryset.exclude(product__brand__name__iexact="imotana")
+            print(f"DEBUG: After excluding 'imotana': {queryset.count()}")
 
         # --- Sub category filter ---
         sub = self.request.query_params.get("sub_category")
         if sub:
             queryset = queryset.filter(product__sub_category__slug=sub)
+            print(f"DEBUG: After sub_category filter '{sub}': {queryset.count()}")
 
         # --- Gender filter ---
         gender = self.request.query_params.get("gender")
         if gender:
             queryset = queryset.filter(product__gender=gender)
+            print(f"DEBUG: After gender filter '{gender}': {queryset.count()}")
 
         # --- Size filter ---
         size_id = self.request.query_params.get("size_id")
         if size_id:
-            queryset = queryset.filter(size_id=size_id)
+            queryset = queryset.filter(size__id=size_id)
+            print(f"DEBUG: After size filter '{size_id}': {queryset.count()}")
 
         # --- Color filter ---
         color_id = self.request.query_params.get("color_id")
         if color_id:
-            queryset = queryset.filter(color_id=color_id)
+            queryset = queryset.filter(color__id=color_id)
+            print(f"DEBUG: After color filter '{color_id}': {queryset.count()}")
 
         # --- Partner filter ---
         partner_id = self.request.query_params.get("partner_id")
         if partner_id:
             queryset = queryset.filter(partner_id=partner_id)
+            print(f"DEBUG: After partner filter '{partner_id}': {queryset.count()}")
 
         # --- Match sorting ---
         match = self.request.query_params.get("match")
@@ -94,6 +110,7 @@ class ProductListView(generics.ListAPIView):
             return partner_products
 
         # Default: order by latest (descending id)
+        print(f"DEBUG: Final queryset count: {queryset.count()}")
         return queryset.order_by('-id')
 
     def list(self, request, *args, **kwargs):
@@ -527,8 +544,8 @@ class ApprovedPartnerProductUpdateView(views.APIView):
         price = request.data.get('price')
         discount = request.data.get('discount', None)
         stock_quantity = request.data.get('stock_quantity', 0)
-        size_ids = request.data.get('size_ids', [])  # Changed to accept list
-        color_ids = request.data.get('color_ids', [])  # Changed to accept list
+        size_ids = request.data.get('sizes', [])
+        color_ids = request.data.get('colors', [])
 
         if not product_id or action not in ['add', 'remove']:
             return Response({"error": "Invalid request. Provide product_id and action (add/remove)."}, status=status.HTTP_400_BAD_REQUEST)

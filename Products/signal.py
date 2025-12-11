@@ -8,6 +8,4 @@ User = get_user_model()
 def create_favorite_for_new_user(sender, instance, created, **kwargs):
     if created and instance.role == 'customer':
         Favorite.objects.create(user=instance)
-    if created and instance.role == 'partner':
-        ApprovedPartnerProduct.objects.create(partner=instance)
 

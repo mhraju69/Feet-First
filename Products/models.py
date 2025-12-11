@@ -305,7 +305,7 @@ class PartnerProduct(models.Model):
     partner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='product_prices')
     size = models.ManyToManyField(SizeTable, related_name='partner_product_sizes', help_text="Size table for this product")
     color = models.ManyToManyField(Color, related_name='partner_product_colors', help_text="Color variant for this product")
-    price = models.DecimalField(max_digits=10, decimal_places=2, help_text="Partner's custom price for this product")
+    price = models.DecimalField(default=0.00,max_digits=10, decimal_places=2, help_text="Partner's custom price for this product")
     discount = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True, help_text="Partner's custom discount")
     stock_quantity = models.PositiveIntegerField(default=0, help_text="Partner's stock quantity")
     is_active = models.BooleanField(default=True, help_text="Is this product active for this partner")
