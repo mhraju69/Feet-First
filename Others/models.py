@@ -196,7 +196,7 @@ class Payment(models.Model):
     transaction_id = models.CharField(max_length=100, verbose_name="Transaction ID",blank=True,null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
-class Order(models.Model):  
+class Order(models.Model):
     ORDER_STATUS = (
         ("pending", "Pending"),
         ("confirmed", "Confirmed"),
@@ -204,7 +204,7 @@ class Order(models.Model):
         ("shipped", "Shipped"),
         ("delivered", "Delivered"),
     )
-    order_id = models.CharField(max_length=100, verbose_name="Order ID")
+    order_id = models.CharField(max_length=100, verbose_name="Order ID",blank=True,null=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="customer_orders")
     partner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="partner_orders", null=True, blank=True, help_text="Partner who fulfilled this order")
     name = models.CharField(max_length=100)
@@ -214,7 +214,7 @@ class Order(models.Model):
     size = models.CharField(max_length=10)
     color = models.CharField(max_length=10)
     status = models.CharField(max_length=10, default="pending", choices=ORDER_STATUS)
-    tracking = models.CharField(max_length=100, verbose_name="Tracking ID")
+    tracking = models.CharField(max_length=100, verbose_name="Tracking ID",blank=True,null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     
     def save(self, *args, **kwargs):

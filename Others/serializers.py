@@ -1,13 +1,7 @@
 # serializers.py
 from rest_framework import serializers
 from .models import *
-# class QuesSerializer(serializers.ModelSerializer):
-#     sub_category = serializers.CharField(source="parent.sub_category", read_only=True)
-
-#     class Meta:
-#         model = Ans
-#         fields = ("id", "questions", "sub_category")
-
+from Accounts.serializers import AddressSerializer
 
 class FAQSerializer(serializers.ModelSerializer):
     class Meta:
@@ -25,6 +19,24 @@ class PaymentSerializer(serializers.ModelSerializer):
         fields = ("user", "amount", "created_at")
 
 class OrderSerializer(serializers.ModelSerializer):
+    customer = serializers.SerializerMethodField()
+    product = serializers.CharField(source="product.name", read_only=True)
+    price = serializers.CharField(source="product.price", read_only=True)
+    quantity = serializers.CharField(source="product.quantity", read_only=True)
+    details = serializers.SerializerMethodField()
+    
     class Meta:
         model = Order
-        fields = ("id", "partner", "product", "quantity", "price", "created_at")
+        fields = ("order_id", "customer","product", "status", "quantity", "price", "tracking", "created_at","details")
+
+    def get_customer(self, obj):
+        return (obj.user.name if obj.user.name else obj.user.email)
+
+    def get_details(self, obj):
+        address = Address.objects.filter(user=obj.user).first()
+        return {
+            "color" : obj.color,
+            "size" : obj.size,
+            "quantity" : obj.quantity,
+            "address" : AddressSerializer(address).data,
+        }
