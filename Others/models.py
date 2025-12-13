@@ -264,7 +264,7 @@ class Warehouse(models.Model):
     partner = models.ForeignKey(User, on_delete=models.CASCADE)
     name = models.CharField(max_length=100)
     address = models.CharField(max_length=255)
-    product = models.ManyToManyField(PartnerProduct)
+    product = models.ManyToManyField(PartnerProduct,related_name="warehouse",blank=True,null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
