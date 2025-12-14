@@ -1,5 +1,5 @@
 # views.py
-from rest_framework import generics, permissions, views
+from rest_framework import generics, permissions, views, status
 from rest_framework.response import Response
 from django.db.models import Sum, F, DecimalField
 from django.utils import timezone
@@ -11,6 +11,7 @@ from core.permission import *
 from Products.views import CustomLimitPagination
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters
+from Products.models import PartnerProduct, PartnerProductSize
 
 class FAQAPIView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]  
@@ -435,3 +436,123 @@ class WarehouseUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
 
     def get_object(self):
         return Warehouse.objects.get(id=self.kwargs['pk'])
+
+class CreateOrderView(views.APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def post(self, request):
+        products = request.data.get('products',[])
+        if not products:
+             return Response({"error": "No products provided"}, status=status.HTTP_400_BAD_REQUEST)
+
+        validated_items = []
+        total_amount = Decimal('0.00')
+
+        # Phase 1: Validate ALL items first
+        for index, item in enumerate(products):
+            try:
+                product_id = item.get('product')
+                partner_id = item.get('partner')
+                quantity = int(item.get('quantity', 1))
+                size_str = item.get('size')
+                color = item.get('color')
+                
+                if not all([product_id, partner_id, size_str, color]):
+                    return Response({
+                        "error": f"Missing fields in item {index+1} (product, partner, size, color required)"
+                    }, status=status.HTTP_400_BAD_REQUEST)
+
+                # 1. Validate Product & Partner
+                try:
+                    product = Product.objects.get(id=product_id)
+                    partner = User.objects.get(id=partner_id)
+                except (Product.DoesNotExist, User.DoesNotExist):
+                    return Response({
+                        "error": f"Invalid product or partner ID in item {index+1}"
+                    }, status=status.HTTP_400_BAD_REQUEST)
+
+                # 2. Validate Partner Sells Product (Active)
+                partner_product = PartnerProduct.objects.filter(
+                    product=product, 
+                    partner=partner, 
+                    is_active=True
+                ).first()
+                
+                if not partner_product:
+                    return Response({
+                        "error": f"Product '{product.name}' is not currently available from {partner.name or partner.email}"
+                    }, status=status.HTTP_400_BAD_REQUEST)
+
+                # 3. Validate Stock Availability
+                # Find matching size in partner inventory
+                pp_sizes = PartnerProductSize.objects.filter(partner_product=partner_product).select_related('size')
+                target_stock_item = None
+                
+                for pps in pp_sizes:
+                    # Match against "EU 42", "42", etc.
+                    s_obj = pps.size
+                    if (str(s_obj) == str(size_str)) or \
+                       (str(s_obj.value) == str(size_str)) or \
+                       (f"{s_obj.type} {s_obj.value}" == str(size_str)):
+                        target_stock_item = pps
+                        break
+                
+                if not target_stock_item:
+                    # If strictly checking availability, not finding the size is an error
+                    return Response({
+                        "error": f"Size '{size_str}' is not listed for '{product.name}' by this partner"
+                    }, status=status.HTTP_400_BAD_REQUEST)
+                
+                if target_stock_item.quantity < quantity:
+                    return Response({
+                        "error": f"Insufficient stock for '{product.name}' size {size_str}. Available: {target_stock_item.quantity}"
+                    }, status=status.HTTP_400_BAD_REQUEST)
+
+                # 4. Prepare Validated Item
+                customer_name = request.user.name if hasattr(request.user, 'name') and request.user.name else request.user.email
+                
+                validated_items.append({
+                    'user': request.user,
+                    'partner': partner,
+                    'product': product,
+                    'price': partner_product.price,
+                    'quantity': quantity,
+                    'size': size_str,
+                    'color': color,
+                    'name': customer_name
+                })
+                
+                total_amount += (partner_product.price * quantity)
+
+            except ValueError:
+                return Response({"error": f"Invalid quantity format in item {index+1}"}, status=status.HTTP_400_BAD_REQUEST)
+            except Exception as e:
+                return Response({"error": f"Validation error in item {index+1}: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        # Phase 2: Create Orders
+        created_ids = []
+        try:
+            for v_item in validated_items:
+                order = Order.objects.create(
+                    user=v_item['user'],
+                    partner=v_item['partner'],
+                    product=v_item['product'],
+                    price=v_item['price'],
+                    quantity=v_item['quantity'],
+                    size=v_item['size'],
+                    color=v_item['color'],
+                    status='pending',
+                    name=v_item['name']
+                )
+                created_ids.append(order.id)
+                # Note: Stock is NOT deducted here. Stock usually deducted after payment confirmation.
+                
+        except Exception as e:
+             return Response({"error": f"Failed to create orders: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        return Response({
+            "message": "Orders created successfully", 
+            "created_count": len(created_ids),
+            "order_ids": created_ids,
+            "total_amount": total_amount
+        }, status=status.HTTP_201_CREATED)
