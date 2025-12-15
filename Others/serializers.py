@@ -35,9 +35,10 @@ class OrderSerializer(serializers.ModelSerializer):
 
     def get_details(self, obj):
         address = Address.objects.filter(user=obj.user).first()
+        size_display = str(obj.size.size) if obj.size else "N/A"
         return {
             "color" : obj.color,
-            "size" : obj.size,
+            "size" : size_display,
             "quantity" : obj.quantity,
             "address" : AddressSerializer(address).data,
         }

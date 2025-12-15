@@ -454,12 +454,12 @@ class CreateOrderView(views.APIView):
                 product_id = item.get('product')
                 partner_id = item.get('partner')
                 quantity = int(item.get('quantity', 1))
-                size_str = item.get('size')
+                size_id = item.get('size_id')  # This is now PartnerProductSize ID
                 color = item.get('color')
                 
-                if not all([product_id, partner_id, size_str, color]):
+                if not all([product_id, partner_id, size_id, color]):
                     return Response({
-                        "error": f"Missing fields in item {index+1} (product, partner, size, color required)"
+                        "error": f"Missing fields in item {index+1} (product, partner, size_id, color required)"
                     }, status=status.HTTP_400_BAD_REQUEST)
 
                 # 1. Validate Product & Partner
@@ -483,29 +483,20 @@ class CreateOrderView(views.APIView):
                         "error": f"Product '{product.name}' is not currently available from {partner.name or partner.email}"
                     }, status=status.HTTP_400_BAD_REQUEST)
 
-                # 3. Validate Stock Availability
-                # Find matching size in partner inventory
-                pp_sizes = PartnerProductSize.objects.filter(partner_product=partner_product).select_related('size')
-                target_stock_item = None
-                
-                for pps in pp_sizes:
-                    # Match against "EU 42", "42", etc.
-                    s_obj = pps.size
-                    if (str(s_obj) == str(size_str)) or \
-                       (str(s_obj.value) == str(size_str)) or \
-                       (f"{s_obj.type} {s_obj.value}" == str(size_str)):
-                        target_stock_item = pps
-                        break
-                
-                if not target_stock_item:
-                    # If strictly checking availability, not finding the size is an error
+                # 3. Validate PartnerProductSize and Stock Availability
+                try:
+                    partner_product_size = PartnerProductSize.objects.select_related('size').get(
+                        id=size_id,
+                        partner_product=partner_product
+                    )
+                except PartnerProductSize.DoesNotExist:
                     return Response({
-                        "error": f"Size '{size_str}' is not listed for '{product.name}' by this partner"
+                        "error": f"Invalid size ID in item {index+1} or size doesn't belong to this partner's product"
                     }, status=status.HTTP_400_BAD_REQUEST)
                 
-                if target_stock_item.quantity < quantity:
+                if partner_product_size.quantity < quantity:
                     return Response({
-                        "error": f"Insufficient stock for '{product.name}' size {size_str}. Available: {target_stock_item.quantity}"
+                        "error": f"Insufficient stock for '{product.name}' size {partner_product_size.size}. Available: {partner_product_size.quantity}"
                     }, status=status.HTTP_400_BAD_REQUEST)
 
                 # 4. Prepare Validated Item
@@ -517,7 +508,7 @@ class CreateOrderView(views.APIView):
                     'product': product,
                     'price': partner_product.price,
                     'quantity': quantity,
-                    'size': size_str,
+                    'size': partner_product_size,  # Store the PartnerProductSize object
                     'color': color,
                     'name': customer_name
                 })
@@ -528,6 +519,7 @@ class CreateOrderView(views.APIView):
                 return Response({"error": f"Invalid quantity format in item {index+1}"}, status=status.HTTP_400_BAD_REQUEST)
             except Exception as e:
                 return Response({"error": f"Validation error in item {index+1}: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
         # Phase 2: Create Orders
         created_ids = []
