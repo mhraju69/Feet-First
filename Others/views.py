@@ -40,6 +40,7 @@ class DashboardAPIView(views.APIView):
         last_month_start = last_month_end.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         
         current_month_orders = Order.objects.filter(
+            partner=self.request.user,
             created_at__gte=current_month_start,
             created_at__lte=current_month_end
         ).exclude(status='pending').annotate(
@@ -51,6 +52,7 @@ class DashboardAPIView(views.APIView):
         current_month_sales = current_month_orders['total_sales'] or Decimal('0.00')
         
         last_month_orders = Order.objects.filter(
+            partner=self.request.user,
             created_at__gte=last_month_start,
             created_at__lte=last_month_end
         ).exclude(status='pending').annotate(
@@ -197,9 +199,8 @@ class DashboardAPIView(views.APIView):
         
         return orders_list
 
-    def best_selling_low_stock_alert(self, partner):
+    def get_best_selling_low_stock_alerts(self, partner):
         now = timezone.now()
-        
         current_month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         current_month_end = now
         
@@ -220,7 +221,6 @@ class DashboardAPIView(views.APIView):
         
         LOW_STOCK_THRESHOLD = 20
         
-        # Get partner products for best sellers
         partner_products_best = PartnerProduct.objects.filter(
             partner=partner,
             product__id__in=best_seller_product_ids,
@@ -250,9 +250,13 @@ class DashboardAPIView(views.APIView):
                     'current_stock': total_stock,
                     'message': message
                 })
-        
-        # Get inactive products grouped by brand and subcategory
+        return alerts
+
+    def get_inactive_product_alerts(self, partner):
         from django.db.models import Count
+        from collections import defaultdict
+        
+        user_language = partner.language if hasattr(partner, 'language') else 'german'
         
         inactive_products = PartnerProduct.objects.filter(
             partner=partner,
@@ -263,18 +267,14 @@ class DashboardAPIView(views.APIView):
             'product__sub_category'
         ).prefetch_related('size_quantities')
         
-        # Filter those with stock > 0
         inactive_with_stock = [pp for pp in inactive_products if pp.total_stock_quantity > 0]
         
-        # Group by brand and subcategory
-        from collections import defaultdict
         grouped = defaultdict(int)
         for pp in inactive_with_stock:
             key = (pp.product.brand.name if pp.product.brand else 'Unknown Brand',
                    pp.product.sub_category.name if pp.product.sub_category else 'Unknown Category')
             grouped[key] += 1
         
-        # Sort by count
         sorted_groups = sorted(grouped.items(), key=lambda x: -x[1])
         
         inactive_alerts = []
@@ -290,14 +290,15 @@ class DashboardAPIView(views.APIView):
                 'count': count,
                 'message': message
             })
-        
-        # Seasonal marketing recommendations
+        return inactive_alerts
+
+    def get_seasonal_recommendations(self, partner):
         import random
+        now = timezone.now()
         month = now.month
+        user_language = partner.language if hasattr(partner, 'language') else 'german'
         
-        # Define seasonal subcategory recommendations
         seasonal_recommendations = {
-            # Spring (March, April, May)
             'spring': {
                 'months': [3, 4, 5],
                 'subcategories': ['Laufschuh', 'Trailschuh', 'Wanderschuh', 'Freizeitschuh'],
@@ -306,7 +307,6 @@ class DashboardAPIView(views.APIView):
                 'message_de': 'Laufschuhe und Outdoor-Modelle zeigen steigendes Interesse. Erwägen Sie zusätzliche Marketingaktionen.',
                 'message_it': 'Le scarpe da corsa e i modelli outdoor mostrano un crescente interesse. Considerate azioni di marketing aggiuntive.'
             },
-            # Summer (June, July, August)
             'summer': {
                 'months': [6, 7, 8],
                 'subcategories': ['Laufschuh', 'Trailschuh', 'Barfußschuh', 'Sandale', 'Freizeitschuh'],
@@ -315,7 +315,6 @@ class DashboardAPIView(views.APIView):
                 'message_de': 'Sneaker und leichte Sportschuhe zeigen steigendes Interesse. Erwägen Sie zusätzliche Marketingaktionen.',
                 'message_it': 'Sneaker e scarpe sportive leggere mostrano un crescente interesse. Considerate azioni di marketing aggiuntive.'
             },
-            # Fall (September, October, November)
             'fall': {
                 'months': [9, 10, 11],
                 'subcategories': ['Wanderschuh', 'Trailschuh', 'Laufschuh', 'Winterschuh'],
@@ -324,7 +323,6 @@ class DashboardAPIView(views.APIView):
                 'message_de': 'Wanderschuhe und robuste Outdoor-Modelle zeigen steigendes Interesse. Erwägen Sie zusätzliche Marketingaktionen.',
                 'message_it': 'Scarpe da trekking e modelli outdoor robusti mostrano un crescente interesse. Considerate azioni di marketing aggiuntive.'
             },
-            # Winter (December, January, February)
             'winter': {
                 'months': [12, 1, 2],
                 'subcategories': ['Winterschuh', 'Wanderschuh', 'Freizeitschuh'],
@@ -335,7 +333,6 @@ class DashboardAPIView(views.APIView):
             }
         }
         
-        # Find current season
         current_season = None
         for season, data in seasonal_recommendations.items():
             if month in data['months']:
@@ -344,14 +341,12 @@ class DashboardAPIView(views.APIView):
         
         marketing_recommendations = []
         if current_season:
-            # Get partner's available subcategories that match seasonal recommendations
             partner_products_seasonal = PartnerProduct.objects.filter(
                 partner=partner,
                 is_active=True,
                 product__sub_category__name__in=current_season['subcategories']
             ).select_related('product__sub_category').prefetch_related('size_quantities')
             
-            # Filter those with stock > 0
             partner_subcategories = set()
             for pp in partner_products_seasonal:
                 if pp.total_stock_quantity > 0:
@@ -360,7 +355,6 @@ class DashboardAPIView(views.APIView):
             available_subcategories = list(partner_subcategories)
             
             if available_subcategories:
-                # Randomly select one subcategory from available ones
                 selected_subcategory = random.choice(available_subcategories)
                 
                 if user_language == 'italian':
@@ -376,28 +370,16 @@ class DashboardAPIView(views.APIView):
                     'message': message,
                     'season': list(seasonal_recommendations.keys())[list(seasonal_recommendations.values()).index(current_season)]
                 })
-        
-        return {
-            'best_selling': alerts,
-            'inactive_product': inactive_alerts,
-            'seasonal_marketing': marketing_recommendations
-        }
-
-    def get(self, request):
-        sales_data = self.monthly_sales()
-        orders_data = self.weekly_orders()
-        products_data = self.partner_products(request.user)
-        low_stock_data = self.low_stock_products(request.user)
-        recent_orders_data = self.recent_orders(request)
-        best_selling_alerts = self.best_selling_low_stock_alert(request.user)
-        
+        return marketing_recommendations
         return Response({
             'monthly_sales': sales_data,
             'weekly_orders': orders_data,
             'partner_products': products_data,
             'low_stock_products': low_stock_data,
             'recent_orders': recent_orders_data,
-            'alerts': best_selling_alerts,
+            'best_selling_low_stock': self.get_best_selling_low_stock_alerts(request.user),
+            'inactive_product': self.get_inactive_product_alerts(request.user),
+            'seasonal_marketing': self.get_seasonal_recommendations(request.user)
         })
 
 class OrderPageAPIView(generics.ListAPIView):
@@ -549,7 +531,6 @@ class CreateOrderView(views.APIView):
             "checkout_session_url": checkout_session_url,
         }, status=status.HTTP_201_CREATED)
 
-
 class stripe_webhook(views.APIView):
     permission_classes = [permissions.AllowAny]
     authentication_classes = []
@@ -582,11 +563,39 @@ class stripe_webhook(views.APIView):
                     orders_list = ast.literal_eval(orders)
                     payments_list = ast.literal_eval(payments)
                     
-                    # Deduct quantity from sizes
+                    # Deduct quantity from sizes and Update MonthlySales
                     orders_qs = Order.objects.filter(id__in=orders_list)
+                    current_date = timezone.now()
+                    
                     for order in orders_qs:
+                        # Deduct stock
                         if order.size_id:
                             PartnerProductSize.objects.filter(id=order.size_id).update(quantity=F('quantity') - order.quantity)
+                        
+                        # Update MonthlySales
+                        # Find the PartnerProduct
+                        partner_product = None
+                        if order.size:
+                             partner_product = order.size.partner_product
+                        elif order.product:
+                             # Fallback: try to find PartnerProduct for this partner and product
+                             partner_product = PartnerProduct.objects.filter(partner=order.partner, product=order.product).first()
+
+                        if partner_product:
+                            monthly_sales_obj, created = MonthlySales.objects.get_or_create(
+                                partner=order.partner,
+                                product=partner_product,
+                                year=current_date.year,
+                                month=current_date.month,
+                                defaults={
+                                    'sale_count': 0,
+                                    'total_revenue': 0
+                                }
+                            )
+                            # We use F expressions for atomic updates
+                            monthly_sales_obj.sale_count = F('sale_count') + order.quantity
+                            monthly_sales_obj.total_revenue = F('total_revenue') + (order.price * order.quantity)
+                            monthly_sales_obj.save()
 
                     # Update all orders to confirmed
                     updated_orders = orders_qs.update(status='confirmed')

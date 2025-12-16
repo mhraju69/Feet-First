@@ -230,6 +230,7 @@ class Payment(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
 class MonthlySales(models.Model):
+    partner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="monthly_sales_stats", null=True, blank=True)
     product = models.ForeignKey(PartnerProduct, on_delete=models.CASCADE, related_name="monthly_sales")
     year = models.IntegerField(help_text="Year of the sales data")
     month = models.IntegerField(help_text="Month of the sales data (1-12)")
