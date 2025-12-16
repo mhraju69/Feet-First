@@ -12,6 +12,7 @@ from Products.views import CustomLimitPagination
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters
 from Products.models import PartnerProduct, PartnerProductSize
+from Accounts.models import Address
 from .helper import create_checkout_session
 import stripe
 import ast
@@ -432,6 +433,32 @@ class CreateOrderView(views.APIView):
 
         validated_items = []
         total_amount = Decimal('0.00')
+        
+        try:
+            address = Address.objects.filter(user=request.user).first()
+            if not address:
+                return Response({"error": "Please complete your address first."}, status=status.HTTP_400_BAD_REQUEST)
+            # Validate required fields as per user request
+            required_fields = {
+                'first_name': address.first_name,
+                'last_name': address.last_name,
+                'street_address': address.street_address,
+                'address_line2': address.address_line2,
+                'postal_code': address.postal_code,
+                'city': address.city,
+                'phone_number': address.phone_number,
+                'country': address.country
+            }
+            
+            missing_or_empty = [field for field, value in required_fields.items() if not value or str(value).strip() == '']
+            
+            if missing_or_empty:
+                return Response({
+                    "error": f"Please complete your address. Missing fields: {', '.join(missing_or_empty)}"
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+        except Address.DoesNotExist:
+             return Response({"error": "Invalid Address ID"}, status=status.HTTP_400_BAD_REQUEST)
 
         # Phase 1: Validate ALL items first
         for index, item in enumerate(products):
