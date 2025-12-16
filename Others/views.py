@@ -582,8 +582,14 @@ class stripe_webhook(views.APIView):
                     orders_list = ast.literal_eval(orders)
                     payments_list = ast.literal_eval(payments)
                     
+                    # Deduct quantity from sizes
+                    orders_qs = Order.objects.filter(id__in=orders_list)
+                    for order in orders_qs:
+                        if order.size_id:
+                            PartnerProductSize.objects.filter(id=order.size_id).update(quantity=F('quantity') - order.quantity)
+
                     # Update all orders to confirmed
-                    updated_orders = Order.objects.filter(id__in=orders_list).update(status='confirmed')
+                    updated_orders = orders_qs.update(status='confirmed')
                     
                     # Update payments with transaction ID (prefer payment_intent, fallback to session id)
                     txn_id = session.get('payment_intent') or session.get('id')
