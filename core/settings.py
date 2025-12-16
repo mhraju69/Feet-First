@@ -7,6 +7,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(os.path.join(BASE_DIR, ".env"))
 
 SECRET_KEY = os.environ.get("SECRET_KEY")
+STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
+STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY")
+STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
 
 DEBUG = True
 
@@ -199,9 +202,6 @@ ALLOWED_HOSTS = ['localhost','10.10.13.59','ape-in-eft.ngrok-free.app','127.0.0.
 CSRF_TRUSTED_ORIGINS = ['http://127.0.0.1:8888','https://ape-in-eft.ngrok-free.app',"http://127.0.0.1:5500","http://localhost:5500","http://localhost:8000","http://admin.feetf1rst.com","http://localhost:5174","http://10.10.13.81","https://hecticly-rural-kittie.ngrok-free.dev","http://localhost:5173","http://localhost:5174","http://localhost:5175","https://feetfast.netlify.app"]
 
 CORS_ALLOW_ALL_ORIGINS = True
-GOOGLE_OAUTH_CALLBACK_URL = os.getenv("GOOGLE_OAUTH_CALLBACK_URL")
-GOOGLE_OAUTH_CLIENT_ID = os.getenv("GOOGLE_OAUTH_CLIENT_ID")
-GOOGLE_OAUTH_CLIENT_SECRET = os.getenv("GOOGLE_OAUTH_CLIENT_SECRET")
 
 CLOUDINARY_STORAGE = {
     "CLOUD_NAME": os.environ.get("CLOUDINARY_CLOUD_NAME"),

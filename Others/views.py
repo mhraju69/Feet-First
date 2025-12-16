@@ -12,6 +12,9 @@ from Products.views import CustomLimitPagination
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters
 from Products.models import PartnerProduct, PartnerProductSize
+from .helper import create_checkout_session
+import stripe
+import ast
 
 class FAQAPIView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]  
@@ -452,35 +455,23 @@ class CreateOrderView(views.APIView):
         for index, item in enumerate(products):
             try:
                 product_id = item.get('product')
-                partner_id = item.get('partner')
                 quantity = int(item.get('quantity', 1))
                 size_id = item.get('size_id')  # This is now PartnerProductSize ID
                 color = item.get('color')
                 
-                if not all([product_id, partner_id, size_id, color]):
+                if not all([product_id, size_id, color]):
                     return Response({
-                        "error": f"Missing fields in item {index+1} (product, partner, size_id, color required)"
+                        "error": f"Missing fields in item {index+1} (product, size_id, color required)"
                     }, status=status.HTTP_400_BAD_REQUEST)
 
                 # 1. Validate Product & Partner
                 try:
-                    product = Product.objects.get(id=product_id)
-                    partner = User.objects.get(id=partner_id)
-                except (Product.DoesNotExist, User.DoesNotExist):
+                    partner_product = PartnerProduct.objects.get(id=product_id)
+                    partner = partner_product.partner
+                    product = partner_product.product
+                except (PartnerProduct.DoesNotExist):
                     return Response({
                         "error": f"Invalid product or partner ID in item {index+1}"
-                    }, status=status.HTTP_400_BAD_REQUEST)
-
-                # 2. Validate Partner Sells Product (Active)
-                partner_product = PartnerProduct.objects.filter(
-                    product=product, 
-                    partner=partner, 
-                    is_active=True
-                ).first()
-                
-                if not partner_product:
-                    return Response({
-                        "error": f"Product '{product.name}' is not currently available from {partner.name or partner.email}"
                     }, status=status.HTTP_400_BAD_REQUEST)
 
                 # 3. Validate PartnerProductSize and Stock Availability
@@ -523,6 +514,7 @@ class CreateOrderView(views.APIView):
 
         # Phase 2: Create Orders
         created_ids = []
+        payments_ids = []
         try:
             for v_item in validated_items:
                 order = Order.objects.create(
@@ -538,13 +530,70 @@ class CreateOrderView(views.APIView):
                 )
                 created_ids.append(order.id)
                 # Note: Stock is NOT deducted here. Stock usually deducted after payment confirmation.
+                payment = Payment.objects.create(
+                    order=order,
+                    payment_from=request.user,
+                    payment_to=order.partner,
+                    amount=order.price,
+                    created_at=timezone.now()
+                )
+                payments_ids.append(payment.id)
                 
         except Exception as e:
              return Response({"error": f"Failed to create orders: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
+        
+        checkout_session_url = create_checkout_session(created_ids, payments_ids, total_amount)
+        
         return Response({
             "message": "Orders created successfully", 
-            "created_count": len(created_ids),
-            "order_ids": created_ids,
-            "total_amount": total_amount
+            "checkout_session_url": checkout_session_url,
         }, status=status.HTTP_201_CREATED)
+
+
+class stripe_webhook(views.APIView):
+    permission_classes = [permissions.AllowAny]
+    authentication_classes = []
+
+    def post(self, request):
+        payload = request.body
+        sig_header = request.META.get('HTTP_STRIPE_SIGNATURE')
+        event = None
+        
+        try:
+            event = stripe.Webhook.construct_event(
+                payload, sig_header, settings.STRIPE_WEBHOOK_SECRET
+            )
+        except ValueError as e:
+            return Response({"error": f"Invalid payload: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
+        except stripe.error.SignatureVerificationError as e:
+            return Response({"error": f"Invalid signature: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        print(f"Webhook received: {event['type']}")
+        
+        if event['type'] == 'checkout.session.completed':
+            session = event['data']['object']
+            orders = session.metadata.get('orders')
+            payments = session.metadata.get('payments')
+            
+            print(f"Session Metadata - Orders: {orders}, Payments: {payments}")
+            
+            if orders and payments:
+                try:
+                    orders_list = ast.literal_eval(orders)
+                    payments_list = ast.literal_eval(payments)
+                    
+                    # Update all orders to confirmed
+                    updated_orders = Order.objects.filter(id__in=orders_list).update(status='confirmed')
+                    
+                    # Update payments with transaction ID (prefer payment_intent, fallback to session id)
+                    txn_id = session.get('payment_intent') or session.get('id')
+                    updated_payments = Payment.objects.filter(id__in=payments_list).update(transaction_id=txn_id)
+                    
+                    print(f"Updated {updated_orders} orders and {updated_payments} payments. Txn ID: {txn_id}")
+                except Exception as e:
+                    print(f"Error updating orders/payments: {str(e)}")
+                    return Response({"error": f"Error updating orders: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            else:
+                print("Missing orders or payments in metadata")
+        
+        return Response({"message": "Webhook processed successfully"}, status=status.HTTP_200_OK)

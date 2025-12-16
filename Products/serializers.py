@@ -251,7 +251,8 @@ class QnASerializer(serializers.ModelSerializer):
 class PartnerProductSizeSerializer(serializers.ModelSerializer):
     """Serializer for size with quantity"""
     size = serializers.SerializerMethodField()
-    size_id = serializers.IntegerField(source='size.id')
+    # Return the PartnerProductSize ID as 'size_id' so the frontend uses the correct ID for ordering
+    size_id = serializers.IntegerField(source='id') 
     
     class Meta:
         model = PartnerProductSize

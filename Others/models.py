@@ -189,13 +189,6 @@ class FootScan(models.Model):
     def __str__(self):
         return f"FootScan for {self.user.email} ({self.get_foot_type()})"
 
-class Payment(models.Model):
-    payment_from = models.ForeignKey(User, on_delete=models.CASCADE)
-    payment_to = models.ForeignKey(User, on_delete=models.CASCADE,related_name="payments")
-    amount = models.DecimalField(max_digits=10, decimal_places=2)
-    transaction_id = models.CharField(max_length=100, verbose_name="Transaction ID",blank=True,null=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-
 class Order(models.Model):
     ORDER_STATUS = (
         ("pending", "Pending"),
@@ -227,6 +220,14 @@ class Order(models.Model):
             super().save(update_fields=['order_id'])
         else:
             super().save(*args, **kwargs)
+
+class Payment(models.Model):
+    order = models.ForeignKey(Order, on_delete=models.CASCADE)
+    payment_from = models.ForeignKey(User, on_delete=models.CASCADE)
+    payment_to = models.ForeignKey(User, on_delete=models.CASCADE,related_name="payments")
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    transaction_id = models.CharField(max_length=100, verbose_name="Transaction ID",blank=True,null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
 
 class MonthlySales(models.Model):
     product = models.ForeignKey(PartnerProduct, on_delete=models.CASCADE, related_name="monthly_sales")
