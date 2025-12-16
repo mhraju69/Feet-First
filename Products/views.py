@@ -593,17 +593,21 @@ class ApprovedPartnerProductUpdateView(views.APIView):
             # Set colors
             partner_product.color.set(colors)
             
-            # Handle size quantities - clear existing and create new
-            partner_product.size_quantities.all().delete()
+            # Handle size quantities - update existing or create new
+            incoming_size_ids = []
             for sq_data in size_quantities:
                 size_id = sq_data.get('size_id')
                 quantity = sq_data.get('quantity', 0)
                 if size_id and quantity >= 0:
-                    PartnerProductSize.objects.create(
+                    PartnerProductSize.objects.update_or_create(
                         partner_product=partner_product,
                         size_id=size_id,
-                        quantity=quantity
+                        defaults={'quantity': quantity}
                     )
+                    incoming_size_ids.append(size_id)
+            
+            # Remove sizes that are not in the new list
+            partner_product.size_quantities.exclude(size_id__in=incoming_size_ids).delete()
             warehouse = Warehouse.objects.get(id=warehouse_id)
             warehouse.product.add(partner_product)
             message = "Product added to inventory" if created else "Product updated in inventory"
