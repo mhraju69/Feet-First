@@ -372,15 +372,18 @@ class DashboardAPIView(views.APIView):
                     'season': list(seasonal_recommendations.keys())[list(seasonal_recommendations.values()).index(current_season)]
                 })
         return marketing_recommendations
+
+    def get(self, request):
+        partner = request.user
         return Response({
-            'monthly_sales': sales_data,
-            'weekly_orders': orders_data,
-            'partner_products': products_data,
-            'low_stock_products': low_stock_data,
-            'recent_orders': recent_orders_data,
+            'monthly_sales': self.monthly_sales(),
+            'weekly_orders': self.weekly_orders(),
+            'partner_products': self.partner_products(partner),
+            'low_stock_products': self.low_stock_products(partner),
+            'recent_orders': self.recent_orders(partner),
             'best_selling_low_stock': self.get_best_selling_low_stock_alerts(request.user),
             'inactive_product': self.get_inactive_product_alerts(request.user),
-            'seasonal_marketing': self.get_seasonal_recommendations(request.user)
+            'seasonal_marketing': self.get_seasonal_recommendations(partner)
         })
 
 class OrderPageAPIView(generics.ListAPIView):
