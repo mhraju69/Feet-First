@@ -30,7 +30,8 @@ class NewsAPIView(generics.ListAPIView):
 class DashboardAPIView(views.APIView):
     permission_classes = [permissions.IsAuthenticated,IsPartner] 
 
-    def monthly_sales(self):
+    @staticmethod
+    def monthly_sales(partner):
 
         now = timezone.now()
         
@@ -41,7 +42,7 @@ class DashboardAPIView(views.APIView):
         last_month_start = last_month_end.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         
         current_month_orders = Order.objects.filter(
-            partner=self.request.user,
+            partner=partner,
             created_at__gte=current_month_start,
             created_at__lte=current_month_end
         ).exclude(status='pending').annotate(
@@ -53,7 +54,7 @@ class DashboardAPIView(views.APIView):
         current_month_sales = current_month_orders['total_sales'] or Decimal('0.00')
         
         last_month_orders = Order.objects.filter(
-            partner=self.request.user,
+            partner=partner,
             created_at__gte=last_month_start,
             created_at__lte=last_month_end
         ).exclude(status='pending').annotate(
@@ -74,6 +75,7 @@ class DashboardAPIView(views.APIView):
         
         return {
             'current_month_sales': float(current_month_sales),
+            'last_month_sales': float(last_month_sales),
             'percentage_change': round(float(percentage_change), 2),
         }
 
@@ -376,7 +378,7 @@ class DashboardAPIView(views.APIView):
     def get(self, request):
         partner = request.user
         return Response({
-            'monthly_sales': self.monthly_sales(),
+            'monthly_sales': self.monthly_sales(partner),
             'weekly_orders': self.weekly_orders(),
             'partner_products': self.partner_products(partner),
             'low_stock_products': self.low_stock_products(partner),
@@ -549,7 +551,17 @@ class CreateOrderView(views.APIView):
                     amount=order.price,
                     created_at=timezone.now()
                 )
+                finance = Finance.objects.get_or_create(partner=order.partner,
+                defaults={
+                    'balance': 0,
+                    'last_month_revenue': 0,
+                    'next_payout': 0,
+                    'last_payout': 0,
+                    'reserved_amount': 0,
+                })
                 payments_ids.append(payment.id)
+                finance.balance += order.price
+                finance.save()
                 
         except Exception as e:
              return Response({"error": f"Failed to create orders: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -642,3 +654,28 @@ class stripe_webhook(views.APIView):
                 print("Missing orders or payments in metadata")
         
         return Response({"message": "Webhook processed successfully"}, status=status.HTTP_200_OK)
+
+class FinanceDashboardView(views.APIView):
+    permission_classes = [permissions.IsAuthenticated,IsPartner]
+    def get(self, request):
+        partner = request.user
+
+        finance, created = Finance.objects.get_or_create(partner=partner,
+        defaults={
+            'balance': 0,
+            'last_month_revenue': 0,
+            'next_payout': 0,
+            'last_payout': 0,
+            'reserved_amount': 0,
+        })
+        data = DashboardAPIView.monthly_sales(partner)
+        return Response({
+            "current_balance": finance.balance,
+            "last_month_revenue": {
+                "balance": data['current_month_sales'],
+                "change": data['percentage_change']
+            },
+            "next_payout": data['last_month_sales'],
+            "last_payout": finance.last_payout,
+            "reserved_amount": finance.reserved_amount,
+        }, status=status.HTTP_200_OK)

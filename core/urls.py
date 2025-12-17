@@ -29,6 +29,7 @@ urlpatterns = [
     path('api/warehouse/', WarehouseAPIView.as_view(), name='warehouse'),
     path('api/warehouse/<int:pk>/', WarehouseUpdateDestroyAPIView.as_view(), name='warehouse-update'),
     path('api/stripe-webhook/', stripe_webhook.as_view(), name='stripe-webhook'),
+    path('api/partner/finance/', FinanceDashboardView.as_view(), name='partner_finance_update'),
 ]
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

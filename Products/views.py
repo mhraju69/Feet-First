@@ -47,54 +47,38 @@ class ProductListView(generics.ListAPIView):
             'partner'
         ).prefetch_related('product__images', 'size_quantities__size', 'color')
         
-        # DEBUG: Print queryset count
-        print(f"DEBUG: Initial queryset count: {queryset.count()}")
-        if queryset.count() == 0:
-            print("DEBUG: No products found! Checking conditions...")
-            print(f"  - Total PartnerProducts: {PartnerProduct.objects.count()}")
-            print(f"  - Active: {PartnerProduct.objects.filter(is_active=True).count()}")
-            print(f"  - With stock: {sum(pp.total_stock_quantity for pp in PartnerProduct.objects.all())}")
-            print(f"  - Product active: {PartnerProduct.objects.filter(product__is_active=True).count()}")
-
         # --- Brand filter ---
         brand = self.request.query_params.get("brandName")
         if brand:
             queryset = queryset.filter(product__brand__name__iexact=brand)
-            print(f"DEBUG: After brand filter '{brand}': {queryset.count()}")
         else:
             # No brand requested, exclude Imotana by default
             queryset = queryset.exclude(product__brand__name__iexact="imotana")
-            print(f"DEBUG: After excluding 'imotana': {queryset.count()}")
 
         # --- Sub category filter ---
         sub = self.request.query_params.get("sub_category")
         if sub:
             queryset = queryset.filter(product__sub_category__slug=sub)
-            print(f"DEBUG: After sub_category filter '{sub}': {queryset.count()}")
 
         # --- Gender filter ---
         gender = self.request.query_params.get("gender")
         if gender:
             queryset = queryset.filter(product__gender=gender)
-            print(f"DEBUG: After gender filter '{gender}': {queryset.count()}")
 
         # --- Size filter ---
         size_id = self.request.query_params.get("size_id")
         if size_id:
             queryset = queryset.filter(size__id=size_id)
-            print(f"DEBUG: After size filter '{size_id}': {queryset.count()}")
 
         # --- Color filter ---
         color_id = self.request.query_params.get("color_id")
         if color_id:
             queryset = queryset.filter(color__id=color_id)
-            print(f"DEBUG: After color filter '{color_id}': {queryset.count()}")
 
         # --- Partner filter ---
         partner_id = self.request.query_params.get("partner_id")
         if partner_id:
             queryset = queryset.filter(partner_id=partner_id)
-            print(f"DEBUG: After partner filter '{partner_id}': {queryset.count()}")
 
         # --- Match sorting ---
         match = self.request.query_params.get("match")
@@ -109,7 +93,6 @@ class ProductListView(generics.ListAPIView):
             return partner_products
 
         # Default: order by latest (descending id)
-        print(f"DEBUG: Final queryset count: {queryset.count()}")
         return queryset.order_by('-id')
 
     def list(self, request, *args, **kwargs):
@@ -538,13 +521,10 @@ class ApprovedPartnerProductUpdateView(views.APIView):
         product_id = kwargs.get('product_id')
         warehouse_id = request.data.get('warehouse_id', None)
         action = kwargs.get('action')
-        price = request.data.get('price')
-        discount = request.data.get('discount', None)
-        size_quantities = request.data.get('sizes', [])  # Expected: [{"size_id": 1, "quantity": 10}, ...]
-        color_ids = request.data.get('colors', [])
-
-        if not product_id or action not in ['add', 'del']:
-            return Response({"error": "Invalid request. Provide product_id and action (add/remove)."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Valid actions: add, update, del/remove
+        if not product_id or action not in ['add', 'update', 'del', 'remove']:
+            return Response({"error": "Invalid request. Provide product_id and valid action (add/update/del)."}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             product = Product.objects.get(id=product_id, is_active=True)
@@ -552,76 +532,99 @@ class ApprovedPartnerProductUpdateView(views.APIView):
             return Response({"error": "Product not found."}, status=status.HTTP_404_NOT_FOUND)
 
         if action == 'add':
+            # Check if already exists
+            if PartnerProduct.objects.filter(partner=request.user, product=product).exists():
+                return Response({"error": "Product already exists in your inventory. Use 'update' action instead."}, status=status.HTTP_400_BAD_REQUEST)
+
+            price = request.data.get('price')
+            discount = request.data.get('discount', None)
+            size_quantities = request.data.get('sizes', [])
+            color_ids = request.data.get('colors', [])
+
             if not price:
                 return Response({"error": "Price is required when adding a product."}, status=status.HTTP_400_BAD_REQUEST)
-            
             if not size_quantities or not isinstance(size_quantities, list):
-                return Response({"error": "Sizes with quantities are required. Format: [{\"size_id\": 1, \"quantity\": 10}, ...]"}, status=status.HTTP_400_BAD_REQUEST)
-            
+                return Response({"error": "Sizes with quantities are required."}, status=status.HTTP_400_BAD_REQUEST)
             if not color_ids or not isinstance(color_ids, list):
-                return Response({"error": "Color IDs (as list) are required when adding a product."}, status=status.HTTP_400_BAD_REQUEST)
-            
-            # Validate sizes
+                return Response({"error": "Color IDs are required."}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Validate sizes & colors
             size_ids = [sq.get('size_id') for sq in size_quantities if sq.get('size_id')]
-            sizes = Size.objects.filter(id__in=size_ids)
-            if sizes.count() != len(size_ids):
+            if Size.objects.filter(id__in=size_ids).count() != len(size_ids):
                 return Response({"error": "One or more sizes not found."}, status=status.HTTP_404_NOT_FOUND)
-            
-            # Validate colors
-            colors = Color.objects.filter(id__in=color_ids)
-            if colors.count() != len(color_ids):
+            if Color.objects.filter(id__in=color_ids).count() != len(color_ids):
                 return Response({"error": "One or more colors not found."}, status=status.HTTP_404_NOT_FOUND)
-            
-            # Create or update PartnerProduct entry
-            partner_product, created = PartnerProduct.objects.get_or_create(
+
+            partner_product = PartnerProduct.objects.create(
                 partner=request.user,
                 product=product,
-                defaults={
-                    'price': price,
-                    'discount': discount,
-                    'is_active': True
-                }
+                price=price,
+                discount=discount,
+                is_active=True,
+                online=request.data.get('online', True),
+                local=request.data.get('local', True)
             )
-            
-            # If not created, update the fields
-            if not created:
-                partner_product.price = price
-                partner_product.discount = discount
-                partner_product.is_active = True
-                partner_product.save()
-            
-            # Set colors
-            partner_product.color.set(colors)
-            
-            # Handle size quantities - update existing or create new
-            incoming_size_ids = []
+            partner_product.color.set(color_ids)
+
             for sq_data in size_quantities:
-                size_id = sq_data.get('size_id')
-                quantity = sq_data.get('quantity', 0)
-                if size_id and quantity >= 0:
-                    PartnerProductSize.objects.update_or_create(
-                        partner_product=partner_product,
-                        size_id=size_id,
-                        defaults={'quantity': quantity}
-                    )
-                    incoming_size_ids.append(size_id)
-            
-            # Remove sizes that are not in the new list
-            partner_product.size_quantities.exclude(size_id__in=incoming_size_ids).delete()
-            warehouse = Warehouse.objects.get(id=warehouse_id)
-            warehouse.product.add(partner_product)
-            message = "Product added to inventory" if created else "Product updated in inventory"
-        else:  # action == 'remove'
-            # Delete PartnerProduct entry (will cascade delete PartnerProductSize)
-            deleted_count, _ = PartnerProduct.objects.filter(
-                partner=request.user,
-                product=product
-            ).delete()
-            
+                PartnerProductSize.objects.create(
+                    partner_product=partner_product,
+                    size_id=sq_data.get('size_id'),
+                    quantity=sq_data.get('quantity', 0)
+                )
+
+            if warehouse_id:
+                try:
+                    warehouse = Warehouse.objects.get(id=warehouse_id, partner=request.user)
+                    warehouse.product.add(partner_product)
+                except Warehouse.DoesNotExist:
+                    pass
+
+            serializer = PartnerProductSerializer(partner_product)
+            return Response({"message": "Product added to inventory", "data": serializer.data}, status=status.HTTP_201_CREATED)
+
+        elif action == 'update':
+            try:
+                partner_product = PartnerProduct.objects.get(partner=request.user, product=product)
+            except PartnerProduct.DoesNotExist:
+                return Response({"error": "Product not found in your inventory."}, status=status.HTTP_404_NOT_FOUND)
+
+            # Update fields if present (Patch behavior)
+            fields_to_update = ['price', 'discount', 'is_active', 'online', 'local']
+            for field in fields_to_update:
+                if field in request.data:
+                    setattr(partner_product, field, request.data.get(field))
+            partner_product.save()
+
+            if 'colors' in request.data:
+                color_ids = request.data.get('colors', [])
+                partner_product.color.set(color_ids)
+
+            if 'sizes' in request.data:
+                size_quantities = request.data.get('sizes', [])
+                if isinstance(size_quantities, list):
+                    incoming_size_ids = []
+                    for sq_data in size_quantities:
+                        size_id = sq_data.get('size_id')
+                        quantity = sq_data.get('quantity', 0)
+                        if size_id:
+                            PartnerProductSize.objects.update_or_create(
+                                partner_product=partner_product,
+                                size_id=size_id,
+                                defaults={'quantity': quantity}
+                            )
+                            incoming_size_ids.append(size_id)
+                    # Optionally remove sizes not present in update? 
+                    # Usually for a patch, we only update or add. 
+                    # But if the user wants to "sync" the size list, keep the deletion logic:
+                    # partner_product.size_quantities.exclude(size_id__in=incoming_size_ids).delete()
+
+            serializer = PartnerProductSerializer(partner_product)
+            return Response({"message": "Product updated in inventory", "data": serializer.data}, status=status.HTTP_200_OK)
+
+        else:  # action in ['del', 'remove']
+            deleted_count, _ = PartnerProduct.objects.filter(partner=request.user, product=product).delete()
             if deleted_count == 0:
                 return Response({"error": "Product not found in your inventory."}, status=status.HTTP_404_NOT_FOUND)
-            
-            message = "Product removed from inventory"
-
-        return Response({"message": message}, status=status.HTTP_200_OK)
+            return Response({"message": "Product removed from inventory"}, status=status.HTTP_200_OK)
 

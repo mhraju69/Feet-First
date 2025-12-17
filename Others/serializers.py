@@ -22,13 +22,12 @@ class PaymentSerializer(serializers.ModelSerializer):
 class OrderSerializer(serializers.ModelSerializer):
     customer = serializers.SerializerMethodField()
     product = serializers.CharField(source="product.name", read_only=True)
-    price = serializers.CharField(source="product.price", read_only=True)
-    quantity = serializers.CharField(source="product.quantity", read_only=True)
+    price = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
     details = serializers.SerializerMethodField()
     
     class Meta:
         model = Order
-        fields = ("order_id", "customer","product", "status", "quantity", "price", "tracking", "created_at","details")
+        fields = ("order_id", "customer","product", "status", "price", "tracking", "created_at","details")
 
     def get_customer(self, obj):
         return (obj.user.name if obj.user.name else obj.user.email)

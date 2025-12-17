@@ -269,6 +269,7 @@ class PartnerProductSerializer(serializers.ModelSerializer):
     size = serializers.SerializerMethodField()
     color = serializers.SerializerMethodField()
     stock_quantity = serializers.SerializerMethodField()
+    id = serializers.IntegerField(source='product.id', read_only=True)
     
     class Meta:
         model = PartnerProduct
