@@ -551,17 +551,7 @@ class CreateOrderView(views.APIView):
                     amount=order.price,
                     created_at=timezone.now()
                 )
-                finance = Finance.objects.get_or_create(partner=order.partner,
-                defaults={
-                    'balance': 0,
-                    'last_month_revenue': 0,
-                    'next_payout': 0,
-                    'last_payout': 0,
-                    'reserved_amount': 0,
-                })
                 payments_ids.append(payment.id)
-                finance.balance += order.price
-                finance.save()
                 
         except Exception as e:
              return Response({"error": f"Failed to create orders: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -639,6 +629,35 @@ class stripe_webhook(views.APIView):
                             monthly_sales_obj.total_revenue = F('total_revenue') + (order.price * order.quantity)
                             monthly_sales_obj.save()
 
+                        # Update Partner Finance Balance
+                        # Update Partner Finance Balance for current month
+                        finance, created = Finance.objects.get_or_create(
+                            partner=order.partner,
+                            year=current_date.year,
+                            month=current_date.month,
+                            defaults={
+                                'balance': 0,
+                                'this_month_revenue': 0,
+                                'next_payout': 0,
+                                'last_payout': 0,
+                                'reserved_amount': 0,
+                            }
+                        )
+                        
+                        if created:
+                            # Carry over balance from most recent previous record
+                            prev_finance = Finance.objects.filter(
+                                partner=order.partner
+                            ).exclude(year=current_date.year, month=current_date.month).order_by('-year', '-month').first()
+                            
+                            if prev_finance:
+                                finance.balance = prev_finance.balance
+                                finance.save()
+
+                        finance.balance = F('balance') + (order.price * order.quantity)
+                        finance.this_month_revenue = F('this_month_revenue') + (order.price * order.quantity)
+                        finance.save()
+
                     # Update all orders to confirmed
                     updated_orders = orders_qs.update(status='confirmed')
                     
@@ -660,22 +679,73 @@ class FinanceDashboardView(views.APIView):
     def get(self, request):
         partner = request.user
 
-        finance, created = Finance.objects.get_or_create(partner=partner,
-        defaults={
-            'balance': 0,
-            'last_month_revenue': 0,
-            'next_payout': 0,
-            'last_payout': 0,
-            'reserved_amount': 0,
-        })
+        now = timezone.now()
+        finance, created = Finance.objects.get_or_create(
+            partner=partner,
+            year=now.year,
+            month=now.month,
+            defaults={
+                'balance': 0,
+                'this_month_revenue': 0,
+                'next_payout': 0,
+                'last_payout': 0,
+                'reserved_amount': 0,
+            }
+        )
+        
+        if created:
+            # Carry over balance from most recent previous record
+            prev_finance = Finance.objects.filter(
+                partner=partner
+            ).exclude(year=now.year, month=now.month).order_by('-year', '-month').first()
+            
+            if prev_finance:
+                finance.balance = prev_finance.balance
+                finance.save()
         data = DashboardAPIView.monthly_sales(partner)
         return Response({
             "current_balance": finance.balance,
-            "last_month_revenue": {
+            "this_month_revenue": {
                 "balance": data['current_month_sales'],
                 "change": data['percentage_change']
             },
             "next_payout": data['last_month_sales'],
             "last_payout": finance.last_payout,
             "reserved_amount": finance.reserved_amount,
+            "line_chart": self.get_line_chart_data(partner)
         }, status=status.HTTP_200_OK)
+
+    def get_line_chart_data(self, partner):
+        now = timezone.now()
+        
+        # Get list of last 12 months (including current)
+        months_to_show = []
+        for i in range(11, -1, -1):
+            target_month = now.month - i
+            target_year = now.year
+            while target_month <= 0:
+                target_month += 12
+                target_year -= 1
+            months_to_show.append((target_year, target_month))
+            
+        # Aggregate MonthlySales for this partner grouped by month/year
+        stats = MonthlySales.objects.filter(
+            partner=partner
+        ).values('year', 'month').annotate(
+            total_rev=Sum('total_revenue')
+        )
+        
+        # Map stats for easier lookup: {(year, month): total_revenue}
+        stats_map = {(s['year'], s['month']): s['total_rev'] for s in stats}
+        
+        result = []
+        month_names = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+        
+        for year, month in months_to_show:
+            revenue = stats_map.get((year, month), 0)
+            result.append({
+                "month": month_names[month-1],
+                "revenue": float(revenue)
+            })
+            
+        return result

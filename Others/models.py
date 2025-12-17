@@ -251,7 +251,7 @@ class MonthlySales(models.Model):
         ]
     
     def __str__(self):
-        return f"{self.product.name} - {self.year}/{self.month:02d} - {self.sale_count} units"
+        return f"Sale for {self.partner.email} from {self.product.product.name} {self.year}/{self.month:02d} - {self.sale_count} units"
     
     @property
     def month_name(self):
@@ -275,13 +275,20 @@ class Warehouse(models.Model):
 
 class Finance(models.Model):
     partner = models.ForeignKey(User, on_delete=models.CASCADE)
-    balance = models.DecimalField(max_digits=10, decimal_places=2)
-    last_month_revenue = models.DecimalField(max_digits=10, decimal_places=2)
-    next_payout = models.DecimalField(max_digits=10, decimal_places=2)
-    last_payout = models.DecimalField(max_digits=10, decimal_places=2)
-    reserved_amount = models.DecimalField(max_digits=10, decimal_places=2)
+    year = models.IntegerField(default=2024)
+    month = models.IntegerField(default=1)
+    balance = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    this_month_revenue = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    next_payout = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    last_payout = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    reserved_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
+    class Meta:
+        unique_together = ('partner', 'year', 'month')
+        verbose_name = "Finance Record"
+        verbose_name_plural = "Finance Records"
+
     def __str__(self):
-        return f"{self.partner} - {self.balance}"
+        return f"{self.partner.email} - {self.year}/{self.month:02d} - Balance: {self.balance} Revenue: {self.this_month_revenue} "

@@ -25,6 +25,10 @@ app.conf.beat_schedule.update({
         "task": "Accounts.utils.cleanup_old_deletion_requests",
         "schedule": crontab(hour=0, minute=0),  # run daily at midnight
     },
+    'create-monthly-finance-at-start-of-month': {
+        'task': 'Others.tasks.create_monthly_finance_records',
+        'schedule': crontab(0, 0, day_of_month='1'),
+    },
 })
 
 app.conf.timezone = "UTC"

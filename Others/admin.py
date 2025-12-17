@@ -7,6 +7,7 @@ from unfold.admin import ModelAdmin
 admin.site.register(FAQ,ModelAdmin)
 admin.site.register(News,ModelAdmin)
 admin.site.register(FootScan,ModelAdmin)
+admin.site.register(Finance,ModelAdmin)
 admin.site.register(Order,ModelAdmin)
 admin.site.register(Payment,ModelAdmin)
 admin.site.register(Warehouse,ModelAdmin)
