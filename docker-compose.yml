@@ -1,0 +1,75 @@
+services:
+  django:
+    build: .
+    container_name: feetfirst
+    command: gunicorn core.wsgi:application --bind 0.0.0.0:8080 --workers 3 --reload
+    volumes:
+      - .:/app
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+    expose:
+      - "8080"
+    depends_on:
+      - db
+    restart: always
+
+  db:
+    image: postgres:15
+    container_name: postgres_data
+    restart: always
+    environment:
+      POSTGRES_DB: feetf1rst
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 8257
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+
+  nginx:
+    image: nginx:stable-alpine
+    container_name: nginx
+    ports:
+      - "8888:80"
+      # - "443:443" # enable for SSL
+    volumes:
+      - ./deploy/nginx:/etc/nginx/conf.d
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+    depends_on:
+      - django
+    restart: always
+
+  celery_worker:
+    build: .
+    container_name: celery_worker
+    command: celery -A core worker -l info --pool=solo
+    volumes:
+      - .:/app
+    depends_on:
+      - redis
+      - django
+    restart: always
+
+  celery_beat:
+    build: .
+    container_name: celery_beat
+    command: celery -A core beat -l info
+    volumes:
+      - .:/app
+    depends_on:
+      - redis
+      - django
+    restart: always
+
+  redis:
+    image: redis:latest
+    container_name: redis
+    ports:
+      - "6380:6380"
+    restart: always
+
+volumes:
+  postgres_data:
+  static_volume:
+  media_volume:

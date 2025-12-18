@@ -1,0 +1,51 @@
+/* Target the Select2 container for answers field */
+.select2-container--default .select2-selection--multiple,
+.select2-container--default .select2-selection--single {
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    background-color: transparent !important;
+    height: auto;
+}
+
+/* Placeholder color */
+.select2-container--default .select2-selection--single .select2-selection__placeholder,
+.select2-container--default .select2-selection--multiple .select2-selection__placeholder {
+    color: #888;
+}
+
+/* Remove hover/focus shadow */
+.select2-container--default.select2-container--focus .select2-selection--single,
+.select2-container--default.select2-container--focus .select2-selection--multiple {
+    border: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+}
+
+/* Selected items in multiple select */
+.select2-container--default .select2-selection--multiple .select2-selection__choice {
+    background-color: #f0f0f0;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    padding: 3px 8px;
+    margin: 3px;
+}
+
+/* Dropdown styling */
+.select2-dropdown {
+    border: 1px solid #ddd !important;
+    border-radius: 4px;
+}
+
+/* Search box inside dropdown */
+.select2-search--dropdown .select2-search__field {
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    padding: 5px;
+}
+
+/* Hover effect on options */
+.select2-results__option--highlighted[aria-selected] {
+    background-color: #5897fb !important;
+    color: white;
+}
