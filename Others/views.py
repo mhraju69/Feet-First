@@ -1,7 +1,7 @@
 # views.py
 from rest_framework import generics, permissions, views, status
 from rest_framework.response import Response
-from django.db.models import Sum, F, DecimalField
+from django.db.models import Sum, F, DecimalField, Case, When
 from django.utils import timezone
 from datetime import datetime, timedelta
 from decimal import Decimal
@@ -41,14 +41,22 @@ class DashboardAPIView(views.APIView):
         last_month_end = current_month_start - timedelta(days=1)
         last_month_start = last_month_end.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         
+        fees_percent = Decimal(str(partner.fees))
+        other_charges_percent = Decimal(str(partner.other_charges))
+        multiplier = (Decimal('100') - (fees_percent + other_charges_percent)) / Decimal('100')
+
         current_month_orders = Order.objects.filter(
             partner=partner,
             created_at__gte=current_month_start,
             created_at__lte=current_month_end
         ).exclude(status='pending').annotate(
-            total_price=F('quantity') * F('price')
+            effective_net=Case(
+                When(net_amount__gt=0, then=F('net_amount')),
+                default=F('quantity') * F('price') * multiplier,
+                output_field=DecimalField()
+            )
         ).aggregate(
-            total_sales=Sum('total_price', output_field=DecimalField())
+            total_sales=Sum('effective_net')
         )
         
         current_month_sales = current_month_orders['total_sales'] or Decimal('0.00')
@@ -58,9 +66,13 @@ class DashboardAPIView(views.APIView):
             created_at__gte=last_month_start,
             created_at__lte=last_month_end
         ).exclude(status='pending').annotate(
-            total_price=F('quantity') * F('price')
+            effective_net=Case(
+                When(net_amount__gt=0, then=F('net_amount')),
+                default=F('quantity') * F('price') * multiplier,
+                output_field=DecimalField()
+            )
         ).aggregate(
-            total_sales=Sum('total_price', output_field=DecimalField())
+            total_sales=Sum('effective_net')
         )
         
         last_month_sales = last_month_orders['total_sales'] or Decimal('0.00')
@@ -604,6 +616,20 @@ class stripe_webhook(views.APIView):
                         if order.size_id:
                             PartnerProductSize.objects.filter(id=order.size_id).update(quantity=F('quantity') - order.quantity)
                         
+                        # Calculate net amount based on partner's fees and other charges
+                        partner = order.partner
+                        total_amount = order.price * order.quantity
+                        
+                        fees_percent = Decimal(str(partner.fees))
+                        other_charges_percent = Decimal(str(partner.other_charges))
+                        total_deduction_percent = fees_percent + other_charges_percent
+                        
+                        deduction_amount = total_amount * (total_deduction_percent / 100)
+                        net_amount = total_amount - (deduction_amount * order.quantity)
+                        
+                        order.net_amount = net_amount
+                        order.save(update_fields=['net_amount'])
+
                         # Update MonthlySales
                         # Find the PartnerProduct
                         partner_product = None
@@ -626,7 +652,7 @@ class stripe_webhook(views.APIView):
                             )
                             # We use F expressions for atomic updates
                             monthly_sales_obj.sale_count = F('sale_count') + order.quantity
-                            monthly_sales_obj.total_revenue = F('total_revenue') + (order.price * order.quantity)
+                            monthly_sales_obj.total_revenue = F('total_revenue') + net_amount
                             monthly_sales_obj.save()
 
                         # Update Partner Finance Balance
@@ -654,8 +680,8 @@ class stripe_webhook(views.APIView):
                                 finance.balance = prev_finance.balance
                                 finance.save()
 
-                        finance.balance = F('balance') + (order.price * order.quantity)
-                        finance.this_month_revenue = F('this_month_revenue') + (order.price * order.quantity)
+                        finance.balance = F('balance') + net_amount
+                        finance.this_month_revenue = F('this_month_revenue') + net_amount
                         finance.save()
 
                     # Update all orders to confirmed
@@ -712,7 +738,8 @@ class FinanceDashboardView(views.APIView):
             "next_payout": data['last_month_sales'],
             "last_payout": finance.last_payout,
             "reserved_amount": finance.reserved_amount,
-            "line_chart": self.get_line_chart_data(partner)
+            "line_chart": self.get_line_chart_data(partner),
+            "pie_chart": self.get_pie_chart_data(partner)
         }, status=status.HTTP_200_OK)
 
     def get_line_chart_data(self, partner):
@@ -746,6 +773,29 @@ class FinanceDashboardView(views.APIView):
             result.append({
                 "month": month_names[month-1],
                 "revenue": float(revenue)
+            })
+            
+        return result
+
+    def get_pie_chart_data(self, partner):
+        # Aggregate revenue by subcategory
+        stats = MonthlySales.objects.filter(
+            partner=partner
+        ).values(
+            category_name=F('product__product__sub_category__name')
+        ).annotate(
+            revenue=Sum('total_revenue')
+        ).order_by('-revenue')
+
+        total_revenue = sum(item['revenue'] for item in stats) or 1 # Avoid division by zero
+        
+        result = []
+        for item in stats:
+            percentage = (item['revenue'] / total_revenue) * 100
+            result.append({
+                "category": item['category_name'],
+                # "revenue": float(item['revenue']),
+                "percentage": round(float(percentage), 2)
             })
             
         return result

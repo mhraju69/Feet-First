@@ -208,6 +208,7 @@ class Order(models.Model):
     color = models.CharField(max_length=10)
     status = models.CharField(max_length=10, default="pending", choices=ORDER_STATUS)
     tracking = models.CharField(max_length=100, verbose_name="Tracking ID",blank=True,null=True)
+    net_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text="Net amount after fees and charges")
     created_at = models.DateTimeField(auto_now_add=True)
     
     def save(self, *args, **kwargs):

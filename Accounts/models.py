@@ -43,6 +43,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     phone = models.CharField(max_length=20, blank=True, null=True)
     date_of_birth = models.DateField(blank=True, null=True)
     language = models.CharField(max_length=10, choices=[('german', 'German'),('italian', 'Italian'),],default='german',verbose_name="User Language")
+    fees = models.DecimalField(max_digits=10, decimal_places=2, default=15,verbose_name="Fees in %" )
+    other_charges = models.DecimalField(max_digits=10, decimal_places=2, default=7.5,verbose_name="Other Charges in %" )
     is_active = models.BooleanField(default=False,verbose_name="Active User")
     is_staff = models.BooleanField(default=False,verbose_name="Staff User")  
     is_superuser = models.BooleanField(default=False,verbose_name="Super User")  

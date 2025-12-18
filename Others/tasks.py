@@ -58,9 +58,9 @@ def create_monthly_finance_records():
             year=current_year,
             month=current_month,
             this_month_revenue=0,
-            next_payout=prev_finance.next_payout,
+            next_payout=prev_finance.this_month_revenue,
             balance=prev_finance.balance,
-            last_payout=prev_finance.last_payout,
+            last_payout=0,
             reserved_amount=prev_finance.reserved_amount,
         )
 
