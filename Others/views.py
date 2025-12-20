@@ -620,9 +620,9 @@ class stripe_webhook(views.APIView):
                         
                         fees_percent = Decimal(str(partner.fees))
                         other_charges_percent = Decimal(str(partner.other_charges))
-                        total_deduction_percent = fees_percent + other_charges_percent
+                        total_deduction_percent = (fees_percent * order.quantity)
                         
-                        deduction_amount = total_amount * (total_deduction_percent / 100)
+                        deduction_amount = total_amount * (total_deduction_percent / 100) - other_charges_percent
                         net_amount = total_amount - deduction_amount
                         
                         order.net_amount = net_amount

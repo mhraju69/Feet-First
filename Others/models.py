@@ -212,9 +212,11 @@ class Order(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     
     def save(self, *args, **kwargs):
-        self.tracking = f"DE{random.randint(1000000000, 9999999999)}"
         if not self.id:
             super().save(*args, **kwargs)
+            
+        if not self.tracking:
+            self.tracking = f"DE{random.randint(1000000000, 9999999999)}"
         
         if not self.order_id:
             self.order_id = f"ORD-{datetime.now().year}-{self.id:03d}"
