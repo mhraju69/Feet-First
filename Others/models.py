@@ -272,9 +272,10 @@ class Finance(models.Model):
         return f"{self.partner.email} - {self.year}/{self.month:02d} - Balance: {self.balance} Revenue: {self.this_month_revenue} "
 
 class OrderInvoice(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE,related_name="invoice_user")
+    partner = models.ForeignKey(User, on_delete=models.CASCADE,related_name="invoice_partner")
     orders = models.ManyToManyField(Order, related_name='invoices', help_text="Orders included in this invoice")
-    payments = models.ManyToManyField(Payment, related_name='invoices', help_text="Payment included in this invoice")
+    payments = models.CharField(max_length=100, help_text="Payments transaction ID for this invoice")
     amount = models.DecimalField(max_digits=10, decimal_places=2, help_text="Total invoice amount")
     invoice_url = models.URLField(max_length=500, blank=True, null=True, help_text="URL to the invoice PDF or receipt")
     created_date = models.DateTimeField(auto_now_add=True, help_text="Invoice creation date")

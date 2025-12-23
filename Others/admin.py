@@ -29,10 +29,11 @@ class WarehouseAdmin(ModelAdmin):
 
 @admin.register(OrderInvoice)
 class OrderInvoiceAdmin(ModelAdmin):
-    list_display = ('user__email','amount', 'created_date')
-    list_filter = ('created_date',)
-    search_fields = ('user__email','orders__order_id')
-    readonly_fields = ('user','orders','payments','amount','invoice_url','created_date')
+    list_display = ('user__email','partner__email','amount', 'created_date')
+    list_filter = ('created_date','partner__email','user__email')
+    search_fields = ('user__email','partner__email','orders__order_id')
+    readonly_fields = ('user','partner','orders','payments','amount','invoice_url','created_date')
+    
 @admin.register(Order)
 class OrderAdmin(ModelAdmin):
     list_display = ('order_id','user__email', 'created_at')

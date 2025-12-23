@@ -610,7 +610,10 @@ class stripe_webhook(views.APIView):
                             # Deduct quantity from sizes and Update Payment records
                             orders_qs = Order.objects.filter(id__in=orders_list)
                             current_date = timezone.now()
-                            txn_id = session.get('payment_intent') or session.get('id')
+                            
+                            # Get transaction ID robustly
+                            txn_id = getattr(session, 'payment_intent', None) or getattr(session, 'id', None)
+                            
                             total_invoice_amount = Decimal('0.00')
                             
                             for order in orders_qs:
@@ -670,26 +673,29 @@ class stripe_webhook(views.APIView):
                             updated_orders = orders_qs.update(status='confirmed')
                             
                             # Create OrderInvoice after successful payment
-                            invoice_id = session.get('invoice')
-                            invoice_url = session.get('receipt_url') or session.get('url') or ''
+                            invoice_id = getattr(session, 'invoice', None)
+                            invoice_url = getattr(session, 'receipt_url', None) or getattr(session, 'url', None) or ''
                             
                             if invoice_id:
                                 try:
                                     inv = stripe.Invoice.retrieve(invoice_id)
-                                    invoice_url = inv.hosted_invoice_url or inv.invoice_pdf or invoice_url
+                                    invoice_url = getattr(inv, 'hosted_invoice_url', None) or getattr(inv, 'invoice_pdf', None) or invoice_url
                                 except Exception as e:
                                     print(f"Stripe webhook - Error retrieving invoice {invoice_id}: {e}")
 
+                            # Get first order to link user and partner to invoice
+                            first_order = orders_qs.first()
                             order_invoice = OrderInvoice.objects.create(
+                                user=first_order.user,
+                                partner=first_order.partner,
                                 amount=total_invoice_amount,
-                                invoice_url=invoice_url
+                                invoice_url=invoice_url,
+                                payments=txn_id
                             )
                             
                             # Add all orders and payments to the invoice using IDs directly
                             if orders_list:
                                 order_invoice.orders.set(orders_list)
-                            if payments_list:
-                                order_invoice.payment.set(payments_list)
                             
                             print(f"Stripe webhook - Updated {updated_orders} orders. Created OrderInvoice #{order_invoice.id} with {len(orders_list)} orders and {len(payments_list)} payments. Txn ID: {txn_id}")
                     except Exception as e:
