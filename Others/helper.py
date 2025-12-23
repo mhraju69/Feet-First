@@ -24,8 +24,11 @@ def create_checkout_session(orders = None , payments = None, price = None ):
                 "quantity": 1 ,
             }
         ],
-        success_url="http://localhost:8888/success/",
-        cancel_url="http://localhost:8888/cancel/",
+        success_url="http://127.0.0.1:8888/success/",
+        cancel_url="http://127.0.0.1:8888/cancel/",
+        invoice_creation={
+            "enabled": True,
+        },
         metadata={
             "orders": str(orders),
             "payments": str(payments)

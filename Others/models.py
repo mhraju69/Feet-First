@@ -209,20 +209,22 @@ class Order(models.Model):
     status = models.CharField(max_length=10, default="pending", choices=ORDER_STATUS)
     tracking = models.CharField(max_length=100, verbose_name="Tracking ID",blank=True,null=True)
     net_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text="Net amount after fees and charges")
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True,verbose_name="Created at (UTC)")
     
     def save(self, *args, **kwargs):
         if not self.id:
             super().save(*args, **kwargs)
-            
-        if not self.tracking:
-            self.tracking = f"DE{random.randint(1000000000, 9999999999)}"
         
         if not self.order_id:
             self.order_id = f"ORD-{datetime.now().year}-{self.id:03d}"
             super().save(update_fields=['order_id'])
+        if not self.tracking:
+            self.tracking = f"DE{random.randint(1000000000, 9999999999)}"
+            super().save(update_fields=['tracking'])
         else:
             super().save(*args, **kwargs)
+    def __str__(self):
+        return f"{self.order_id}"
 
 class Payment(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE)
@@ -235,6 +237,8 @@ class Payment(models.Model):
     transaction_id = models.CharField(max_length=100, verbose_name="Transaction ID",blank=True,null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    def __str__(self):
+        return f"{self.transaction_id}"
 
 class Warehouse(models.Model):
     partner = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -266,3 +270,19 @@ class Finance(models.Model):
 
     def __str__(self):
         return f"{self.partner.email} - {self.year}/{self.month:02d} - Balance: {self.balance} Revenue: {self.this_month_revenue} "
+
+class OrderInvoice(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    orders = models.ManyToManyField(Order, related_name='invoices', help_text="Orders included in this invoice")
+    payments = models.ManyToManyField(Payment, related_name='invoices', help_text="Payment included in this invoice")
+    amount = models.DecimalField(max_digits=10, decimal_places=2, help_text="Total invoice amount")
+    invoice_url = models.URLField(max_length=500, blank=True, null=True, help_text="URL to the invoice PDF or receipt")
+    created_date = models.DateTimeField(auto_now_add=True, help_text="Invoice creation date")
+    
+    class Meta:
+        verbose_name = "Order Invoice"
+        verbose_name_plural = "Order Invoices"
+        ordering = ['-created_date']
+    
+    def __str__(self):
+        return f"Invoice #{self.id}  - ${self.amount} - {self.created_date.strftime('%Y-%m-%d %H:%M:%S')}"

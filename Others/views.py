@@ -578,100 +578,135 @@ class stripe_webhook(views.APIView):
     authentication_classes = []
 
     def post(self, request):
-        payload = request.body
-        sig_header = request.META.get('HTTP_STRIPE_SIGNATURE')
-        event = None
-        
         try:
-            event = stripe.Webhook.construct_event(
-                payload, sig_header, settings.STRIPE_WEBHOOK_SECRET
-            )
-        except ValueError as e:
-            return Response({"error": f"Invalid payload: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
-        except stripe.error.SignatureVerificationError as e:
-            return Response({"error": f"Invalid signature: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
-        
-        print(f"Webhook received: {event['type']}")
-        
-        if event['type'] == 'checkout.session.completed':
-            session = event['data']['object']
-            orders = session.metadata.get('orders')
-            payments = session.metadata.get('payments')
+            payload = request.body
+            sig_header = request.META.get('HTTP_STRIPE_SIGNATURE')
+            event = None
             
-            print(f"Session Metadata - Orders: {orders}, Payments: {payments}")
+            try:
+                event = stripe.Webhook.construct_event(
+                    payload, sig_header, settings.STRIPE_WEBHOOK_SECRET
+                )
+            except ValueError as e:
+                print(f"Stripe webhook - Invalid payload: {str(e)}")
+                return Response({"error": f"Invalid payload: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
+            except stripe.error.SignatureVerificationError as e:
+                print(f"Stripe webhook - Invalid signature: {str(e)}")
+                return Response({"error": f"Invalid signature: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
             
-            if orders and payments:
-                try:
-                    orders_list = ast.literal_eval(orders)
-                    payments_list = ast.literal_eval(payments)
-                    
-                    # Deduct quantity from sizes and Update Payment records
-                    orders_qs = Order.objects.filter(id__in=orders_list)
-                    current_date = timezone.now()
-                    
-                    for order in orders_qs:
-                        # Deduct stock
-                        if order.size_id:
-                            PartnerProductSize.objects.filter(id=order.size_id).update(quantity=F('quantity') - order.quantity)
+            if event['type'] == 'checkout.session.completed':
+                session = event['data']['object']
+                orders = session.metadata.get('orders')
+                payments = session.metadata.get('payments')
+                
+                if orders and payments:
+                    try:
+                        from django.db import transaction
                         
-                        # Calculate net amount based on partner's fees and other charges
-                        partner = order.partner
-                        total_amount = order.price * order.quantity
+                        orders_list = ast.literal_eval(orders)
+                        payments_list = ast.literal_eval(payments)
                         
-                        fees_percent = Decimal(str(partner.fees))
-                        other_charges_percent = Decimal(str(partner.other_charges))
-                        total_deduction_percent = (fees_percent * order.quantity)
-                        
-                        deduction_amount = total_amount * (total_deduction_percent / 100) - other_charges_percent
-                        net_amount = total_amount - deduction_amount
-                        
-                        order.net_amount = net_amount
-                        order.save(update_fields=['net_amount'])
-
-                        txn_id = session.get('payment_intent') or session.get('id')
-                        Payment.objects.filter(order=order).update(
-                            net_amount=net_amount,
-                            transaction_id=txn_id
-                        )
-
-                        finance, created = Finance.objects.get_or_create(
-                            partner=order.partner,
-                            year=current_date.year,
-                            month=current_date.month,
-                            defaults={
-                                'balance': 0,
-                                'this_month_revenue': 0,
-                                'next_payout': 0,
-                                'last_payout': 0,
-                                'reserved_amount': 0,
-                            }
-                        )
-                        
-                        if created:
-                            # Carry over balance from most recent previous record
-                            prev_finance = Finance.objects.filter(
-                                partner=order.partner
-                            ).exclude(year=current_date.year, month=current_date.month).order_by('-year', '-month').first()
+                        with transaction.atomic():
+                            # Deduct quantity from sizes and Update Payment records
+                            orders_qs = Order.objects.filter(id__in=orders_list)
+                            current_date = timezone.now()
+                            txn_id = session.get('payment_intent') or session.get('id')
+                            total_invoice_amount = Decimal('0.00')
                             
-                            if prev_finance:
-                                finance.balance = prev_finance.balance
+                            for order in orders_qs:
+                                # Deduct stock
+                                if order.size_id:
+                                    PartnerProductSize.objects.filter(id=order.size_id).update(quantity=F('quantity') - order.quantity)
+                                
+                                # Calculate net amount based on partner's fees and other charges
+                                partner = order.partner
+                                total_amount = order.price * order.quantity
+                                
+                                fees_percent = Decimal(str(partner.fees))
+                                other_charges_percent = Decimal(str(partner.other_charges))
+                                total_deduction_percent = (fees_percent * order.quantity)
+                                
+                                deduction_amount = total_amount * (total_deduction_percent / 100) - other_charges_percent
+                                net_amount = total_amount - deduction_amount
+                                
+                                order.net_amount = net_amount
+                                order.save(update_fields=['net_amount'])
+                                
+                                total_invoice_amount += total_amount
+
+                                Payment.objects.filter(order=order).update(
+                                    net_amount=net_amount,
+                                    transaction_id=txn_id
+                                )
+
+                                finance, created = Finance.objects.get_or_create(
+                                    partner=order.partner,
+                                    year=current_date.year,
+                                    month=current_date.month,
+                                    defaults={
+                                        'balance': 0,
+                                        'this_month_revenue': 0,
+                                        'next_payout': 0,
+                                        'last_payout': 0,
+                                        'reserved_amount': 0,
+                                    }
+                                )
+                                
+                                if created:
+                                    # Carry over balance from most recent previous record
+                                    prev_finance = Finance.objects.filter(
+                                        partner=order.partner
+                                    ).exclude(year=current_date.year, month=current_date.month).order_by('-year', '-month').first()
+                                    
+                                    if prev_finance:
+                                        finance.balance = prev_finance.balance
+                                        finance.save()
+
+                                finance.balance = F('balance') + net_amount
+                                finance.this_month_revenue = F('this_month_revenue') + net_amount
                                 finance.save()
 
-                        finance.balance = F('balance') + net_amount
-                        finance.this_month_revenue = F('this_month_revenue') + net_amount
-                        finance.save()
+                            # Update all orders to confirmed
+                            updated_orders = orders_qs.update(status='confirmed')
+                            
+                            # Create OrderInvoice after successful payment
+                            invoice_id = session.get('invoice')
+                            invoice_url = session.get('receipt_url') or session.get('url') or ''
+                            
+                            if invoice_id:
+                                try:
+                                    inv = stripe.Invoice.retrieve(invoice_id)
+                                    invoice_url = inv.hosted_invoice_url or inv.invoice_pdf or invoice_url
+                                except Exception as e:
+                                    print(f"Stripe webhook - Error retrieving invoice {invoice_id}: {e}")
 
-                    # Update all orders to confirmed
-                    updated_orders = orders_qs.update(status='confirmed')
-                    
-                    print(f"Updated {updated_orders} orders and corresponding payments. Txn ID: {txn_id}")
-                except Exception as e:
-                    print(f"Error updating orders/payments: {str(e)}")
-                    return Response({"error": f"Error updating orders: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-            else:
-                print("Missing orders or payments in metadata")
+                            order_invoice = OrderInvoice.objects.create(
+                                amount=total_invoice_amount,
+                                invoice_url=invoice_url
+                            )
+                            
+                            # Add all orders and payments to the invoice using IDs directly
+                            if orders_list:
+                                order_invoice.orders.set(orders_list)
+                            if payments_list:
+                                order_invoice.payment.set(payments_list)
+                            
+                            print(f"Stripe webhook - Updated {updated_orders} orders. Created OrderInvoice #{order_invoice.id} with {len(orders_list)} orders and {len(payments_list)} payments. Txn ID: {txn_id}")
+                    except Exception as e:
+                        print(f"Stripe webhook - Error updating orders/payments: {str(e)}")
+                        import traceback
+                        traceback.print_exc()
+                        return Response({"error": f"Error updating orders: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                else:
+                    print("Stripe webhook - Missing orders or payments in metadata")
+            
+            return Response({"message": "Webhook processed successfully"}, status=status.HTTP_200_OK)
         
-        return Response({"message": "Webhook processed successfully"}, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(f"Stripe webhook - CRITICAL ERROR: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return Response({"error": f"Webhook error: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class FinanceDashboardView(views.APIView):
     permission_classes = [permissions.IsAuthenticated,IsPartner]
