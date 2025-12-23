@@ -1,7 +1,9 @@
 from celery import shared_task
 from django.utils import timezone
 from django.contrib.auth import get_user_model
-from .models import Finance
+from .models import Finance, Payment, Order
+from django.db.models import Q, Count
+from datetime import timedelta
 
 User = get_user_model()
 
@@ -70,3 +72,29 @@ def create_monthly_finance_records():
         f"Created {created_count} finance records "
         f"for {current_year}/{current_month:02d}"
     )
+
+
+@shared_task
+def remove_extra_data():
+    now = timezone.now()
+    seven_days_ago = now - timedelta(days=7)
+
+    # 1. Remove payments without transaction_id (tnx id)
+    Payment.objects.filter(Q(transaction_id__isnull=True) | Q(transaction_id=''),created_at__lt=seven_days_ago).delete()
+
+    # 2. Remove pending orders older than 7 days
+    Order.objects.filter(status='pending', created_at__lt=seven_days_ago).delete()
+
+    # 3. Delete old finance records if they exceed 60 per user
+    # Find users who have more than 60 finance records
+    users_with_excess = User.objects.annotate(f_count=Count('finance')).filter(f_count__gt=60)
+
+    deleted_finance_count = 0
+    for user in users_with_excess:
+        # Get IDs of records to delete (everything after the latest 60)
+        pks_to_delete = Finance.objects.filter(partner=user).order_by('-created_at').values_list('pk', flat=True)[60:]
+        # Use list() to execute the slice query because some DBs (like MySQL) don't support slicing in subqueries
+        count, _ = Finance.objects.filter(pk__in=list(pks_to_delete)).delete()
+        deleted_finance_count += count
+
+    return f"Cleanup complete. Removed payments without tnx_id, pending orders > 7 days, and {deleted_finance_count} excess finance records."

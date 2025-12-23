@@ -29,6 +29,10 @@ app.conf.beat_schedule.update({
         'task': 'Others.tasks.create_monthly_finance_records',
         'schedule': crontab(0, 0, day_of_month='1'),
     },
+    'remove-extra-data-weekly': {
+        'task': 'Others.tasks.remove_extra_data',
+        'schedule': crontab(hour=0, minute=0, day_of_week=0),  # Every Sunday at midnight
+    },
 })
 
 app.conf.timezone = "UTC"
