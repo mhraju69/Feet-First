@@ -598,26 +598,56 @@ class ApprovedPartnerProductUpdateView(views.APIView):
 
             if 'colors' in request.data:
                 color_ids = request.data.get('colors', [])
+                if not isinstance(color_ids, list):
+                    return Response({"error": "Colors must be a list of IDs."}, status=status.HTTP_400_BAD_REQUEST)
+                
+                # Verify all colors exist to prevent IntegrityError
+                valid_colors_count = Color.objects.filter(id__in=color_ids).count()
+                if valid_colors_count != len(color_ids):
+                     return Response({"error": "One or more colors not found."}, status=status.HTTP_404_NOT_FOUND)
+
                 partner_product.color.set(color_ids)
 
             if 'sizes' in request.data:
                 size_quantities = request.data.get('sizes', [])
                 if isinstance(size_quantities, list):
-                    incoming_size_ids = []
+                    resolved_map = {}
+                    
+                    # Validate and Resolve IDs
                     for sq_data in size_quantities:
-                        size_id = sq_data.get('size_id')
+                        input_id = sq_data.get('size_id')
+                        if input_id is None: continue
+                        
+                        # 1. Is it a PartnerProductSize ID for THIS product?
+                        # Using filter().first() avoids exception
+                        pps = PartnerProductSize.objects.filter(id=input_id, partner_product=partner_product).first()
+                        if pps:
+                            resolved_map[input_id] = pps.size_id
+                            continue
+                            
+                        # 2. Is it a raw Size ID?
+                        # We cast to int to be safe, though Django checks handle strings often
+                        try:
+                            if Size.objects.filter(id=input_id).exists():
+                                resolved_map[input_id] = input_id
+                                continue
+                        except (ValueError, TypeError):
+                            pass
+                            
+                        return Response({"error": f"Size ID {input_id} not found."}, status=status.HTTP_404_NOT_FOUND)
+
+                    # Apply Updates
+                    for sq_data in size_quantities:
+                        input_id = sq_data.get('size_id')
                         quantity = sq_data.get('quantity', 0)
-                        if size_id:
+                        real_size_id = resolved_map.get(input_id)
+                        
+                        if real_size_id is not None:
                             PartnerProductSize.objects.update_or_create(
                                 partner_product=partner_product,
-                                size_id=size_id,
+                                size_id=real_size_id,
                                 defaults={'quantity': quantity}
                             )
-                            incoming_size_ids.append(size_id)
-                    # Optionally remove sizes not present in update? 
-                    # Usually for a patch, we only update or add. 
-                    # But if the user wants to "sync" the size list, keep the deletion logic:
-                    # partner_product.size_quantities.exclude(size_id__in=incoming_size_ids).delete()
 
             serializer = PartnerProductSerializer(partner_product)
             return Response({"message": "Product updated in inventory", "data": serializer.data}, status=status.HTTP_200_OK)
