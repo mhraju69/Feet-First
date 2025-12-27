@@ -4,9 +4,10 @@ from .models import *
 from Others.models import *
 
 class ProductImageSerializer(serializers.ModelSerializer):
+    color_hex = serializers.CharField(source='color.hex_code', read_only=True)
     class Meta:
         model = ProductImage
-        fields = ['id', 'image']
+        fields = ['id', 'image','color_hex']
 
 class SizeRecommendationSerializer(serializers.Serializer):
     """Serializer for individual size recommendations"""
@@ -20,7 +21,6 @@ class MatchAnalysisSerializer(serializers.Serializer):
 class ProductSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField() 
     match_data = serializers.SerializerMethodField()
-    colors = serializers.SerializerMethodField()
     sizes = serializers.SerializerMethodField()
     brand = serializers.SerializerMethodField()
     favourite = serializers.SerializerMethodField()
@@ -29,7 +29,7 @@ class ProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = [
-            'id', 'image', 'name', 'colors', 'gender', 
+            'id', 'image', 'name', 'gender', 
             'match_data', 'sizes', 'brand', 'favourite', 'sub_category'
         ]
 
@@ -77,15 +77,6 @@ class ProductSerializer(serializers.ModelSerializer):
                 "image": obj.brand.image.url if obj.brand.image else None  # assuming your Brand model has a 'logo' ImageField
             }
         return None
-    
-    def get_colors(self, obj):
-        colors_list = []
-        for color in obj.colors.all():
-            colors_list.append({
-                "id": color.id,
-                "hex_code": color.hex_code
-            })
-        return colors_list
 
     def get_favourite(self, obj):
         request = self.context.get("request")
@@ -95,8 +86,7 @@ class ProductSerializer(serializers.ModelSerializer):
 
 class ProductDetailsSerializer(serializers.ModelSerializer):
     images = ProductImageSerializer(many=True)
-    sizes = serializers.SerializerMethodField()  # Simplified
-    colors = serializers.SerializerMethodField()
+    sizes = serializers.SerializerMethodField()  
     match_data = serializers.SerializerMethodField()
     brand = BrandSerializer(read_only=True)
     sub_category = serializers.SerializerMethodField()
@@ -107,7 +97,7 @@ class ProductDetailsSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = [
-            "id", "name", "colors", "images", "technical_data", 'description',
+            "id", "name", "images", "technical_data", 'description',
             "brand", "sub_category","features",
             "further_information", "discount", 
              "match_data", 'favourite', 'gender','sizes', 'qna'
@@ -181,8 +171,6 @@ class ProductDetailsSerializer(serializers.ModelSerializer):
         if request and request.user.is_authenticated:
             return Favorite.objects.filter(user=request.user, products=obj).exists()
         return False
-    def get_colors(self, obj):
-        return [color.hex_code for color in obj.colors.all()]
 
     def get_qna(self, obj):
         qna_list = []
@@ -294,10 +282,14 @@ class PartnerProductSerializer(serializers.ModelSerializer):
     
     def get_color(self, obj):
         colors_list = []
+        # Use Python-level filtering to avoid N+1 queries if images are prefetched
+        all_images = list(obj.product.images.all())
         for color in obj.color.all():
+            relevant_img = next((img for img in all_images if img.color_id == color.id), None)
             colors_list.append({
                 "id": color.id,
-                "hex_code": color.hex_code
+                "hex_code": color.hex_code,
+                "image": relevant_img.image.url if relevant_img and relevant_img.image else None
             })
         return colors_list
 
@@ -306,7 +298,6 @@ class PartnerProductListSerializer(serializers.ModelSerializer):
     id = serializers.SerializerMethodField()
     image = serializers.SerializerMethodField()
     brand = serializers.SerializerMethodField()
-    colors = serializers.SerializerMethodField()
     match_data = serializers.SerializerMethodField()
     favourite = serializers.SerializerMethodField()
     sub_category = serializers.SerializerMethodField()
@@ -316,8 +307,8 @@ class PartnerProductListSerializer(serializers.ModelSerializer):
     class Meta:
         model = PartnerProduct
         fields = [
-            'id', 'image', 'name', 'colors', 'gender', 'price', 
-            'match_data', 'brand', 'favourite', 'sub_category'
+            'id', 'image', 'name', 'gender', 'price', 
+            'match_data', 'brand', 'sub_category', 'favourite'
         ]
     
     def get_id(self, obj):
@@ -343,15 +334,6 @@ class PartnerProductListSerializer(serializers.ModelSerializer):
             }
         return None
     
-    def get_colors(self, obj):
-        colors_list = []
-        for color in obj.color.all():
-            colors_list.append({
-                "id": color.id,
-                "hex_code": color.hex_code
-            })
-        return colors_list
-    
     def get_match_data(self, obj):
         """Return match analysis based on foot scan"""
         scan = self.context.get("scan")
@@ -373,7 +355,6 @@ class PartnerProductDetailSerializer(serializers.ModelSerializer):
     """Serializer for detailed product view in multi-vendor system"""
     images = serializers.SerializerMethodField()
     sizes = serializers.SerializerMethodField()
-    colors = serializers.SerializerMethodField()
     match_data = serializers.SerializerMethodField()
     brand = BrandSerializer(source='product.brand', read_only=True)
     sub_category = serializers.SerializerMethodField()
@@ -390,7 +371,7 @@ class PartnerProductDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = PartnerProduct
         fields = [
-            "id", "name", "colors", "images", "technical_data", 'description',
+            "id", "name", "images", "technical_data", 'description',
             "brand", "sub_category", "features",
             "further_information", "price", "discount", 
             "match_data", 'favourite', 'gender', 'sizes','quantity','qna'
@@ -427,9 +408,6 @@ class PartnerProductDetailSerializer(serializers.ModelSerializer):
     def get_quantity(self, obj):
         """Return total stock quantity"""
         return obj.total_stock_quantity
-    
-    def get_colors(self, obj):
-        return [i.hex_code for i in obj.color.all()]
     
     def get_match_data(self, obj):
         """Return detailed match analysis"""

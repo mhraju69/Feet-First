@@ -108,7 +108,6 @@ class Product(models.Model):
     # stock_quantity = models.PositiveIntegerField(default=0)
     is_active = models.BooleanField(default=True)
 
-    colors = models.ManyToManyField("Color", help_text="Type name to search color")
     features = models.ManyToManyField(Features, help_text="Type text to search features",null=True,blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -277,6 +276,7 @@ class Product(models.Model):
 class ProductImage(models.Model):
     product = models.ForeignKey(Product, related_name='images', on_delete=models.CASCADE)
     image = models.ImageField(upload_to='products/',storage=MediaCloudinaryStorage(),blank=False, null=False,help_text="Image size should be less than 1MB")
+    color = models.ForeignKey(Color, on_delete=models.SET_NULL, related_name='product_images', null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)    
     
     class Meta:

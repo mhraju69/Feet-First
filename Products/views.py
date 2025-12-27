@@ -159,7 +159,7 @@ class ProductDetailView(generics.RetrieveAPIView):
         return super().get_queryset().select_related(
             'product', 'product__brand', 'product__sub_category',
             'partner'
-        ).prefetch_related('product__images', 'product__colors', 'product__features', 'size_quantities__size', 'color')
+        ).prefetch_related('product__images', 'product__images__color', 'product__features', 'size_quantities__size', 'color')
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -511,7 +511,7 @@ class ApprovedPartnerProductView(generics.ListAPIView):
 
     def get_queryset(self):
         # Return all PartnerProduct entries for this partner
-        return PartnerProduct.objects.filter(partner=self.request.user).select_related('product', 'product__brand').prefetch_related('product__images', 'product__colors')  
+        return PartnerProduct.objects.filter(partner=self.request.user).select_related('product', 'product__brand').prefetch_related('product__images', 'product__images__color')  
 
 class ApprovedPartnerProductUpdateView(views.APIView):
     """View to add or remove products from partner's inventory"""
