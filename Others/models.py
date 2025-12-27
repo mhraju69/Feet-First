@@ -76,22 +76,30 @@ class FootScan(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     # Foot length (mm)
-    left_length = models.DecimalField(max_digits=6, decimal_places=2, help_text="Left foot length in mm")
-    right_length = models.DecimalField(max_digits=6, decimal_places=2, help_text="Right foot length in mm")
+    left_length = models.DecimalField(max_digits=10, decimal_places=2, help_text="Left foot length in mm")
+    right_length = models.DecimalField(max_digits=10, decimal_places=2, help_text="Right foot length in mm")
 
     # Foot width (mm)
-    left_width = models.DecimalField(max_digits=6, decimal_places=2, help_text="Left foot width in mm")
-    right_width = models.DecimalField(max_digits=6, decimal_places=2, help_text="Right foot width in mm")
+    left_width = models.DecimalField(max_digits=10, decimal_places=2, help_text="Left foot width in mm")
+    right_width = models.DecimalField(max_digits=10, decimal_places=2, help_text="Right foot width in mm")
 
     # Arch Index (for future insole recommendation)
-    left_arch_index = models.DecimalField(max_digits=6, decimal_places=2, blank=True, null=True)
-    right_arch_index = models.DecimalField(max_digits=6, decimal_places=2, blank=True, null=True)
+    left_arch_index = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    right_arch_index = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
 
     # Heel Angle
-    left_heel_angle = models.DecimalField(max_digits=6, decimal_places=2, blank=True, null=True,
+    left_heel_angle = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True,
                                           help_text="Left heel angle in degrees")
-    right_heel_angle = models.DecimalField(max_digits=6, decimal_places=2, blank=True, null=True,
+    right_heel_angle = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True,
                                            help_text="Right heel angle in degrees")
+    
+    def save(self, *args, **kwargs):
+        for field in ['left_length', 'right_length', 'left_width', 'right_width', 
+                     'left_arch_index', 'right_arch_index', 'left_heel_angle', 'right_heel_angle']:
+            val = getattr(self, field)
+            if val is not None:
+                setattr(self, field, round(val, 2))
+        super().save(*args, **kwargs)
 
     # --- Utility Methods ---
     def average_length(self):
@@ -202,16 +210,21 @@ class Order(models.Model):
     partner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="partner_orders", null=True, blank=True, help_text="Partner who fulfilled this order")
     name = models.CharField(max_length=100)
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
-    price = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text="Price at time of purchase")
+    price = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="Price at time of purchase")
     quantity = models.IntegerField(default=1)
     size = models.ForeignKey(PartnerProductSize, on_delete=models.CASCADE, related_name="orders", null=True, blank=True)
     color = models.CharField(max_length=10)
     status = models.CharField(max_length=10, default="pending", choices=ORDER_STATUS)
     tracking = models.CharField(max_length=100, verbose_name="Tracking ID",blank=True,null=True)
-    net_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text="Net amount after fees and charges")
+    net_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="Net amount after fees and charges")
     created_at = models.DateTimeField(auto_now_add=True,verbose_name="Created at (UTC)")
     
     def save(self, *args, **kwargs):
+        if self.price is not None:
+            self.price = round(self.price, 2)
+        if self.net_amount is not None:
+            self.net_amount = round(self.net_amount, 2)
+            
         if not self.id:
             super().save(*args, **kwargs)
         
@@ -232,10 +245,17 @@ class Payment(models.Model):
     payment_to = models.ForeignKey(User, on_delete=models.CASCADE,related_name="payments")
     product = models.ForeignKey(PartnerProduct, on_delete=models.SET_NULL, null=True, blank=True)
     quantity = models.IntegerField(default=1)
-    amount = models.DecimalField(max_digits=10, decimal_places=2)
-    net_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    net_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     transaction_id = models.CharField(max_length=100, verbose_name="Transaction ID",blank=True,null=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    def save(self, *args, **kwargs):
+        if self.amount is not None:
+            self.amount = round(self.amount, 2)
+        if self.net_amount is not None:
+            self.net_amount = round(self.net_amount, 2)
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.transaction_id}"
@@ -255,13 +275,20 @@ class Finance(models.Model):
     partner = models.ForeignKey(User, on_delete=models.CASCADE)
     year = models.IntegerField(default=2024)
     month = models.IntegerField(default=1)
-    balance = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    this_month_revenue = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    next_payout = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    last_payout = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    reserved_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    balance = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    this_month_revenue = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    next_payout = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    last_payout = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    reserved_amount = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    
+    def save(self, *args, **kwargs):
+        for field in ['balance', 'this_month_revenue', 'next_payout', 'last_payout', 'reserved_amount']:
+            val = getattr(self, field)
+            if val is not None:
+                setattr(self, field, round(val, 2))
+        super().save(*args, **kwargs)
     
     class Meta:
         unique_together = ('partner', 'year', 'month')
@@ -276,9 +303,14 @@ class OrderInvoice(models.Model):
     partner = models.ForeignKey(User, on_delete=models.CASCADE,related_name="invoice_partner")
     orders = models.ManyToManyField(Order, related_name='invoices', help_text="Orders included in this invoice")
     payments = models.CharField(max_length=100, help_text="Payments transaction ID for this invoice")
-    amount = models.DecimalField(max_digits=10, decimal_places=2, help_text="Total invoice amount")
+    amount = models.DecimalField(max_digits=15, decimal_places=2, help_text="Total invoice amount")
     invoice_url = models.URLField(max_length=500, blank=True, null=True, help_text="URL to the invoice PDF or receipt")
     created_date = models.DateTimeField(auto_now_add=True, help_text="Invoice creation date")
+    
+    def save(self, *args, **kwargs):
+        if self.amount is not None:
+            self.amount = round(self.amount, 2)
+        super().save(*args, **kwargs)
     
     class Meta:
         verbose_name = "Order Invoice"

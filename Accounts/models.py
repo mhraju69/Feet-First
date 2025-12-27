@@ -78,6 +78,12 @@ class User(AbstractBaseUser, PermissionsMixin):
 
         if self.suspend:
             self.is_active = False
+        
+        if self.fees is not None:
+            self.fees = round(self.fees, 2)
+        if self.other_charges is not None:
+            self.other_charges = round(self.other_charges, 2)
+            
         super().save(*args, **kwargs)
 
 class OTP(models.Model):

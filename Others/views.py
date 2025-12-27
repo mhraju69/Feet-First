@@ -796,29 +796,49 @@ class FinanceDashboardView(views.APIView):
         return result
 
     def get_pie_chart_data(self, partner):
-        # Aggregate revenue by subcategory from Payments
+        # 1. Get ALL sub-categories from the system
+        all_subcategories = SubCategory.objects.all()
+
+        # 2. Aggregate revenue by subcategory from Payments for THIS partner
         stats = Payment.objects.filter(
             payment_to=partner,
             transaction_id__isnull=False
         ).values(
-            category_name=F('product__product__sub_category__name')
+            'product__product__sub_category_id'
         ).annotate(
             revenue=Sum('net_amount')
-        ).order_by('-revenue')
+        )
 
-        total_revenue = sum(item['revenue'] for item in stats) or 0
-        if total_revenue == 0:
-            return []
+        stats_map = {item['product__product__sub_category_id']: item['revenue'] for item in stats}
+        total_revenue = sum(stats_map.values()) if stats_map else 0
         
         result = []
-        for item in stats:
-            if item['revenue'] > 0:
-                percentage = (item['revenue'] / total_revenue) * 100
-                result.append({
-                    "category": item['category_name'],
-                    "percentage": round(float(percentage), 2)
-                })
+        seen_ids = set()
+
+        # 3. Add all subcategories with their revenue (or 0)
+        for sc in all_subcategories:
+            revenue = stats_map.get(sc.id, 0) or 0
+            percentage = 0
+            if total_revenue > 0:
+                percentage = (revenue / total_revenue) * 100
             
+            result.append({
+                "category": sc.name,
+                "percentage": round(float(percentage), 2)
+            })
+            seen_ids.add(sc.id)
+
+        # 4. Handle any remaining revenue (e.g. products without a subcategory)
+        other_revenue = sum(rev for sid, rev in stats_map.items() if sid not in seen_ids)
+        if other_revenue > 0:
+            percentage = (other_revenue / total_revenue) * 100
+            result.append({
+                "category": "Other",
+                "percentage": round(float(percentage), 2)
+            })
+
+        # Sort by percentage descending, then by name
+        result.sort(key=lambda x: (-x['percentage'], x['category']))
         return result
 
 class PartnerIncomeView(views.APIView):
