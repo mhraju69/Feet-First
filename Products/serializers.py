@@ -247,7 +247,7 @@ class PartnerProductSizeSerializer(serializers.ModelSerializer):
         fields = ['size_id', 'size', 'quantity']
     
     def get_size(self, obj):
-        return [obj.size.value]
+        return obj.size.value
 
 class PartnerProductSerializer(serializers.ModelSerializer):
     """Serializer for partner's own inventory management"""
@@ -303,13 +303,18 @@ class PartnerProductListSerializer(serializers.ModelSerializer):
     sub_category = serializers.SerializerMethodField()
     name = serializers.CharField(source='product.name')
     gender = serializers.CharField(source='product.gender')
+    color = serializers.SerializerMethodField()
+
     
     class Meta:
         model = PartnerProduct
         fields = [
             'id', 'image', 'name', 'gender', 'price', 
-            'match_data', 'brand', 'sub_category', 'favourite'
+            'match_data', 'brand', 'sub_category', 'favourite', 'color'
         ]
+
+    def get_color(self, obj):
+        return obj.color.values_list('hex_code', flat=True)
     
     def get_id(self, obj):
         return obj.id
