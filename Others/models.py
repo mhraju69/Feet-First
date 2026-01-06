@@ -319,3 +319,32 @@ class OrderInvoice(models.Model):
     
     def __str__(self):
         return f"Invoice #{self.id}  - ${self.amount} - {self.created_date.strftime('%Y-%m-%d %H:%M:%S')}"
+
+class Cart(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="cart")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Cart for {self.user.email}"
+
+    @property
+    def total_price(self):
+        return sum(item.total_price for item in self.items.all())
+
+class CartItem(models.Model):
+    cart = models.ForeignKey(Cart, related_name='items', on_delete=models.CASCADE)
+    partner_product = models.ForeignKey(PartnerProduct, on_delete=models.CASCADE)
+    size = models.ForeignKey(PartnerProductSize, on_delete=models.CASCADE) # The specific size with stock
+    color = models.CharField(max_length=50) # Storing color name as per requirement
+    quantity = models.PositiveIntegerField(default=1)
+    
+    class Meta:
+        unique_together = ('cart', 'partner_product', 'size', 'color')
+
+    @property
+    def total_price(self):
+        return self.quantity * self.partner_product.price
+
+    def __str__(self):
+        return f"{self.quantity} x {self.partner_product.product.name} ({self.size})"

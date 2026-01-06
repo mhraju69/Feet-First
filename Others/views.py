@@ -420,12 +420,123 @@ class WarehouseAPIView(generics.ListCreateAPIView):
     def perform_create(self, serializer):
         serializer.save(partner=self.request.user)
 
+
 class WarehouseUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [permissions.IsAuthenticated,IsPartner] 
     serializer_class = WarehouseSerializer
 
     def get_object(self):
         return Warehouse.objects.get(id=self.kwargs['pk'])
+
+class CartAPIView(views.APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        cart, created = Cart.objects.get_or_create(user=request.user)
+        serializer = CartSerializer(cart)
+        return Response(serializer.data)
+
+    def post(self, request, *args, **kwargs):
+        # Payload: { "product": 16, "size_id": 25, "color": "black", "quantity": 1 }
+        product_id = request.data.get('product')
+        size_id = request.data.get('size_id')
+        color = request.data.get('color')
+        quantity = request.data.get('quantity', 1)
+
+        if not all([product_id, size_id, color]):
+            return Response({"error": "product, size_id, and color are required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            quantity = int(quantity)
+            if quantity <= 0:
+                raise ValueError
+        except ValueError:
+            return Response({"error": "Quantity must be a positive integer."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # distinct partner product check
+        try:
+            partner_product = PartnerProduct.objects.get(id=product_id) # The user passed "product" but context suggests partner product ID
+        except PartnerProduct.DoesNotExist:
+            # Fallback: maybe they passed raw product ID?
+            # But we need PartnerProduct to know price and partner.
+            # Start with strict check.
+            return Response({"error": "Invalid Partner Product ID."}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            partner_product_size = PartnerProductSize.objects.get(id=size_id, partner_product=partner_product)
+        except PartnerProductSize.DoesNotExist:
+             return Response({"error": "Invalid Size ID for this product."}, status=status.HTTP_404_NOT_FOUND)
+
+        # Check stock
+        if partner_product_size.quantity < quantity:
+             return Response({"error": f"Insufficient stock. Available: {partner_product_size.quantity}"}, status=status.HTTP_400_BAD_REQUEST)
+
+        cart, _ = Cart.objects.get_or_create(user=request.user)
+
+        # Update or Create Item
+        cart_item, created = CartItem.objects.get_or_create(
+            cart=cart,
+            partner_product=partner_product,
+            size=partner_product_size,
+            color=color,
+            defaults={'quantity': 0} 
+        )
+
+        # If existing, add quantity
+        new_quantity = cart_item.quantity + quantity
+        
+        # Check overall stock again
+        if partner_product_size.quantity < new_quantity:
+             return Response({"error": f"Insufficient stock. You already have {cart_item.quantity}, cannot add {quantity} more. Available: {partner_product_size.quantity}"}, status=status.HTTP_400_BAD_REQUEST)
+
+        cart_item.quantity = new_quantity
+        cart_item.save()
+
+        return Response({"message": "Item added to cart", "cart": CartSerializer(cart).data}, status=status.HTTP_200_OK)
+
+class CartItemUpdateDeleteView(views.APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def patch(self, request, pk, *args, **kwargs):
+        # Update quantity
+        try:
+            cart_item = CartItem.objects.get(pk=pk, cart__user=request.user)
+        except CartItem.DoesNotExist:
+             return Response({"error": "Cart Item not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        quantity = request.data.get('quantity')
+        if quantity is None:
+             return Response({"error": "quantity is required."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            quantity = int(quantity)
+            if quantity < 0:
+                 raise ValueError
+        except ValueError:
+             return Response({"error": "Quantity must be a non-negative integer."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if quantity == 0:
+            cart_item.delete()
+            return Response({"message": "Item removed from cart"}, status=status.HTTP_200_OK)
+
+        # Check stock
+        if cart_item.size.quantity < quantity:
+             return Response({"error": f"Insufficient stock. Available: {cart_item.size.quantity}"}, status=status.HTTP_400_BAD_REQUEST)
+
+        cart_item.quantity = quantity
+        cart_item.save()
+        
+        return Response({"message": "Cart updated", "cart": CartSerializer(cart_item.cart).data}, status=status.HTTP_200_OK)
+
+    def delete(self, request, pk, *args, **kwargs):
+        try:
+            cart_item = CartItem.objects.get(pk=pk, cart__user=request.user)
+            cart = cart_item.cart
+            cart_item.delete()
+            return Response({"message": "Item removed from cart", "cart": CartSerializer(cart).data}, status=status.HTTP_200_OK)
+        except CartItem.DoesNotExist:
+             return Response({"error": "Cart Item not found."}, status=status.HTTP_404_NOT_FOUND)
+
 
 class UpdateOrderView(generics.UpdateAPIView):
     permission_classes = [permissions.IsAuthenticated, IsPartner]
