@@ -101,14 +101,14 @@ class ColorAdmin(ModelAdmin):
 
 @admin.register(Features)
 class FeaturesAdmin(ModelAdmin):
-    search_fields = ["text"]
+    search_fields = ["title"]
 
-@admin.register(Size)
-class SizeAdmin(ModelAdmin):
-    list_display = ('type', 'value', 'table', 'insole_min_mm', 'insole_max_mm')
-    search_fields = ['value', 'type']
-    list_filter = ['type', 'table']
-    autocomplete_fields = ['table']
+# @admin.register(Size) 
+# class SizeAdmin(ModelAdmin):
+#     list_display = ('type', 'value', 'table', 'insole_min_mm', 'insole_max_mm')
+#     search_fields = ['value', 'type']
+#     list_filter = ['type', 'table']
+#     autocomplete_fields = ['table']
 
 @admin.register(SizeTable)
 class SizeTableAdmin(ModelAdmin):

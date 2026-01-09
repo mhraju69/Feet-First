@@ -98,7 +98,10 @@ class FootScan(models.Model):
                      'left_arch_index', 'right_arch_index', 'left_heel_angle', 'right_heel_angle']:
             val = getattr(self, field)
             if val is not None:
-                setattr(self, field, round(val, 2))
+                try:
+                    setattr(self, field, round(val, 2))
+                except TypeError:
+                    pass
         super().save(*args, **kwargs)
 
     # --- Utility Methods ---
@@ -221,9 +224,15 @@ class Order(models.Model):
     
     def save(self, *args, **kwargs):
         if self.price is not None:
-            self.price = round(self.price, 2)
+            try:
+                self.price = round(self.price, 2)
+            except TypeError:
+                pass
         if self.net_amount is not None:
-            self.net_amount = round(self.net_amount, 2)
+            try:
+                self.net_amount = round(self.net_amount, 2)
+            except TypeError:
+                pass
             
         if not self.id:
             super().save(*args, **kwargs)
@@ -252,9 +261,15 @@ class Payment(models.Model):
 
     def save(self, *args, **kwargs):
         if self.amount is not None:
-            self.amount = round(self.amount, 2)
+            try:
+                self.amount = round(self.amount, 2)
+            except TypeError:
+                pass
         if self.net_amount is not None:
-            self.net_amount = round(self.net_amount, 2)
+            try:
+                self.net_amount = round(self.net_amount, 2)
+            except TypeError:
+                pass
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -287,7 +302,10 @@ class Finance(models.Model):
         for field in ['balance', 'this_month_revenue', 'next_payout', 'last_payout', 'reserved_amount']:
             val = getattr(self, field)
             if val is not None:
-                setattr(self, field, round(val, 2))
+                try:
+                    setattr(self, field, round(val, 2))
+                except TypeError:
+                    pass
         super().save(*args, **kwargs)
     
     class Meta:

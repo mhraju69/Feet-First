@@ -40,10 +40,7 @@ class ProductSerializer(serializers.ModelSerializer):
             return None
 
     def get_image(self, obj):
-        primary = obj.images.first()
-        if primary:
-            return ProductImageSerializer(primary).data
-        return None
+        return ProductImageSerializer(obj.images.all(), many=True).data    
     
     def get_match_data(self, obj):
         """Return simplified match analysis with just score, sizes, and warnings"""
@@ -99,7 +96,7 @@ class ProductDetailsSerializer(serializers.ModelSerializer):
         fields = [
             "id", "name", "images", "technical_data", 'description',
             "brand", "sub_category","features",
-            "further_information", "discount", 
+            "further_information", 
              "match_data", 'favourite', 'gender','sizes', 'qna'
         ]
 
@@ -216,14 +213,6 @@ class FootScanSerializer(serializers.ModelSerializer):
         scan = FootScan.objects.create(user=user, **validated_data)
         return scan
 
-class FavoriteSerializer(serializers.ModelSerializer):
-    products = ProductSerializer(many=True, read_only=True)
-
-    class Meta:
-        model = Favorite
-        fields = ['id', 'user', 'products']
-        read_only_fields = ['user']
-
 class QnASerializer(serializers.ModelSerializer):
     question = serializers.CharField(source='question.label')
     answers = serializers.SlugRelatedField(
@@ -261,7 +250,7 @@ class PartnerProductSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = PartnerProduct
-        fields = ['id', 'price', 'discount', 'stock_quantity', 'is_active', 'name', 'brand', 'sub_category','online','local','size', 'color']
+        fields = ['id', 'price', 'stock_quantity', 'is_active', 'name', 'brand', 'sub_category','online','local','size', 'color']
     
     def get_stock_quantity(self, obj):
         return obj.total_stock_quantity
@@ -352,9 +341,14 @@ class PartnerProductListSerializer(serializers.ModelSerializer):
     
     def get_favourite(self, obj):
         request = self.context.get("request")
-        if request and request.user.is_authenticated:
-            return Favorite.objects.filter(user=request.user, products=obj.product).exists()
-        return False 
+        if not request or not request.user.is_authenticated:
+            return False
+
+        favorite_ids = self.context.get("favorite_ids")
+        if favorite_ids is not None:
+            return obj.id in favorite_ids
+            
+        return Favorite.objects.filter(user=request.user, products=obj).exists()
 
 class PartnerProductDetailSerializer(serializers.ModelSerializer):
     """Serializer for detailed product view in multi-vendor system"""
@@ -378,7 +372,7 @@ class PartnerProductDetailSerializer(serializers.ModelSerializer):
         fields = [
             "id", "name", "images", "technical_data", 'description',
             "brand", "sub_category", "features",
-            "further_information", "price", "discount", 
+            "further_information", "price", 
             "match_data", 'favourite', 'gender', 'sizes','quantity','qna'
         ]
     
@@ -436,9 +430,14 @@ class PartnerProductDetailSerializer(serializers.ModelSerializer):
     
     def get_favourite(self, obj):
         request = self.context.get("request")
-        if request and request.user.is_authenticated:
-            return Favorite.objects.filter(user=request.user, products=obj.product).exists()
-        return False
+        if not request or not request.user.is_authenticated:
+            return False
+
+        favorite_ids = self.context.get("favorite_ids")
+        if favorite_ids is not None:
+            return obj.id in favorite_ids
+            
+        return Favorite.objects.filter(user=request.user, products=obj).exists()
     
     def get_qna(self, obj):
         qna_list = []
@@ -448,3 +447,11 @@ class PartnerProductDetailSerializer(serializers.ModelSerializer):
                 'answers': [ans.label for ans in pq.answers.all()]
             })
         return qna_list
+
+class FavoriteSerializer(serializers.ModelSerializer):
+    products = PartnerProductListSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Favorite
+        fields = ['id', 'user', 'products']
+        read_only_fields = ['user']

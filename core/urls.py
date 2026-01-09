@@ -34,6 +34,7 @@ urlpatterns = [
     path('api/partner/finance/', FinanceDashboardView.as_view(), name='partner_finance_update'),
     path('api/cart/', CartAPIView.as_view(), name='cart'),
     path('api/cart/<int:pk>/', CartItemUpdateDeleteView.as_view(), name='cart-item-detail'),
+    path('api/orders/', OrderView.as_view(), name='order'),
 ]
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

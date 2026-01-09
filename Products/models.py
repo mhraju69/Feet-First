@@ -103,9 +103,7 @@ class Product(models.Model):
     technical_data = models.TextField(blank=True, null=True)
     further_information = models.TextField(blank=True, null=True)
     
-    # Commerce
-    discount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    # stock_quantity = models.PositiveIntegerField(default=0)
+    # Commerce    # stock_quantity = models.PositiveIntegerField(default=0)
     is_active = models.BooleanField(default=True)
 
     features = models.ManyToManyField(Features, help_text="Type text to search features",null=True,blank=True)
@@ -113,8 +111,6 @@ class Product(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     
     def save(self, *args, **kwargs):
-        if self.discount is not None:
-            self.discount = round(self.discount, 2)
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -285,25 +281,6 @@ class ProductImage(models.Model):
     def __str__(self):
         return f"Image for {self.product.name}"
         
-class Favorite(models.Model):
-    user = models.OneToOneField(
-        User,
-        limit_choices_to={'role': 'customer'},
-        on_delete=models.CASCADE,
-        related_name="favorite"
-    )
-    products = models.ManyToManyField(
-        'Product',
-        related_name="favorited_by",
-        blank=True
-    )
-    added_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ['-added_at']
-
-    def __str__(self):
-        return f"{self.user.email}'s favorites"
     
 class PartnerProductSize(models.Model):
     """Intermediate model to store quantity for each size in a partner's product"""
@@ -324,7 +301,6 @@ class PartnerProduct(models.Model):
     sizes = models.ManyToManyField(Size, through='PartnerProductSize', related_name='partner_product_sizes', help_text="Sizes with quantities for this product")
     color = models.ManyToManyField(Color, related_name='partner_product_colors', help_text="Color variant for this product")
     price = models.DecimalField(default=0.00, max_digits=12, decimal_places=2, help_text="Partner's custom price for this product")
-    discount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Partner's custom discount")
     is_active = models.BooleanField(default=True, help_text="Is this product active for this partner")
     local = models.BooleanField(default=True, help_text="Is this product available locally")
     online = models.BooleanField(default=True, help_text="Is this product available online")
@@ -334,8 +310,6 @@ class PartnerProduct(models.Model):
     def save(self, *args, **kwargs):
         if self.price is not None:
             self.price = round(self.price, 2)
-        if self.discount is not None:
-            self.discount = round(self.discount, 2)
         super().save(*args, **kwargs)
     
     class Meta:
@@ -349,3 +323,23 @@ class PartnerProduct(models.Model):
     
     def __str__(self):
         return f"{self.partner.email} - {self.product.name} - ${self.price}"
+
+class Favorite(models.Model):
+    user = models.OneToOneField(
+        User,
+        limit_choices_to={'role': 'customer'},
+        on_delete=models.CASCADE,
+        related_name="favorite"
+    )
+    products = models.ManyToManyField(
+        PartnerProduct,
+        related_name="favorited_by",
+        blank=True
+    )
+    added_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-added_at']
+
+    def __str__(self):
+        return f"{self.user.email}'s favorites"

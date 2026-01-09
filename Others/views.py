@@ -14,7 +14,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters
 from Products.models import PartnerProduct, PartnerProductSize
 from Accounts.models import Address
-from .helper import create_checkout_session
+from .helper import *
 import stripe
 import ast
 
@@ -23,10 +23,12 @@ class FAQAPIView(generics.ListAPIView):
     queryset = FAQ.objects.all()
     serializer_class = FAQSerializer
 
+
 class NewsAPIView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]  
     queryset = News.objects.all()
     serializer_class = NewsSerializer
+
 
 class DashboardAPIView(views.APIView):
     permission_classes = [permissions.IsAuthenticated,IsPartner] 
@@ -387,6 +389,7 @@ class DashboardAPIView(views.APIView):
             'seasonal_marketing': self.get_seasonal_recommendations(partner)
         })
 
+
 class OrderPageAPIView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated,IsPartner] 
     serializer_class = OrderSerializer
@@ -397,6 +400,7 @@ class OrderPageAPIView(generics.ListAPIView):
 
     def get_queryset(self):
         return Order.objects.filter(partner=self.request.user).select_related('user', 'product').order_by('-created_at')
+
 
 class OrderAnalyticsAPIView(views.APIView):
     permission_classes = [permissions.IsAuthenticated,IsPartner]
@@ -409,6 +413,7 @@ class OrderAnalyticsAPIView(views.APIView):
             'packaging': packaging,
             'shipping': shipping,
         })
+
 
 class WarehouseAPIView(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated,IsPartner] 
@@ -427,6 +432,7 @@ class WarehouseUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
 
     def get_object(self):
         return Warehouse.objects.get(id=self.kwargs['pk'])
+
 
 class CartAPIView(views.APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -494,6 +500,7 @@ class CartAPIView(views.APIView):
 
         return Response({"message": "Item added to cart", "cart": CartSerializer(cart).data}, status=status.HTTP_200_OK)
 
+
 class CartItemUpdateDeleteView(views.APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -546,13 +553,20 @@ class UpdateOrderView(generics.UpdateAPIView):
     def get_queryset(self):
         return Order.objects.filter(partner=self.request.user)
 
+
 class CreateOrderView(views.APIView):
     permission_classes = [permissions.IsAuthenticated]
     
     def post(self, request):
-        products = request.data.get('products',[])
-        if not products:
-             return Response({"error": "No products provided"}, status=status.HTTP_400_BAD_REQUEST)
+        # Pull products from user's cart instead of request data
+        try:
+            cart = Cart.objects.get(user=request.user)
+            cart_items = CartItem.objects.filter(cart=cart).select_related('partner_product', 'partner_product__partner', 'partner_product__product', 'size', 'size__size')
+        except Cart.DoesNotExist:
+            return Response({"error": "Your cart is empty"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not cart_items.exists():
+             return Response({"error": "Your cart is empty"}, status=status.HTTP_400_BAD_REQUEST)
 
         validated_items = []
         total_amount = Decimal('0.00')
@@ -583,48 +597,25 @@ class CreateOrderView(views.APIView):
         except Address.DoesNotExist:
              return Response({"error": "Invalid Address ID"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Phase 1: Validate ALL items first
-        for index, item in enumerate(products):
+        # Phase 1: Validate ALL items from cart
+        customer_name = request.user.name if hasattr(request.user, 'name') and request.user.name else request.user.email
+
+        for index, item in enumerate(cart_items):
             try:
-                product_id = item.get('product')
-                quantity = int(item.get('quantity', 1))
-                size_id = item.get('size_id')  # This is now PartnerProductSize ID
-                color = item.get('color')
+                partner_product = item.partner_product
+                quantity = item.quantity
+                partner_product_size = item.size
+                color = item.color
+                partner = partner_product.partner
+                product = partner_product.product
                 
-                if not all([product_id, size_id, color]):
-                    return Response({
-                        "error": f"Missing fields in item {index+1} (product, size_id, color required)"
-                    }, status=status.HTTP_400_BAD_REQUEST)
-
-                # 1. Validate Product & Partner
-                try:
-                    partner_product = PartnerProduct.objects.get(id=product_id)
-                    partner = partner_product.partner
-                    product = partner_product.product
-                except (PartnerProduct.DoesNotExist):
-                    return Response({
-                        "error": f"Invalid product or partner ID in item {index+1}"
-                    }, status=status.HTTP_400_BAD_REQUEST)
-
-                # 3. Validate PartnerProductSize and Stock Availability
-                try:
-                    partner_product_size = PartnerProductSize.objects.select_related('size').get(
-                        id=size_id,
-                        partner_product=partner_product
-                    )
-                except PartnerProductSize.DoesNotExist:
-                    return Response({
-                        "error": f"Invalid size ID in item {index+1} or size doesn't belong to this partner's product"
-                    }, status=status.HTTP_400_BAD_REQUEST)
-                
+                # Check Stock Availability
                 if partner_product_size.quantity < quantity:
                     return Response({
                         "error": f"Insufficient stock for '{product.name}' size {partner_product_size.size}. Available: {partner_product_size.quantity}"
                     }, status=status.HTTP_400_BAD_REQUEST)
 
-                # 4. Prepare Validated Item
-                customer_name = request.user.name if hasattr(request.user, 'name') and request.user.name else request.user.email
-                
+                # Prepare Validated Item
                 validated_items.append({
                     'user': request.user,
                     'partner': partner,
@@ -632,17 +623,15 @@ class CreateOrderView(views.APIView):
                     'price': partner_product.price,
                     'partner_product': partner_product,
                     'quantity': quantity,
-                    'size': partner_product_size,  # Store the PartnerProductSize object
+                    'size': partner_product_size,
                     'color': color,
                     'name': customer_name
                 })
                 
                 total_amount += (partner_product.price * quantity)
 
-            except ValueError:
-                return Response({"error": f"Invalid quantity format in item {index+1}"}, status=status.HTTP_400_BAD_REQUEST)
             except Exception as e:
-                return Response({"error": f"Validation error in item {index+1}: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                return Response({"error": f"Validation error for item {index+1}: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
         # Phase 2: Create Orders
@@ -677,12 +666,18 @@ class CreateOrderView(views.APIView):
         except Exception as e:
              return Response({"error": f"Failed to create orders: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
-        checkout_session_url = create_checkout_session(created_ids, payments_ids, total_amount)
+        # checkout_session_url = create_checkout_session(request, created_ids, payments_ids, total_amount)
+        intent = create_payment_intent_data(request, created_ids, payments_ids, total_amount, customer_email=request.user.email)
         
+        # Clear cart after order is created and payment is initiated
+        # cart_items.delete()
+
         return Response({
             "message": "Orders created successfully", 
-            "checkout_session_url": checkout_session_url,
+            # "checkout_session_url": checkout_session_url,
+            "intent": intent
         }, status=status.HTTP_201_CREATED)
+
 
 class stripe_webhook(views.APIView):
     permission_classes = [permissions.AllowAny]
@@ -707,115 +702,55 @@ class stripe_webhook(views.APIView):
             
             if event['type'] == 'checkout.session.completed':
                 session = event['data']['object']
-                orders = session.metadata.get('orders')
-                payments = session.metadata.get('payments')
+                orders_metadata = session.get('metadata', {}).get('orders')
+                txn_id = session.get('payment_intent') or session.get('id') or "N/A"
+                print(f"Stripe webhook - Checkout session completed: {session.get('id')}")
                 
-                if orders and payments:
+                # Retrieve invoice URL if available
+                invoice_url = ""
+                invoice_id = session.get('invoice')
+                if invoice_id:
                     try:
-                        from django.db import transaction
-                        
-                        orders_list = ast.literal_eval(orders)
-                        payments_list = ast.literal_eval(payments)
-                        
-                        with transaction.atomic():
-                            # Deduct quantity from sizes and Update Payment records
-                            orders_qs = Order.objects.filter(id__in=orders_list)
-                            current_date = timezone.now()
-                            
-                            # Get transaction ID robustly
-                            txn_id = getattr(session, 'payment_intent', None) or getattr(session, 'id', None)
-                            
-                            total_invoice_amount = Decimal('0.00')
-                            
-                            for order in orders_qs:
-                                # Deduct stock
-                                if order.size_id:
-                                    PartnerProductSize.objects.filter(id=order.size_id).update(quantity=F('quantity') - order.quantity)
-                                
-                                # Calculate net amount based on partner's fees and other charges
-                                partner = order.partner
-                                total_amount = order.price * order.quantity
-                                
-                                fees_percent = Decimal(str(partner.fees))
-                                other_charges_percent = Decimal(str(partner.other_charges))
-                                total_deduction_percent = (fees_percent * order.quantity)
-                                
-                                deduction_amount = total_amount * (total_deduction_percent / 100) - other_charges_percent
-                                net_amount = total_amount - deduction_amount
-                                
-                                order.net_amount = net_amount
-                                order.save(update_fields=['net_amount'])
-                                
-                                total_invoice_amount += total_amount
-
-                                Payment.objects.filter(order=order).update(
-                                    net_amount=net_amount,
-                                    transaction_id=txn_id
-                                )
-
-                                finance, created = Finance.objects.get_or_create(
-                                    partner=order.partner,
-                                    year=current_date.year,
-                                    month=current_date.month,
-                                    defaults={
-                                        'balance': 0,
-                                        'this_month_revenue': 0,
-                                        'next_payout': 0,
-                                        'last_payout': 0,
-                                        'reserved_amount': 0,
-                                    }
-                                )
-                                
-                                if created:
-                                    # Carry over balance from most recent previous record
-                                    prev_finance = Finance.objects.filter(
-                                        partner=order.partner
-                                    ).exclude(year=current_date.year, month=current_date.month).order_by('-year', '-month').first()
-                                    
-                                    if prev_finance:
-                                        finance.balance = prev_finance.balance
-                                        finance.save()
-
-                                finance.balance = F('balance') + net_amount
-                                finance.this_month_revenue = F('this_month_revenue') + net_amount
-                                finance.save()
-
-                            # Update all orders to confirmed
-                            updated_orders = orders_qs.update(status='confirmed')
-                            
-                            # Create OrderInvoice after successful payment
-                            invoice_id = getattr(session, 'invoice', None)
-                            invoice_url = getattr(session, 'receipt_url', None) or getattr(session, 'url', None) or ''
-                            
-                            if invoice_id:
-                                try:
-                                    inv = stripe.Invoice.retrieve(invoice_id)
-                                    invoice_url = getattr(inv, 'hosted_invoice_url', None) or getattr(inv, 'invoice_pdf', None) or invoice_url
-                                except Exception as e:
-                                    print(f"Stripe webhook - Error retrieving invoice {invoice_id}: {e}")
-
-                            # Get first order to link user and partner to invoice
-                            first_order = orders_qs.first()
-                            order_invoice = OrderInvoice.objects.create(
-                                user=first_order.user,
-                                partner=first_order.partner,
-                                amount=total_invoice_amount,
-                                invoice_url=invoice_url,
-                                payments=txn_id
-                            )
-                            
-                            # Add all orders and payments to the invoice using IDs directly
-                            if orders_list:
-                                order_invoice.orders.set(orders_list)
-                            
-                            print(f"Stripe webhook - Updated {updated_orders} orders. Created OrderInvoice #{order_invoice.id} with {len(orders_list)} orders and {len(payments_list)} payments. Txn ID: {txn_id}")
+                        inv = stripe.Invoice.retrieve(invoice_id)
+                        invoice_url = inv.get('hosted_invoice_url') or inv.get('invoice_pdf') or ""
                     except Exception as e:
-                        print(f"Stripe webhook - Error updating orders/payments: {str(e)}")
-                        import traceback
-                        traceback.print_exc()
-                        return Response({"error": f"Error updating orders: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-                else:
-                    print("Stripe webhook - Missing orders or payments in metadata")
+                        print(f"Stripe webhook - Error fetching invoice: {e}")
+
+                # If no invoice, try to fetch receipt_url from the charge
+                if not invoice_url:
+                    pi_id = session.get('payment_intent')
+                    if pi_id:
+                        try:
+                            pi = stripe.PaymentIntent.retrieve(pi_id)
+                            charge_id = pi.get('latest_charge')
+                            if charge_id:
+                                charge = stripe.Charge.retrieve(charge_id)
+                                invoice_url = charge.get('receipt_url', '')
+                        except Exception as e:
+                            print(f"Stripe webhook - Error fetching receipt: {e}")
+
+                if not invoice_url:
+                    invoice_url = session.get('success_url', '')
+
+                self._handle_payment_success(orders_metadata, txn_id, invoice_url)
+
+            elif event['type'] == 'payment_intent.succeeded':
+                intent = event['data']['object']
+                orders_metadata = intent.get('metadata', {}).get('orders')
+                txn_id = intent.get('id')
+                
+                # Retrieve receipt URL from the charge
+                invoice_url = ""
+                charge_id = intent.get('latest_charge')
+                if charge_id:
+                    try:
+                        charge = stripe.Charge.retrieve(charge_id)
+                        invoice_url = charge.get('receipt_url', '')
+                    except Exception as e:
+                        print(f"Stripe webhook - Error fetching receipt for PI: {e}")
+                
+                print(f"Stripe webhook - Payment intent succeeded: {txn_id}")
+                self._handle_payment_success(orders_metadata, txn_id, invoice_url)
             
             return Response({"message": "Webhook processed successfully"}, status=status.HTTP_200_OK)
         
@@ -824,6 +759,110 @@ class stripe_webhook(views.APIView):
             import traceback
             traceback.print_exc()
             return Response({"error": f"Webhook error: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def _handle_payment_success(self, orders_metadata, txn_id, invoice_url=""):
+        if not orders_metadata:
+            print("Stripe webhook - No orders metadata found in success event")
+            return
+
+        try:
+            from django.db import transaction
+            import ast
+            
+            # orders_metadata is usually a string representation of a list like "[2]" or "2"
+            try:
+                orders_list = ast.literal_eval(orders_metadata)
+                if isinstance(orders_list, int):
+                    orders_list = [orders_list]
+            except:
+                # Fallback for simple string IDs
+                if isinstance(orders_metadata, str) and orders_metadata.isdigit():
+                    orders_list = [int(orders_metadata)]
+                else:
+                    print(f"Stripe webhook - Could not parse orders metadata: {orders_metadata}")
+                    return
+
+            with transaction.atomic():
+                # Fetch orders with related data
+                orders_qs = Order.objects.filter(id__in=orders_list).select_related('user', 'partner', 'size')
+                
+                if not orders_qs.exists():
+                    print(f"Stripe webhook - No orders found for IDs: {orders_list}")
+                    return
+
+                current_date = timezone.now()
+                total_invoice_amount = Decimal('0.00')
+                
+                for order in orders_qs:
+                    # Deduct stock
+                    if order.size:
+                        PartnerProductSize.objects.filter(id=order.size.id).update(quantity=F('quantity') - order.quantity)
+                    
+                    # Calculate net amount
+                    partner = order.partner
+                    total_amount = order.price * order.quantity
+                    
+                    fees_percent = Decimal(str(getattr(partner, 'fees', 0)))
+                    other_charges_percent = Decimal(str(getattr(partner, 'other_charges', 0)))
+                    
+                    deduction_amount = total_amount * ((fees_percent + other_charges_percent) / 100)
+                    net_amount = total_amount - deduction_amount
+                    
+                    order.net_amount = net_amount
+                    order.save(update_fields=['net_amount'])
+                    
+                    total_invoice_amount += total_amount
+
+                    # Update Payment record
+                    Payment.objects.filter(order=order).update(
+                        net_amount=net_amount,
+                        transaction_id=txn_id
+                    )
+
+                    # Update Finance record
+                    finance, created = Finance.objects.get_or_create(
+                        partner=partner,
+                        year=current_date.year,
+                        month=current_date.month,
+                        defaults={
+                            'balance': Decimal('0.00'),
+                            'this_month_revenue': Decimal('0.00'),
+                        }
+                    )
+                    
+                    if created:
+                        prev_finance = Finance.objects.filter(partner=partner).exclude(
+                            year=current_date.year, month=current_date.month
+                        ).order_by('-year', '-month').first()
+                        
+                        if prev_finance:
+                            finance.balance = prev_finance.balance
+                            finance.save()
+
+                    finance.balance = F('balance') + net_amount
+                    finance.this_month_revenue = F('this_month_revenue') + net_amount
+                    finance.save()
+
+                # Update all orders to confirmed
+                updated_count = orders_qs.update(status='confirmed')
+                
+                # Create OrderInvoice record
+                first_order = orders_qs.first()
+                order_invoice = OrderInvoice.objects.create(
+                    user=first_order.user,
+                    partner=first_order.partner,
+                    amount=total_invoice_amount,
+                    invoice_url=invoice_url,
+                    payments=txn_id
+                )
+                order_invoice.orders.set(orders_qs)
+                
+                print(f"Stripe webhook - Successfully processed payment. Updated {updated_count} orders. Txn ID: {txn_id}")
+        except Exception as e:
+            print(f"Stripe webhook - error in _handle_payment_success: {str(e)}")
+            import traceback
+            traceback.print_exc()
+
 
 class FinanceDashboardView(views.APIView):
     permission_classes = [permissions.IsAuthenticated,IsPartner]
@@ -952,6 +991,7 @@ class FinanceDashboardView(views.APIView):
         result.sort(key=lambda x: (-x['percentage'], x['category']))
         return result
 
+
 class PartnerIncomeView(views.APIView):
     permission_classes = [permissions.IsAuthenticated, IsPartner]
     pagination_class = CustomLimitPagination
@@ -978,3 +1018,9 @@ class PartnerIncomeView(views.APIView):
         ]
 
         return paginator.get_paginated_response(data)
+
+
+class OrderView(views.APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    def get(self, request):
+        return Response(OrderSerializer(Order.objects.filter(user=request.user), many=True).data, status=status.HTTP_200_OK)
