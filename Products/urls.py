@@ -14,4 +14,5 @@ urlpatterns = [
     path('partner/', ApprovedPartnerProductView.as_view(), name='approved_partner_product_update'),
     path('partner/<int:product_id>/', SingleProductForPartnerView.as_view(), name='partner_product_detail'),
     path('partner/<int:product_id>/<str:action>/', ApprovedPartnerProductUpdateView.as_view(), name='approved_partner_product_update'),
+    path('partner/upload/', FileUploadPartnerProductView.as_view(), name='partner_product_upload'),
 ]

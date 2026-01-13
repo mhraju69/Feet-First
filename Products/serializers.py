@@ -78,7 +78,7 @@ class ProductSerializer(serializers.ModelSerializer):
     def get_favourite(self, obj):
         request = self.context.get("request")
         if request and request.user.is_authenticated:
-            return Favorite.objects.filter(user=request.user, products=obj).exists()
+            return Favorite.objects.filter(user=request.user, products__product=obj).exists()
         return False
 
 class ProductDetailsSerializer(serializers.ModelSerializer):
@@ -166,7 +166,7 @@ class ProductDetailsSerializer(serializers.ModelSerializer):
     def get_favourite(self, obj):
         request = self.context.get("request")
         if request and request.user.is_authenticated:
-            return Favorite.objects.filter(user=request.user, products=obj).exists()
+            return Favorite.objects.filter(user=request.user, products__product=obj).exists()
         return False
 
     def get_qna(self, obj):
@@ -239,48 +239,51 @@ class PartnerProductSizeSerializer(serializers.ModelSerializer):
         return obj.size.value
 
 class PartnerProductSerializer(serializers.ModelSerializer):
-    """Serializer for partner's own inventory management"""
-    name = serializers.SerializerMethodField()
-    brand = serializers.SerializerMethodField()
-    sub_category = serializers.SerializerMethodField()
-    size = serializers.SerializerMethodField()
+    """Serializer for partner's dashboard/inventory management"""
+    brand = serializers.CharField(source='product.brand.name', read_only=True)
+    name = serializers.CharField(source='product.name', read_only=True)
+    stock_status = serializers.SerializerMethodField()
     color = serializers.SerializerMethodField()
-    stock_quantity = serializers.SerializerMethodField()
+    size_data = serializers.SerializerMethodField()
     id = serializers.IntegerField(source='product.id', read_only=True)
-    
+
     class Meta:
         model = PartnerProduct
-        fields = ['id', 'price', 'stock_quantity', 'is_active', 'name', 'brand', 'sub_category','online','local','size', 'color']
-    
-    def get_stock_quantity(self, obj):
-        return obj.total_stock_quantity
+        fields = [
+            'id', 'brand', 'name', 'color', 'stock_status', 
+            'local', 'online', 'size_data'
+        ]
 
-    def get_name(self, obj):
-        return obj.product.name
-    
-    def get_brand(self, obj):
-        return obj.product.brand.name
-    
-    def get_sub_category(self, obj):
-        return obj.product.sub_category.name
-    
-    def get_size(self, obj):
-        """Return sizes with their quantities"""
-        size_quantities = obj.size_quantities.select_related('size').all()
-        return PartnerProductSizeSerializer(size_quantities, many=True).data
-    
+    def get_stock_status(self, obj):
+        return "In Stock" if obj.total_stock_quantity > 0 else "Out of Stock"
+
     def get_color(self, obj):
         colors_list = []
-        # Use Python-level filtering to avoid N+1 queries if images are prefetched
         all_images = list(obj.product.images.all())
         for color in obj.color.all():
             relevant_img = next((img for img in all_images if img.color_id == color.id), None)
             colors_list.append({
-                "id": color.id,
-                "hex_code": color.hex_code,
+                "name": color.color,
+                "hex": color.hex_code,
                 "image": relevant_img.image.url if relevant_img and relevant_img.image else None
             })
         return colors_list
+        
+
+    def get_size_data(self, obj):
+        # Groups sizes by type: e.g., {"EU": {"40": 15, "41": 18}, "US": {"9": 10}}
+        data = {}
+        for pps in obj.size_quantities.select_related('size').all():
+            s_type = pps.size.type
+            # Merge USM and USW into US
+            if s_type in ['USM', 'USW']:
+                s_type = 'US'
+                
+            s_val = pps.size.value
+            if s_type not in data:
+                data[s_type] = {}
+            data[s_type][s_val] = pps.quantity
+        return data
 
 class PartnerProductListSerializer(serializers.ModelSerializer):
     """Serializer for customer-facing product listings (multi-vendor system)"""

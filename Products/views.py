@@ -1,11 +1,14 @@
 from .utils import *
+import csv
+import openpyxl
 from .models import *
 from io import BytesIO
 from .serializers import *
 from core.permission import *
 from datetime import datetime
 from openpyxl import Workbook
-from django.db.models import Q
+from django.db.models import Q, F
+from decimal import Decimal
 from rest_framework import filters
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
@@ -13,6 +16,7 @@ from openpyxl.styles import Font, PatternFill, Alignment
 from rest_framework.pagination import PageNumberPagination
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import permissions, generics, views, status
+from rest_framework.parsers import MultiPartParser, FormParser
 
 class CustomLimitPagination(PageNumberPagination):
     page_size = 10
@@ -625,3 +629,180 @@ class ApprovedPartnerProductUpdateView(views.APIView):
             if deleted_count == 0:
                 return Response({"error": "Product not found in your inventory."}, status=status.HTTP_404_NOT_FOUND)
             return Response({"message": "Product removed from inventory"}, status=status.HTTP_200_OK)
+
+
+class FileUploadPartnerProductView(views.APIView):
+    """
+    View to upload and read data from Excel or CSV files for partner products.
+    """
+    permission_classes = [permissions.IsAuthenticated, IsPartner]
+    parser_classes = (MultiPartParser, FormParser)
+
+    def post(self, request, *args, **kwargs):
+        file = request.FILES.get('file')
+        if not file:
+            return Response({"error": "No file uploaded"}, status=status.HTTP_400_BAD_REQUEST)
+
+        filename = file.name
+        data = []
+
+        if filename.endswith('.csv'):
+            try:
+                # Read CSV file
+                decoded_file = file.read().decode('utf-8').splitlines()
+                reader = csv.DictReader(decoded_file)
+                for row in reader:
+                    data.append(row)
+            except Exception as e:
+                return Response({"error": f"Error reading CSV: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
+
+        elif filename.endswith('.xlsx') or filename.endswith('.xls'):
+            try:
+                # Read Excel file
+                workbook = openpyxl.load_workbook(file, data_only=True)
+                sheet = workbook.active
+                
+                # Get headers from the first row
+                headers = [cell.value for cell in sheet[1]]
+                
+                # Iterate through rows starting from the second row
+                for row in sheet.iter_rows(min_row=2, values_only=True):
+                    # Create a dictionary for each row mapping headers to values
+                    row_data = dict(zip(headers, row))
+                    data.append(row_data)
+            except Exception as e:
+                return Response({"error": f"Error reading Excel: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            return Response({"error": "Unsupported file format. Please upload CSV or XLSX."}, status=status.HTTP_400_BAD_REQUEST)
+
+        return self.process_uploaded_data(request, data)
+
+    def process_uploaded_data(self, request, data):
+        partner = request.user
+        total_rows = len(data)
+        matched_products_count = 0
+        skipped_rows_count = 0
+        new_partner_products_count = 0
+        size_updates_count = 0
+        
+        # Local cache for products to avoid redundant queries
+        product_cache = {}
+
+        for row in data:
+            item_name = row.get('Item name')
+            if not item_name:
+                skipped_rows_count += 1
+                continue
+            
+            # 1. Match Product
+            product = product_cache.get(item_name)
+            if not product:
+                # Try exact match first, then icontains
+                product = Product.objects.filter(name__iexact=item_name).first()
+                if not product:
+                    product = Product.objects.filter(name__icontains=item_name).first()
+                
+                if product:
+                    product_cache[item_name] = product
+            
+            if not product:
+                skipped_rows_count += 1
+                continue
+            
+            matched_products_count += 1
+            
+            # 2. Parse Price
+            price_str = row.get('Unit price', '0')
+            price = self.clean_price(price_str)
+            
+            # 3. Handle Status (online/local)
+            status_val = row.get('Status')
+            is_confirmed = (status_val == 'Confirmed')
+            
+            # 4. Get or Create PartnerProduct
+            partner_product, created = PartnerProduct.objects.get_or_create(
+                partner=partner,
+                product=product,
+                defaults={
+                    'price': price,
+                    'online': is_confirmed,
+                    'local': is_confirmed,
+                    'is_active': True
+                }
+            )
+            
+            if created:
+                new_partner_products_count += 1
+            else:
+                # Update existing PartnerProduct price and status if confirmed
+                partner_product.price = price
+                partner_product.online = is_confirmed
+                partner_product.local = is_confirmed
+                partner_product.save()
+
+            # 5. Handle Sizes
+            # Check EU, US, UK, BR columns
+            size_types = [
+                ('Size EU', 'EU'),
+                ('Size US', 'USM'),
+                ('Size US', 'USW'),
+            ]
+            
+            matching_size = None
+            for col, s_type in size_types:
+                val = str(row.get(col))
+                if val and val != 'None':
+                    # Find size associated with the product tables
+                    matching_size = Size.objects.filter(
+                        table__products=product,
+                        type=s_type,
+                        value=val
+                    ).first()
+                    if matching_size:
+                        break
+            
+            if matching_size:
+                quantity = 0
+                try:
+                    quantity = int(row.get('Quantity', 0))
+                except:
+                    pass
+                
+                if quantity > 0:
+                    pps, pps_created = PartnerProductSize.objects.get_or_create(
+                        partner_product=partner_product,
+                        size=matching_size,
+                        defaults={'quantity': quantity}
+                    )
+                    if not pps_created:
+                        pps.quantity += quantity # Add to existing quantity
+                        pps.save()
+                    size_updates_count += 1
+
+        return Response({
+            "message": "File processed successfully",
+            "details": {
+                "total_rows": total_rows,
+                "matched_products": matched_products_count,
+                "new_partner_products": new_partner_products_count,
+                "size_updates": size_updates_count,
+                "skipped_rows": skipped_rows_count
+            }
+        }, status=status.HTTP_200_OK)
+
+    def clean_price(self, price_str):
+        if not price_str: return Decimal('0.00')
+        # Remove currency symbols and spaces
+        cleaned = "".join(c for c in str(price_str) if c.isdigit() or c in '.,')
+        if not cleaned: return Decimal('0.00')
+        
+        # Consistent decimal separator
+        if ',' in cleaned and '.' in cleaned:
+            cleaned = cleaned.replace(',', '')
+        elif ',' in cleaned:
+            cleaned = cleaned.replace(',', '.')
+        
+        try:
+            return Decimal(cleaned)
+        except:
+            return Decimal('0.00')

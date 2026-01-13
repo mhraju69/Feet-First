@@ -1023,4 +1023,15 @@ class PartnerIncomeView(views.APIView):
 class OrderView(views.APIView):
     permission_classes = [permissions.IsAuthenticated]
     def get(self, request):
-        return Response(OrderSerializer(Order.objects.filter(user=request.user), many=True).data, status=status.HTTP_200_OK)
+        scan = FootScan.objects.filter(user=request.user).first()
+        orders = Order.objects.filter(user=request.user).exclude(status='pending').select_related('product', 'size__size')
+        return Response(OrderSerializer(orders, many=True, context={'scan': scan}).data, status=status.HTTP_200_OK)
+
+
+class ClearCartView(views.APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        cart = Cart.objects.get(user=request.user)
+        cart.items.all().delete()
+        return Response({'message': 'Cart cleared successfully'},status=status.HTTP_200_OK)
