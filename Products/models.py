@@ -280,8 +280,7 @@ class ProductImage(models.Model):
     
     def __str__(self):
         return f"Image for {self.product.name}"
-        
-    
+   
 class PartnerProductSize(models.Model):
     """Intermediate model to store quantity for each size in a partner's product"""
     partner_product = models.ForeignKey('PartnerProduct', on_delete=models.CASCADE, related_name='size_quantities')
@@ -304,6 +303,7 @@ class PartnerProduct(models.Model):
     is_active = models.BooleanField(default=True, help_text="Is this product active for this partner")
     local = models.BooleanField(default=True, help_text="Is this product available locally")
     online = models.BooleanField(default=True, help_text="Is this product available online")
+    eanc = models.CharField(max_length=13, null=True, blank=True, help_text="EAN code for this product")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

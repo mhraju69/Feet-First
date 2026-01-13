@@ -250,7 +250,7 @@ class PartnerProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = PartnerProduct
         fields = [
-            'id', 'brand', 'name', 'color', 'stock_status', 
+            'id', 'brand', 'name', 'color', 'stock_status', 'price',
             'local', 'online', 'size_data'
         ]
 
@@ -271,18 +271,22 @@ class PartnerProductSerializer(serializers.ModelSerializer):
         
 
     def get_size_data(self, obj):
-        # Groups sizes by type: e.g., {"EU": {"40": 15, "41": 18}, "US": {"9": 10}}
+        # Groups sizes by type: e.g., {"EU": [{"id": 10, "size": "40", "quantity": 15}, ...]}
         data = {}
         for pps in obj.size_quantities.select_related('size').all():
             s_type = pps.size.type
             # Merge USM and USW into US
             if s_type in ['USM', 'USW']:
                 s_type = 'US'
-                
-            s_val = pps.size.value
+            
             if s_type not in data:
-                data[s_type] = {}
-            data[s_type][s_val] = pps.quantity
+                data[s_type] = []
+            
+            data[s_type].append({
+                "id": pps.id,             # PartnerProductSize ID for updates
+                "size": int(pps.size.value),
+                "quantity": pps.quantity
+            })
         return data
 
 class PartnerProductListSerializer(serializers.ModelSerializer):

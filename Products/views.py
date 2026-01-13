@@ -433,7 +433,7 @@ class SingleProductForPartnerView(views.APIView):
 class ApprovedPartnerProductView(generics.ListAPIView):
     """View to show all products in the partner's inventory"""
     permission_classes = [permissions.IsAuthenticated, IsPartner]
-    pagination_class = CustomLimitPagination
+    # pagination_class = CustomLimitPagination
     serializer_class = PartnerProductSerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     search_fields = ['product__name', 'product__description', 'product__brand__name']
@@ -684,14 +684,26 @@ class FileUploadPartnerProductView(views.APIView):
         skipped_rows_count = 0
         new_partner_products_count = 0
         size_updates_count = 0
+        color_updates_count = 0
+        skipped_details = []  # Debug info
         
         # Local cache for products to avoid redundant queries
         product_cache = {}
+
+        warehouse_id = request.data.get('warehouse_id')
+        warehouse = None
+        if warehouse_id:
+            try:
+                from Others.models import Warehouse
+                warehouse = Warehouse.objects.get(id=warehouse_id, partner=partner)
+            except:
+                pass
 
         for row in data:
             item_name = row.get('Item name')
             if not item_name:
                 skipped_rows_count += 1
+                skipped_details.append({"row": row, "reason": "Missing 'Item name'"})
                 continue
             
             # 1. Match Product
@@ -707,17 +719,58 @@ class FileUploadPartnerProductView(views.APIView):
             
             if not product:
                 skipped_rows_count += 1
+                skipped_details.append({"item": item_name, "reason": "Product not found in database (Exact/IContains match failed)"})
                 continue
             
+            # 2. Resolve and Validate Color (MUST match an image for THIS specific product)
+            color_name = row.get('Color name') or row.get('color_name')
+            
+            color_obj = None
+            
+            # A. Try Match via Color Name (Must have an image for this product)
+            if color_name:
+                target_color = Color.objects.filter(color__iexact=str(color_name).strip()).first()
+                if target_color and ProductImage.objects.filter(product=product, color=target_color).exists():
+                    color_obj = target_color
+            
+            # B. Try Match via Image ID (Must belong to this product)
+            if not color_obj and image_id_val:
+                try:
+                    img = ProductImage.objects.filter(id=int(image_id_val), product=product).select_related('color').first()
+                    if img and img.color:
+                        color_obj = img.color
+                except (ValueError, TypeError):
+                    pass
+            
+            # B. Try Match via Color ID (Must have an image for this product)
+            if not color_obj and color_id_val:
+                try:
+                    target_color = Color.objects.filter(id=int(color_id_val)).first()
+                    if target_color and ProductImage.objects.filter(product=product, color=target_color).exists():
+                        color_obj = target_color
+                except (ValueError, TypeError):
+                    pass
+            
+            # C. Try Match via Color Name (Must have an image for this product)
+            if not color_obj and color_name:
+                target_color = Color.objects.filter(color__iexact=str(color_name).strip()).first()
+                if target_color and ProductImage.objects.filter(product=product, color=target_color).exists():
+                    color_obj = target_color
+
+            # Skip the row if no valid color variant is found for this product
+            if not color_obj:
+                skipped_rows_count += 1
+                skipped_details.append({
+                    "item": item_name, 
+                    "reason": f"No matching color variant image found for this product. Tried - Image ID: {image_id_val}, Color ID: {color_id_val}, Color Name: {color_name}"
+                })
+                continue
+
             matched_products_count += 1
             
-            # 2. Parse Price
-            price_str = row.get('Unit price', '0')
+            # 3. Parse Price
+            price_str = row.get('Amount Incl. VAT', '0') or row.get('amount_incl_vat', '0') 
             price = self.clean_price(price_str)
-            
-            # 3. Handle Status (online/local)
-            status_val = row.get('Status')
-            is_confirmed = (status_val == 'Confirmed')
             
             # 4. Get or Create PartnerProduct
             partner_product, created = PartnerProduct.objects.get_or_create(
@@ -725,8 +778,8 @@ class FileUploadPartnerProductView(views.APIView):
                 product=product,
                 defaults={
                     'price': price,
-                    'online': is_confirmed,
-                    'local': is_confirmed,
+                    'online': True,
+                    'local': True,
                     'is_active': True
                 }
             )
@@ -734,13 +787,18 @@ class FileUploadPartnerProductView(views.APIView):
             if created:
                 new_partner_products_count += 1
             else:
-                # Update existing PartnerProduct price and status if confirmed
+                # Update existing PartnerProduct price
                 partner_product.price = price
-                partner_product.online = is_confirmed
-                partner_product.local = is_confirmed
                 partner_product.save()
 
-            # 5. Handle Sizes
+            # 6. Associate Color
+            partner_product.color.add(color_obj)
+            color_updates_count += 1
+
+            if warehouse:
+                warehouse.product.add(partner_product)
+
+            # 7. Handle Sizes
             # Check EU, US, UK, BR columns
             size_types = [
                 ('Size EU', 'EU'),
@@ -778,6 +836,12 @@ class FileUploadPartnerProductView(views.APIView):
                         pps.quantity += quantity # Add to existing quantity
                         pps.save()
                     size_updates_count += 1
+            
+            # 8. Handle EAN
+            eanc_val = row.get('EAN') or row.get('ean')
+            if eanc_val:
+                partner_product.eanc = str(eanc_val).strip()
+                partner_product.save()
 
         return Response({
             "message": "File processed successfully",
@@ -786,7 +850,11 @@ class FileUploadPartnerProductView(views.APIView):
                 "matched_products": matched_products_count,
                 "new_partner_products": new_partner_products_count,
                 "size_updates": size_updates_count,
+                "color_updates": color_updates_count,
                 "skipped_rows": skipped_rows_count
+            },
+            "debug": {
+                "skipped_details": skipped_details
             }
         }, status=status.HTTP_200_OK)
 
