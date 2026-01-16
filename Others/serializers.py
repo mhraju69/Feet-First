@@ -25,7 +25,7 @@ class OrderSerializer(serializers.ModelSerializer):
     price = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
     details = serializers.SerializerMethodField()
     partner_product_id = serializers.SerializerMethodField()
-    sub_category = serializers.CharField(source="product.sub_category.name", read_only=True)
+    sub_category = serializers.CharField(source="product.sub_category.slug", read_only=True)
     match_data = serializers.SerializerMethodField()
 
     class Meta:
