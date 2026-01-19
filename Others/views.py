@@ -1012,7 +1012,7 @@ class PartnerIncomeView(views.APIView):
                 "fees": partner.fees,
                 "other": partner.other_charges,
                 "revenue": payment.net_amount,
-                "status": "Confirmed"
+                "status": "Bestätigt"
             }
             for payment in page
         ]
@@ -1035,3 +1035,79 @@ class ClearCartView(views.APIView):
         cart = Cart.objects.get(user=request.user)
         cart.items.all().delete()
         return Response({'message': 'Cart cleared successfully'},status=status.HTTP_200_OK)
+
+
+class AccessoriesAPIView(views.APIView):
+    permission_classes = [permissions.IsAuthenticated, IsPartner]
+
+    def post(self, request):
+        try:
+            name = request.data.get('name')
+            brand_name = request.data.get('brand')
+            price = request.data.get('price', 0)
+            eanc = request.data.get('eanc', None)
+            article = request.data.get('article', None)
+            
+            
+            if not name:
+                return Response({"error": "Name is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+            # 1. Resolve Brand
+            brand = Brand.objects.filter(name__iexact=brand_name).first()
+            if not brand:
+                brand = Brand.objects.create(name=brand_name)
+
+            # 2. Resolve or Create Product
+            product, created = Accessories.objects.get_or_create(
+                name=name,
+                brand=brand,
+                defaults={
+                    'description': ' ',
+                    'price': price,
+                    'online': True,
+                    'local': True,
+                    'eanc': eanc,
+                    'article': article
+                }
+            )
+
+            return Response(AccessoriesSerializer(product).data, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    def get(self, request):
+        accessories = Accessories.objects.all()
+        return Response(AccessoriesSerializer(accessories, many=True).data, status=status.HTTP_200_OK)
+
+    def delete(self, request):
+        pk = request.data.get('id')
+        if not pk:
+            return Response({"error": "ID is required."}, status=status.HTTP_400_BAD_REQUEST)
+        accessories = Accessories.objects.filter(id=pk)
+
+        if not accessories.exists():
+            return Response({"error": "Accessories not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        accessories.delete()
+        return Response({'message': 'Accessories deleted successfully'}, status=status.HTTP_200_OK)
+    
+    def patch(self, request):
+        try:
+            pk = request.data.get('id')
+            if not pk:
+                return Response({"error": "ID is required."}, status=status.HTTP_400_BAD_REQUEST)
+            accessories = Accessories.objects.filter(id=pk)
+            if not accessories.exists():
+                return Response({"error": "Accessories not found."}, status=status.HTTP_404_NOT_FOUND)
+            accessories = accessories.first()
+            accessories.name = request.data.get('name', accessories.name)
+            accessories.brand = Brand.objects.filter(name__iexact=request.data.get('brand', accessories.brand)).first()
+            accessories.price = request.data.get('price', accessories.price)
+            accessories.eanc = request.data.get('eanc', accessories.eanc)
+            accessories.article = request.data.get('article', accessories.article)
+            accessories.save()
+            return Response(AccessoriesSerializer(accessories).data, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+

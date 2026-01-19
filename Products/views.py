@@ -441,7 +441,14 @@ class ApprovedPartnerProductView(generics.ListAPIView):
 
     def get_queryset(self):
         # Return all PartnerProduct entries for this partner
-        return PartnerProduct.objects.filter(partner=self.request.user).select_related('product', 'product__brand').prefetch_related('product__images', 'product__images__color')  
+        queryset = PartnerProduct.objects.filter(partner=self.request.user).select_related('product', 'product__brand').prefetch_related('product__images', 'product__images__color')
+        
+        # --- Warehouse filter ---
+        warehouse_id = self.request.query_params.get("warehouse_id")
+        if warehouse_id:
+            queryset = queryset.filter(warehouse__id=warehouse_id)
+            
+        return queryset
 
 
 class ApprovedPartnerProductUpdateView(views.APIView):
@@ -452,13 +459,16 @@ class ApprovedPartnerProductUpdateView(views.APIView):
         product_id = kwargs.get('product_id')
         warehouse_id = request.data.get('warehouse_id', None)
         action = kwargs.get('action')
+        eanc = request.data.get('eanc', None)
         
         # Valid actions: add, update, del/remove
         if not product_id or action not in ['add', 'update', 'del', 'remove']:
             return Response({"error": "Invalid request. Provide product_id and valid action (add/update/del)."}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            product = Product.objects.get(id=product_id, is_active=True)
+            # Removed is_active=True filter so partners can still manage (e.g., delete) 
+            # products even if they are inactive or local-only.
+            product = Product.objects.get(id=product_id)
         except Product.DoesNotExist:
             return Response({"error": "Product not found."}, status=status.HTTP_404_NOT_FOUND)
 
@@ -503,12 +513,17 @@ class ApprovedPartnerProductUpdateView(views.APIView):
             # Proceed with valid_colors (list of objects) or their IDs
             final_valid_color_ids = [c.id for c in valid_colors]
 
+            online = request.data.get('online', True)
+            if online and not product.images.exists():
+                return Response({"error": "This product cannot be listed online until images are added."}, status=status.HTTP_400_BAD_REQUEST)
+
             partner_product = PartnerProduct.objects.create(
                 partner=request.user,
                 product=product,
                 price=price,
                 is_active=True,
-                online=request.data.get('online', True),
+                eanc=eanc,
+                online=online,
                 local=request.data.get('local', True)
             )
             partner_product.color.set(final_valid_color_ids)
@@ -540,7 +555,11 @@ class ApprovedPartnerProductUpdateView(views.APIView):
             fields_to_update = ['price', 'is_active', 'online', 'local']
             for field in fields_to_update:
                 if field in request.data:
-                    setattr(partner_product, field, request.data.get(field))
+                    val = request.data.get(field)
+                    if field == 'online' and val is True:
+                        if not product.images.exists():
+                            return Response({"error": "This product cannot be listed online until images are added."}, status=status.HTTP_400_BAD_REQUEST)
+                    setattr(partner_product, field, val)
             partner_product.save()
 
             # -- Handle Colors (Modified to support Image IDs) --
@@ -679,17 +698,25 @@ class FileUploadPartnerProductView(views.APIView):
 
     def process_uploaded_data(self, request, data):
         partner = request.user
-        total_rows = len(data)
-        matched_products_count = 0
-        skipped_rows_count = 0
-        new_partner_products_count = 0
-        size_updates_count = 0
-        color_updates_count = 0
-        skipped_details = []  # Debug info
         
-        # Local cache for products to avoid redundant queries
+        # Summary Tracking
+        summary = {
+            "total_rows": len(data),
+            "matched_products": 0,
+            "created_products": 0,
+            "new_partner_products": 0,
+            "updated_partner_products": 0,
+            "size_updates": 0,
+            "color_updates": 0,
+            "local_only_count": 0,
+            "skipped_rows": 0
+        }
+        skipped_details = []
+        
+        # Cache for performance
         product_cache = {}
-
+        
+        # Get Warehouse if provided
         warehouse_id = request.data.get('warehouse_id')
         warehouse = None
         if warehouse_id:
@@ -700,163 +727,217 @@ class FileUploadPartnerProductView(views.APIView):
                 pass
 
         for row in data:
-            item_name = row.get('Item name')
+            item_name = row.get('Item name') or row.get('item_name')
             if not item_name:
-                skipped_rows_count += 1
+                summary["skipped_rows"] += 1
                 skipped_details.append({"row": row, "reason": "Missing 'Item name'"})
                 continue
             
-            # 1. Match Product
+            is_local_only = False
+            
+            # --- 1. Resolve Product ---
             product = product_cache.get(item_name)
             if not product:
-                # Try exact match first, then icontains
                 product = Product.objects.filter(name__iexact=item_name).first()
                 if not product:
                     product = Product.objects.filter(name__icontains=item_name).first()
                 
                 if product:
                     product_cache[item_name] = product
+                else:
+                    # Product not found -> Create a "Local" product
+                    is_local_only = True
+                    try:
+                        local_brand, _ = Brand.objects.get_or_create(name="Local")
+                        local_cat, _ = Category.objects.get_or_create(name="Local", defaults={'slug': 'local-cat'})
+                        local_subcat, _ = SubCategory.objects.get_or_create(
+                            name="Local", 
+                            category=local_cat, 
+                            defaults={'slug': 'local-subcat'}
+                        )
+                        
+                        product = Product.objects.create(
+                            name=item_name,
+                            brand=local_brand,
+                            main_category=local_cat,
+                            sub_category=local_subcat,
+                            description=f"Auto-generated local product for {item_name}",
+                            gender="unisex",
+                            is_active=False # Keep it inactive for global search maybe?
+                        )
+                        product_cache[item_name] = product
+                        summary["created_products"] += 1
+                    except Exception as e:
+                        summary["skipped_rows"] += 1
+                        skipped_details.append({"item": item_name, "reason": f"Failed to create local product: {str(e)}"})
+                        continue
             
-            if not product:
-                skipped_rows_count += 1
-                skipped_details.append({"item": item_name, "reason": "Product not found in database (Exact/IContains match failed)"})
-                continue
-            
-            # 2. Resolve and Validate Color (MUST match an image for THIS specific product)
+            if not is_local_only:
+                summary["matched_products"] += 1
+
+            # --- 2. Resolve Color ---
             color_name = row.get('Color name') or row.get('color_name')
+            color_id_val = row.get('color_id')
+            image_id_val = row.get('image_id')
             
             color_obj = None
             
-            # A. Try Match via Color Name (Must have an image for this product)
+            # Try to match via existing product images first (Online mode)
             if color_name:
                 target_color = Color.objects.filter(color__iexact=str(color_name).strip()).first()
                 if target_color and ProductImage.objects.filter(product=product, color=target_color).exists():
                     color_obj = target_color
             
-            # B. Try Match via Image ID (Must belong to this product)
             if not color_obj and image_id_val:
-                try:
-                    img = ProductImage.objects.filter(id=int(image_id_val), product=product).select_related('color').first()
-                    if img and img.color:
-                        color_obj = img.color
-                except (ValueError, TypeError):
-                    pass
+                img = ProductImage.objects.filter(id=image_id_val, product=product).select_related('color').first()
+                if img and img.color:
+                    color_obj = img.color
             
-            # B. Try Match via Color ID (Must have an image for this product)
-            if not color_obj and color_id_val:
-                try:
-                    target_color = Color.objects.filter(id=int(color_id_val)).first()
-                    if target_color and ProductImage.objects.filter(product=product, color=target_color).exists():
-                        color_obj = target_color
-                except (ValueError, TypeError):
-                    pass
-            
-            # C. Try Match via Color Name (Must have an image for this product)
-            if not color_obj and color_name:
-                target_color = Color.objects.filter(color__iexact=str(color_name).strip()).first()
-                if target_color and ProductImage.objects.filter(product=product, color=target_color).exists():
-                    color_obj = target_color
-
-            # Skip the row if no valid color variant is found for this product
+            # If still not found, color does not match product's global catalog -> mark as local only
             if not color_obj:
-                skipped_rows_count += 1
-                skipped_details.append({
-                    "item": item_name, 
-                    "reason": f"No matching color variant image found for this product. Tried - Image ID: {image_id_val}, Color ID: {color_id_val}, Color Name: {color_name}"
-                })
+                is_local_only = True
+                if color_name:
+                    color_obj, _ = Color.objects.get_or_create(
+                        color=str(color_name).strip(),
+                        defaults={'hex_code': '#CCCCCC'} # Default grey for local colors
+                    )
+                elif color_id_val:
+                    color_obj = Color.objects.filter(id=color_id_val).first()
+
+            if not color_obj:
+                # Still no color? Pick a default or skip
+                summary["skipped_rows"] += 1
+                skipped_details.append({"item": item_name, "reason": "No valid color found and no color name provided"})
                 continue
 
-            matched_products_count += 1
-            
-            # 3. Parse Price
-            price_str = row.get('Amount Incl. VAT', '0') or row.get('amount_incl_vat', '0') 
+            # --- 3. Resolve/Create PartnerProduct ---
+            price_str = row.get('Amount Incl. VAT') or row.get('amount_incl_vat') or row.get('Price') or '0'
             price = self.clean_price(price_str)
             
-            # 4. Get or Create PartnerProduct
             partner_product, created = PartnerProduct.objects.get_or_create(
                 partner=partner,
                 product=product,
                 defaults={
                     'price': price,
-                    'online': True,
+                    'online': not is_local_only,
                     'local': True,
                     'is_active': True
                 }
             )
             
             if created:
-                new_partner_products_count += 1
+                summary["new_partner_products"] += 1
             else:
-                # Update existing PartnerProduct price
+                summary["updated_partner_products"] += 1
                 partner_product.price = price
+                # If it was already online=False, keep it. If now it's newly local, set it.
+                if is_local_only:
+                    partner_product.online = False
                 partner_product.save()
 
-            # 6. Associate Color
+            if is_local_only:
+                summary["local_only_count"] += 1
+
+            # Associate Color
             partner_product.color.add(color_obj)
-            color_updates_count += 1
+            summary["color_updates"] += 1
 
             if warehouse:
                 warehouse.product.add(partner_product)
+            
+            if row.get('EAN') or row.get('ean'):
+                partner_product.eanc = str(row.get('EAN') or row.get('ean')).strip()
+                partner_product.save()
 
-            # 7. Handle Sizes
-            # Check EU, US, UK, BR columns
-            size_types = [
+            # --- 4. Resolve Sizes (EU, US, etc.) ---
+            # Define which size types are relevant for this product's gender
+            relevant_types = ['EU']
+            if product.gender == 'male':
+                relevant_types.append('USM')
+            elif product.gender == 'female':
+                relevant_types.append('USW')
+            else: # unisex or others
+                relevant_types.extend(['USM', 'USW'])
+
+            size_cols = [
                 ('Size EU', 'EU'),
                 ('Size US', 'USM'),
                 ('Size US', 'USW'),
+                ('size_eu', 'EU'),
+                ('size_us', 'USM'),
+                ('size_us', 'USW'), # Added for completeness
             ]
             
-            matching_size = None
-            for col, s_type in size_types:
+            quantity = 0
+            try:
+                quantity_val = row.get('Quantity') or row.get('quantity')
+                quantity = int(quantity_val) if quantity_val is not None else 0
+            except:
+                pass
+
+            processed_columns_in_row = set()
+            for col, s_type in size_cols:
+                if s_type not in relevant_types:
+                    continue
+                
+                # If we've already successfully matched a size for this specific column name in this row, skip other types for it
+                if col in processed_columns_in_row:
+                    continue
+
                 val = str(row.get(col))
-                if val and val != 'None':
-                    # Find size associated with the product tables
+                if val and val != 'None' and val.strip():
+                    # Try to find size linked to product tables first
                     matching_size = Size.objects.filter(
                         table__products=product,
                         type=s_type,
                         value=val
                     ).first()
+                    
+                    if not matching_size:
+                        # Search globally for this size
+                        matching_size = Size.objects.filter(type=s_type, value=val).first()
+                        
+                        if not matching_size:
+                            # Not found globally? Create it in a Local SizeTable.
+                            brand = product.brand
+                            size_table, _ = SizeTable.objects.get_or_create(brand=brand, name="Local Sizes")
+                            matching_size = Size.objects.create(
+                                table=size_table,
+                                type=s_type,
+                                value=val,
+                                insole_min_mm=0, 
+                                insole_max_mm=0
+                            )
+                        
+                        # Since it was a global/local fall-back, mark the partner product as local-only
+                        if not partner_product.online: # already local?
+                            pass
+                        else:
+                            partner_product.online = False
+                            partner_product.save()
+
                     if matching_size:
-                        break
-            
-            if matching_size:
-                quantity = 0
-                try:
-                    quantity = int(row.get('Quantity', 0))
-                except:
-                    pass
-                
-                if quantity > 0:
-                    pps, pps_created = PartnerProductSize.objects.get_or_create(
-                        partner_product=partner_product,
-                        size=matching_size,
-                        defaults={'quantity': quantity}
-                    )
-                    if not pps_created:
-                        pps.quantity += quantity # Add to existing quantity
-                        pps.save()
-                    size_updates_count += 1
-            
-            # 8. Handle EAN
-            eanc_val = row.get('EAN') or row.get('ean')
-            if eanc_val:
-                partner_product.eanc = str(eanc_val).strip()
-                partner_product.save()
+                        processed_columns_in_row.add(col) # Mark this column as "done" for this row
+                        if quantity > 0:
+                            pps, pps_created = PartnerProductSize.objects.get_or_create(
+                                partner_product=partner_product,
+                                size=matching_size,
+                                defaults={'quantity': quantity}
+                            )
+                            if not pps_created:
+                                # Add to existing quantity instead of overwriting
+                                pps.quantity += quantity 
+                                pps.save()
+                            summary["size_updates"] += 1
 
         return Response({
-            "message": "File processed successfully",
-            "details": {
-                "total_rows": total_rows,
-                "matched_products": matched_products_count,
-                "new_partner_products": new_partner_products_count,
-                "size_updates": size_updates_count,
-                "color_updates": color_updates_count,
-                "skipped_rows": skipped_rows_count
-            },
+            "message": "File processed with local-only fallback logic",
+            "summary": summary,
             "debug": {
-                "skipped_details": skipped_details
+                "skipped_details": skipped_details[:50] # Limit debug info
             }
         }, status=status.HTTP_200_OK)
+
 
     def clean_price(self, price_str):
         if not price_str: return Decimal('0.00')
@@ -874,3 +955,144 @@ class FileUploadPartnerProductView(views.APIView):
             return Decimal(cleaned)
         except:
             return Decimal('0.00')
+
+
+class AddLocalOnlyPartnerProduct(views.APIView):
+    permission_classes = [permissions.IsAuthenticated, IsPartner]
+
+    def post(self, request):
+        try:
+            name = request.data.get('name')
+            brand_name = request.data.get('brand')
+            price = request.data.get('price', 0)
+            colors = request.data.get('colors') or request.data.get('colos') or request.data.get('color') or []
+
+            sizes_input = request.data.get('sizes', []) # Expecting list/dict like {"EU 40": 20}
+            eanc = request.data.get('eanc', None)
+            
+            if not name:
+                return Response({"error": "Name is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+            # 1. Resolve Brand
+            brand = Brand.objects.filter(name__iexact=brand_name).first()
+            if not brand:
+                brand = Brand.objects.create(name=brand_name)
+
+            # 2. Resolve or Create Product
+            product, created = Product.objects.get_or_create(
+                name=name,
+                brand=brand,
+                defaults={
+                    'gender': 'unisex',
+                    'description': ' ',
+                    'is_active': False
+                }
+            )
+
+            # 3. Resolve PartnerProduct
+            partner_product, pp_created = PartnerProduct.objects.get_or_create(
+                partner=request.user,
+                product=product,
+                defaults={
+                    'price': price,
+                    'local': True,
+                    'online': False,
+                    'eanc': eanc
+                }
+            )
+
+            if not pp_created:
+                partner_product.price = price
+                if eanc:
+                    partner_product.eanc = eanc
+                partner_product.save()
+
+
+            # 4. Handle colors
+            if colors:
+                if isinstance(colors, str):
+                    colors = [c.strip() for c in colors.split(',') if c.strip()]
+                
+                color_objs = []
+                for color_item in colors:
+                    c_name = ""
+                    c_hex = "#000000"
+                    
+                    if isinstance(color_item, dict):
+                        c_name = color_item.get('name') or color_item.get('color')
+                        c_hex = color_item.get('hex') or color_item.get('hex_code') or "#000000"
+                    else:
+                        c_name = str(color_item).strip()
+                    
+                    if c_name:
+                        c_obj, _ = Color.objects.get_or_create(
+                            color=c_name,
+                            defaults={'hex_code': c_hex}
+                        )
+                        color_objs.append(c_obj)
+                
+                if color_objs:
+                    partner_product.color.set(color_objs)
+
+
+            # 5. Handle sizes and quantities
+            # Support both list of dicts [{"EU 40": 10}] and single dict {"EU 40": 10}
+            if isinstance(sizes_input, dict):
+                sizes_items = sizes_input.items()
+            elif isinstance(sizes_input, list):
+                # Flatten list of dicts if needed
+                sizes_items = []
+                for item in sizes_input:
+                    if isinstance(item, dict):
+                        sizes_items.extend(item.items())
+            else:
+                sizes_items = []
+
+            if sizes_items:
+                size_table, _ = SizeTable.objects.get_or_create(
+                    brand=brand,
+                    name=f"{brand.name} Sizes"
+                )
+                # Ensure product is linked to this size table
+                product.sizes.add(size_table)
+
+                for size_str, quantity in sizes_items:
+                    # Parse "EU 40" -> type="EU", value="40"
+                    parts = str(size_str).split()
+                    if len(parts) >= 2:
+                        s_type = parts[0]
+                        s_value = " ".join(parts[1:])
+                    else:
+                        s_type = "EU" # Default
+                        s_value = size_str
+
+                    size_obj, _ = Size.objects.get_or_create(
+                        table=size_table,
+                        type=s_type,
+                        value=s_value,
+                        defaults={'insole_min_mm': 0, 'insole_max_mm': 0}
+                    )
+                    
+                    try:
+                        qty = int(quantity) if quantity else 0
+                    except (ValueError, TypeError):
+                        qty = 0
+
+                    pps, pps_created = PartnerProductSize.objects.get_or_create(
+                        partner_product=partner_product,
+                        size=size_obj,
+                        defaults={'quantity': qty}
+                    )
+                    if not pps_created:
+                        pps.quantity = qty
+                        pps.save()
+
+            # Refresh to ensure colors and sizes are reflected in the serializer
+            partner_product.refresh_from_db()
+
+            return Response(PartnerProductSerializer(partner_product).data, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+

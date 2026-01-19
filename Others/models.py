@@ -366,3 +366,20 @@ class CartItem(models.Model):
 
     def __str__(self):
         return f"{self.quantity} x {self.partner_product.product.name} ({self.size})"
+
+
+class Accessories(models.Model):
+    partner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='accessories')
+    name = models.CharField(max_length=100)
+    brand = models.ForeignKey(Brand, on_delete=models.CASCADE, related_name='accessories')
+    description = models.TextField(blank=True, null=True)
+    eanc = models.CharField(max_length=13, null=True, blank=True, help_text="EAN code for this accessory")
+    price = models.DecimalField(max_digits=12, decimal_places=2)
+    article = models.CharField(max_length=100, null=True, blank=True, help_text="Article number for this accessory")
+    image = models.ImageField(upload_to='accessories/',storage=MediaCloudinaryStorage(),blank=False, null=False,help_text="Image size should be less than 1MB")
+    warehouse = models.ForeignKey(Warehouse, on_delete=models.SET_NULL, related_name='accessories', null=True, blank=True)
+    online = models.BooleanField(default=True)
+    local = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    

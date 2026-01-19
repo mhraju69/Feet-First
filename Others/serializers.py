@@ -133,3 +133,8 @@ class CartSerializer(serializers.ModelSerializer):
 
     def get_count(self, obj):
         return obj.items.aggregate(total=Sum('quantity')).get('total')
+
+class AccessoriesSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Accessories
+        fields = "__all__"

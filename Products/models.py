@@ -89,8 +89,8 @@ class Product(models.Model):
     description = models.TextField()
 
     # Category/Subcategory
-    main_category = models.ForeignKey(Category, related_name='category', on_delete=models.CASCADE )
-    sub_category = models.ForeignKey(SubCategory, related_name='sub_category', on_delete=models.CASCADE )
+    main_category = models.ForeignKey(Category, related_name='category', on_delete=models.CASCADE, null=True)
+    sub_category = models.ForeignKey(SubCategory, related_name='sub_category', on_delete=models.CASCADE, null=True)
 
     sizes = models.ManyToManyField(SizeTable, related_name="products")
     gender = models.TextField(max_length=20, choices=(('male','Male'),('female','Female'),('unisex','Unisex')))

@@ -250,7 +250,7 @@ class PartnerProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = PartnerProduct
         fields = [
-            'id', 'brand', 'name', 'color', 'stock_status', 'price',
+            'id', 'brand', 'name', 'color','eanc', 'stock_status', 'price',
             'local', 'online', 'size_data'
         ]
 
