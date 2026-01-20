@@ -135,6 +135,12 @@ class CartSerializer(serializers.ModelSerializer):
         return obj.items.aggregate(total=Sum('quantity')).get('total')
 
 class AccessoriesSerializer(serializers.ModelSerializer):
+    brand = serializers.CharField(source='brand.name', read_only=True)
+    warehouse = serializers.CharField(source='warehouse.name', read_only=True)
+    status = serializers.SerializerMethodField()
     class Meta:
         model = Accessories
         fields = "__all__"
+    
+    def get_status(self, obj):
+        return "In Stock" if obj.stock > 0 else "Out of Stock"

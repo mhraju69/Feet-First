@@ -1,7 +1,7 @@
 # views.py
 from rest_framework import generics, permissions, views, status
 from rest_framework.response import Response
-from django.db.models import Sum, F, DecimalField, Case, When
+from django.db.models import Sum, F, DecimalField, Case, When, Q
 from django.db.models.functions import ExtractMonth, ExtractYear
 from django.utils import timezone
 from datetime import datetime, timedelta
@@ -1047,6 +1047,10 @@ class AccessoriesAPIView(views.APIView):
             price = request.data.get('price', 0)
             eanc = request.data.get('eanc', None)
             article = request.data.get('article', None)
+            warehouse = request.data.get('warehouse', None)
+            stock = request.data.get('stock')
+            online = request.data.get('online', True)
+            local = request.data.get('local', True)
             
             
             if not name:
@@ -1059,25 +1063,37 @@ class AccessoriesAPIView(views.APIView):
 
             # 2. Resolve or Create Product
             product, created = Accessories.objects.get_or_create(
+                partner=request.user,
                 name=name,
                 brand=brand,
                 defaults={
                     'description': ' ',
                     'price': price,
-                    'online': True,
-                    'local': True,
+                    'online': online,
+                    'local': local,
                     'eanc': eanc,
-                    'article': article
+                    'article': article,
+                    'stock': stock,
+                    'warehouse': Warehouse.objects.filter(id=warehouse).first()
                 }
             )
-
             return Response(AccessoriesSerializer(product).data, status=status.HTTP_201_CREATED)
 
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
     def get(self, request):
-        accessories = Accessories.objects.all()
+        search_query = request.query_params.get('q')
+        accessories = Accessories.objects.filter(partner=request.user).order_by('-created_at').select_related('brand', 'warehouse')
+        
+        if search_query:
+            accessories = accessories.filter(
+                Q(name__icontains=search_query) |
+                Q(brand__name__icontains=search_query) |
+                Q(eanc__icontains=search_query) |
+                Q(article__icontains=search_query)
+            )
+            
         return Response(AccessoriesSerializer(accessories, many=True).data, status=status.HTTP_200_OK)
 
     def delete(self, request):
@@ -1102,7 +1118,12 @@ class AccessoriesAPIView(views.APIView):
                 return Response({"error": "Accessories not found."}, status=status.HTTP_404_NOT_FOUND)
             accessories = accessories.first()
             accessories.name = request.data.get('name', accessories.name)
-            accessories.brand = Brand.objects.filter(name__iexact=request.data.get('brand', accessories.brand)).first()
+            brand_name = request.data.get('brand')
+            if brand_name:
+                brand = Brand.objects.filter(name__iexact=brand_name).first()
+                if not brand:
+                    brand = Brand.objects.create(name=brand_name)
+                accessories.brand = brand
             accessories.price = request.data.get('price', accessories.price)
             accessories.eanc = request.data.get('eanc', accessories.eanc)
             accessories.article = request.data.get('article', accessories.article)

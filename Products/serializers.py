@@ -282,11 +282,25 @@ class PartnerProductSerializer(serializers.ModelSerializer):
             if s_type not in data:
                 data[s_type] = []
             
+            size_val = pps.size.value
+            try:
+                # Try to convert to float first (handles '4.5')
+                num_val = float(size_val)
+                # If it's effectively an integer (e.g. 40.0), make it an int
+                if num_val.is_integer():
+                    size_val = int(num_val)
+                else:
+                    size_val = num_val
+            except (ValueError, TypeError):
+                # Fallback to original string (handles '40¾' etc.)
+                pass
+
             data[s_type].append({
                 "id": pps.id,             # PartnerProductSize ID for updates
-                "size": int(pps.size.value),
+                "size": size_val,
                 "quantity": pps.quantity
             })
+
         return data
 
 class PartnerProductListSerializer(serializers.ModelSerializer):
