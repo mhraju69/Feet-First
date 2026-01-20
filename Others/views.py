@@ -1084,6 +1084,7 @@ class AccessoriesAPIView(views.APIView):
 
     def get(self, request):
         search_query = request.query_params.get('q')
+        warehouse_id = request.query_params.get('warehouse')
         accessories = Accessories.objects.filter(partner=request.user).order_by('-created_at').select_related('brand', 'warehouse')
         
         if search_query:
@@ -1093,6 +1094,9 @@ class AccessoriesAPIView(views.APIView):
                 Q(eanc__icontains=search_query) |
                 Q(article__icontains=search_query)
             )
+        
+        if warehouse_id:
+            accessories = accessories.filter(warehouse_id=warehouse_id)
             
         return Response(AccessoriesSerializer(accessories, many=True).data, status=status.HTTP_200_OK)
 
@@ -1127,6 +1131,10 @@ class AccessoriesAPIView(views.APIView):
             accessories.price = request.data.get('price', accessories.price)
             accessories.eanc = request.data.get('eanc', accessories.eanc)
             accessories.article = request.data.get('article', accessories.article)
+            accessories.stock = request.data.get('stock', accessories.stock)
+            accessories.online = request.data.get('online', accessories.online)
+            accessories.local = request.data.get('local', accessories.local)
+            accessories.warehouse = Warehouse.objects.filter(id=request.data.get('warehouse', accessories.warehouse.id)).first()
             accessories.save()
             return Response(AccessoriesSerializer(accessories).data, status=status.HTTP_200_OK)
         except Exception as e:

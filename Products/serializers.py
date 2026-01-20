@@ -246,14 +246,24 @@ class PartnerProductSerializer(serializers.ModelSerializer):
     color = serializers.SerializerMethodField()
     size_data = serializers.SerializerMethodField()
     id = serializers.IntegerField(source='product.id', read_only=True)
+    warehouse = serializers.SerializerMethodField()
 
     class Meta:
         model = PartnerProduct
         fields = [
             'id', 'brand', 'name', 'color','eanc', 'stock_status', 'price',
-            'local', 'online', 'size_data'
+            'local', 'online', 'size_data','warehouse'
         ]
-
+    
+    def get_warehouse(self, obj):
+        warehouse = obj.warehouse.first()
+        if not warehouse:
+            return None
+        return {
+            "id": warehouse.id,
+            "name": warehouse.name
+        }
+    
     def get_stock_status(self, obj):
         return "In Stock" if obj.total_stock_quantity > 0 else "Out of Stock"
 

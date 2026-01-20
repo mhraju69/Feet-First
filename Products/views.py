@@ -436,8 +436,8 @@ class ApprovedPartnerProductView(generics.ListAPIView):
     # pagination_class = CustomLimitPagination
     serializer_class = PartnerProductSerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ['product__name', 'product__description', 'product__brand__name']
-    filterset_fields = ['product__sub_category__slug', 'product__gender', 'product__brand']
+    search_fields = ['product__name', 'product__description', 'product__brand__name','warehouse__name']
+    filterset_fields = ['product__sub_category__slug', 'product__gender', 'product__brand','warehouse__id']
 
     def get_queryset(self):
         # Return all PartnerProduct entries for this partner
@@ -966,7 +966,7 @@ class AddLocalOnlyPartnerProduct(views.APIView):
             brand_name = request.data.get('brand')
             price = request.data.get('price', 0)
             colors = request.data.get('colors') or request.data.get('colos') or request.data.get('color') or []
-
+            warehouse_id = request.data.get('warehouse')
             sizes_input = request.data.get('sizes', []) # Expecting list/dict like {"EU 40": 20}
             eanc = request.data.get('eanc', None)
             
@@ -1000,6 +1000,12 @@ class AddLocalOnlyPartnerProduct(views.APIView):
                     'eanc': eanc
                 }
             )
+
+            if warehouse_id:
+                from Others.models import Warehouse
+                warehouse = Warehouse.objects.filter(id=warehouse_id, partner=request.user).first()
+                if warehouse:
+                    warehouse.product.add(partner_product)
 
             if not pp_created:
                 partner_product.price = price
