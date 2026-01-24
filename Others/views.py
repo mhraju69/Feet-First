@@ -407,7 +407,7 @@ class OrderAnalyticsAPIView(views.APIView):
     def get(self, request):
         new = Order.objects.filter(partner=self.request.user,status='confirmed').count()
         packaging = Order.objects.filter(partner=self.request.user,status='packaging').count()
-        shipping = Order.objects.filter(partner=self.request.user,status='shipping').count()
+        shipping = Order.objects.filter(partner=self.request.user,status='shipped').count()
         return Response({
             'new': new,
             'packaging': packaging,
