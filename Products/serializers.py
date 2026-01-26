@@ -343,11 +343,10 @@ class PartnerProductListSerializer(serializers.ModelSerializer):
         ]
 
     def get_color(self, obj):
-        # Get colors across all variants of this product for this partner
+        # For partner's own view, show all variants regardless of is_active
         return PartnerProduct.objects.filter(
             product=obj.product, 
-            partner=obj.partner, 
-            is_active=True
+            partner=obj.partner
         ).values_list('color__hex_code', flat=True).distinct()
     
     def get_id(self, obj):
@@ -426,8 +425,7 @@ class PartnerProductDetailSerializer(serializers.ModelSerializer):
         # Get images for all colors this partner has for this product
         active_color_ids = PartnerProduct.objects.filter(
             product=obj.product, 
-            partner=obj.partner, 
-            is_active=True
+            partner=obj.partner
         ).values_list('color_id', flat=True)
         
         images = ProductImage.objects.filter(product=obj.product, color_id__in=active_color_ids)
@@ -457,8 +455,7 @@ class PartnerProductDetailSerializer(serializers.ModelSerializer):
         """Return sizes across all color variants for this partner"""
         active_variant_ids = PartnerProduct.objects.filter(
             product=obj.product, 
-            partner=obj.partner, 
-            is_active=True
+            partner=obj.partner
         ).values_list('id', flat=True)
         
         size_quantities = PartnerProductSize.objects.filter(

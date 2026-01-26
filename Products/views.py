@@ -679,15 +679,31 @@ class ApprovedPartnerProductUpdateView(views.APIView):
                 resolved_updates = []
 
                 if isinstance(size_input, dict):
+                    # Format: {"EU 40": 10}
                     for size_str, qty in size_input.items():
                         parts = str(size_str).split()
                         s_type, s_value = (parts[0], " ".join(parts[1:])) if len(parts) >= 2 else ("EU", size_str)
-                        size_obj = Size.objects.filter(table__brand=partner_product.product.brand, type=s_type, value=s_value).first()
+                        
+                        # 1. Prioritize official size linked to this product
+                        size_obj = Size.objects.filter(
+                            table__product_images__product=partner_product.product,
+                            type=s_type,
+                            value=s_value
+                        ).distinct().first()
+                        
+                        # 2. Try brand tables
                         if not size_obj:
-                             size_obj = Size.objects.filter(type=s_type, value=s_value).first()
+                            size_obj = Size.objects.filter(table__brand=partner_product.product.brand, type=s_type, value=s_value).first()
+                        
+                        # 3. Fallback to global
+                        if not size_obj:
+                            size_obj = Size.objects.filter(type=s_type, value=s_value).first()
+                        
+                        # 4. Create local if missing
                         if not size_obj:
                             local_table, _ = SizeTable.objects.get_or_create(brand=partner_product.product.brand, name="Local Sizes")
                             size_obj = Size.objects.create(table=local_table, type=s_type, value=s_value, insole_min_mm=0, insole_max_mm=0)
+                        
                         resolved_updates.append({'size_id': size_obj.id, 'quantity': qty})
                 elif isinstance(size_input, list):
                     resolved_updates = size_input
@@ -715,6 +731,7 @@ class ApprovedPartnerProductUpdateView(views.APIView):
                         quantity = sq_data.get('quantity', 0)
                         real_size_id = resolved_map.get(input_id)
                         if real_size_id is not None:
+                            print(f"DEBUG: Updating PartnerProductSize: Variant:{partner_product.id}, SizeID:{real_size_id}, NewQty:{quantity}")
                             PartnerProductSize.objects.update_or_create(
                                 partner_product=partner_product,
                                 size_id=real_size_id,
@@ -739,6 +756,7 @@ class ApprovedPartnerProductUpdateView(views.APIView):
                 current_sizes = PartnerProductSize.objects.filter(partner_product=partner_product)
                 for pps in current_sizes:
                     if pps.size_id not in official_size_ids:
+                        print(f"DEBUG: Size ID {pps.size_id} for PartnerProduct {partner_product.id} is unofficial. Marking online=False.")
                         all_sizes_official = False
                         break
             else:
@@ -768,8 +786,8 @@ class ApprovedPartnerProductUpdateView(views.APIView):
                 else:
                     partner_product.is_active = requested_active
             else:
-                # Refresh active status based on online/local availability
-                partner_product.is_active = (partner_product.online or partner_product.local) and partner_product.is_active
+                # IMPORTANT: Automatically enable is_active if either online or local is True
+                partner_product.is_active = (partner_product.online or partner_product.local)
             
             # Update warehouse if provided
             if warehouse_id and Warehouse.objects.filter(id=warehouse_id).exists():
