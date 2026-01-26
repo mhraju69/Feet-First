@@ -358,7 +358,7 @@ class CartItem(models.Model):
     quantity = models.PositiveIntegerField(default=1)
     
     class Meta:
-        unique_together = ('cart', 'partner_product', 'size', 'color')
+        unique_together = ('cart', 'partner_product', 'size')
 
     @property
     def total_price(self):

@@ -4,10 +4,10 @@ from .models import *
 from Others.models import *
 
 class ProductImageSerializer(serializers.ModelSerializer):
-    color_hex = serializers.CharField(source='color.hex_code', read_only=True)
+    color = serializers.CharField(source='color.color', read_only=True)
     class Meta:
         model = ProductImage
-        fields = ['id', 'image','color_hex']
+        fields = ['id','color', 'image']
 
 class SizeRecommendationSerializer(serializers.Serializer):
     """Serializer for individual size recommendations"""
@@ -58,13 +58,17 @@ class ProductSerializer(serializers.ModelSerializer):
     
     def get_sizes(self, obj):
         sizes_list = []
+        seen_sizes = set()
 
-        for size_table in obj.sizes.all():
-            for size in size_table.sizes.all():
-                sizes_list.append({
-                    "id": size.id,
-                    "size": f"{size.type} {size.value}"
-                })
+        for image in obj.images.all():
+            for size_table in image.sizes.all():
+                for size in size_table.sizes.all():
+                    if size.id not in seen_sizes:
+                        sizes_list.append({
+                            "id": size.id,
+                            "size": f"{size.type} {size.value}"
+                        })
+                        seen_sizes.add(size.id)
         return sizes_list
     
     def get_brand(self, obj):
@@ -151,15 +155,19 @@ class ProductDetailsSerializer(serializers.ModelSerializer):
         
     def get_sizes(self, obj):
         sizes_list = []
+        seen_tables = set()
 
-        # Use sizes ManyToManyField directly
-        for size_table in obj.sizes.select_related('brand').all():
-            # Get all size values from the related SizeTable
-            size_values = list(size_table.sizes.values_list('value', flat=True))
-            sizes_list.append({
-                "size": size_values,
-                "table_name": size_table.name
-            })
+        # Use sizes from related ProductImage
+        for image in obj.images.all():
+            for size_table in image.sizes.select_related('brand').all():
+                if size_table.id not in seen_tables:
+                    # Get all size values from the related SizeTable
+                    size_values = list(size_table.sizes.values_list('value', flat=True))
+                    sizes_list.append({
+                        "size": size_values,
+                        "table_name": size_table.name
+                    })
+                    seen_tables.add(size_table.id)
 
         return sizes_list
 
@@ -240,12 +248,12 @@ class PartnerProductSizeSerializer(serializers.ModelSerializer):
 
 class PartnerProductSerializer(serializers.ModelSerializer):
     """Serializer for partner's dashboard/inventory management"""
+    id = serializers.IntegerField(source='product.id')
     brand = serializers.CharField(source='product.brand.name', read_only=True)
     name = serializers.CharField(source='product.name', read_only=True)
     stock_status = serializers.SerializerMethodField()
     color = serializers.SerializerMethodField()
     size_data = serializers.SerializerMethodField()
-    id = serializers.IntegerField(source='product.id', read_only=True)
     warehouse = serializers.SerializerMethodField()
 
     class Meta:
@@ -270,7 +278,8 @@ class PartnerProductSerializer(serializers.ModelSerializer):
     def get_color(self, obj):
         colors_list = []
         all_images = list(obj.product.images.all())
-        for color in obj.color.all():
+        color = obj.color
+        if color:
             relevant_img = next((img for img in all_images if img.color_id == color.id), None)
             colors_list.append({
                 "name": color.color,
@@ -334,7 +343,12 @@ class PartnerProductListSerializer(serializers.ModelSerializer):
         ]
 
     def get_color(self, obj):
-        return obj.color.values_list('hex_code', flat=True)
+        # Get colors across all variants of this product for this partner
+        return PartnerProduct.objects.filter(
+            product=obj.product, 
+            partner=obj.partner, 
+            is_active=True
+        ).values_list('color__hex_code', flat=True).distinct()
     
     def get_id(self, obj):
         return obj.id
@@ -346,6 +360,7 @@ class PartnerProductListSerializer(serializers.ModelSerializer):
             return None
     
     def get_image(self, obj):
+        # Use primary image of the product
         primary = obj.product.images.first()
         if primary:
             return ProductImageSerializer(primary).data
@@ -408,7 +423,15 @@ class PartnerProductDetailSerializer(serializers.ModelSerializer):
         ]
     
     def get_images(self, obj):
-        return ProductImageSerializer(obj.product.images.all(), many=True).data
+        # Get images for all colors this partner has for this product
+        active_color_ids = PartnerProduct.objects.filter(
+            product=obj.product, 
+            partner=obj.partner, 
+            is_active=True
+        ).values_list('color_id', flat=True)
+        
+        images = ProductImage.objects.filter(product=obj.product, color_id__in=active_color_ids)
+        return ProductImageSerializer(images, many=True).data
     
     def get_sub_category(self, obj):
         try:
@@ -431,8 +454,16 @@ class PartnerProductDetailSerializer(serializers.ModelSerializer):
             return []
     
     def get_sizes(self, obj):
-        """Return sizes with their quantities"""
-        size_quantities = obj.size_quantities.select_related('size').all()
+        """Return sizes across all color variants for this partner"""
+        active_variant_ids = PartnerProduct.objects.filter(
+            product=obj.product, 
+            partner=obj.partner, 
+            is_active=True
+        ).values_list('id', flat=True)
+        
+        size_quantities = PartnerProductSize.objects.filter(
+            partner_product_id__in=active_variant_ids
+        ).select_related('size').all()
         return PartnerProductSizeSerializer(size_quantities, many=True).data
     
     def get_quantity(self, obj):

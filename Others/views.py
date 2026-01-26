@@ -449,8 +449,8 @@ class CartAPIView(views.APIView):
         color = request.data.get('color')
         quantity = request.data.get('quantity', 1)
 
-        if not all([product_id, size_id, color]):
-            return Response({"error": "product, size_id, and color are required."}, status=status.HTTP_400_BAD_REQUEST)
+        if not all([product_id, size_id]):
+            return Response({"error": "product and size_id are required."}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             quantity = int(quantity)
@@ -459,19 +459,17 @@ class CartAPIView(views.APIView):
         except ValueError:
             return Response({"error": "Quantity must be a positive integer."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # distinct partner product check
+        # Retrieve size and partner product
         try:
-            partner_product = PartnerProduct.objects.get(id=product_id) # The user passed "product" but context suggests partner product ID
-        except PartnerProduct.DoesNotExist:
-            # Fallback: maybe they passed raw product ID?
-            # But we need PartnerProduct to know price and partner.
-            # Start with strict check.
-            return Response({"error": "Invalid Partner Product ID."}, status=status.HTTP_404_NOT_FOUND)
-
-        try:
-            partner_product_size = PartnerProductSize.objects.get(id=size_id, partner_product=partner_product)
+            partner_product_size = PartnerProductSize.objects.select_related('partner_product').get(id=size_id)
+            partner_product = partner_product_size.partner_product
         except PartnerProductSize.DoesNotExist:
-             return Response({"error": "Invalid Size ID for this product."}, status=status.HTTP_404_NOT_FOUND)
+             return Response({"error": "Invalid Size ID."}, status=status.HTTP_404_NOT_FOUND)
+
+        # Optional: check product_id if provided
+        if product_id and str(partner_product.id) != str(product_id):
+             # It's okay to continue or return error. Let's prioritize the size_id's variant.
+             pass
 
         # Check stock
         if partner_product_size.quantity < quantity:
@@ -484,8 +482,7 @@ class CartAPIView(views.APIView):
             cart=cart,
             partner_product=partner_product,
             size=partner_product_size,
-            color=color,
-            defaults={'quantity': 0} 
+            defaults={'quantity': 0, 'color': partner_product.color.color if partner_product.color else "N/A"} 
         )
 
         # If existing, add quantity

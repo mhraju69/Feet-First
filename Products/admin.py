@@ -54,8 +54,8 @@ class ProductQuestionAnswerInline(TabularInline):
 class ProductImageInline(TabularInline):
     model = ProductImage
     extra = 1
-    fields = ["image", "color"]
-    autocomplete_fields = ["color"]
+    fields = ["image", "color", "sizes"]
+    autocomplete_fields = ["color", "sizes"]
 
 class SizeInline(TabularInline):
     model = Size
@@ -153,7 +153,7 @@ class ProductAdmin(ModelAdmin):
         'gender', 'is_active', 'main_category', 'sub_category',
         'width', 'toe_box', 'brand',
     )
-    autocomplete_fields = ['brand','features','sizes']
+    autocomplete_fields = ['brand','features'] # sizes removed as it moved to ProductImage
     inlines = [ProductImageInline, ProductQuestionAnswerInline]
 
     def get_queryset(self, request):

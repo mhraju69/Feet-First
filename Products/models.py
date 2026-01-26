@@ -92,7 +92,7 @@ class Product(models.Model):
     main_category = models.ForeignKey(Category, related_name='category', on_delete=models.CASCADE, null=True)
     sub_category = models.ForeignKey(SubCategory, related_name='sub_category', on_delete=models.CASCADE, null=True)
 
-    sizes = models.ManyToManyField(SizeTable, related_name="products")
+    # sizes = models.ManyToManyField(SizeTable, related_name="products") # Moved to ProductImage
     gender = models.TextField(max_length=20, choices=(('male','Male'),('female','Female'),('unisex','Unisex')))
         
     # Width & Toe box
@@ -139,20 +139,21 @@ class Product(models.Model):
         all_sizes = []
         seen_size_tables = set()
         
-        # Use sizes ManyToManyField directly
-        for size_table in self.sizes.all():
-            if size_table.id in seen_size_tables:
-                continue
-            seen_size_tables.add(size_table.id)
-            
-            sizes = size_table.sizes.all()
-            for size in sizes:
-                all_sizes.append({
-                    'size': size,
-                    'table': size_table,
-                    'min_length': size.insole_min_mm,
-                    'max_length': size.insole_max_mm,
-                })
+        # Use ProductImage sizes instead
+        for image in self.images.all():
+            for size_table in image.sizes.all():
+                if size_table.id in seen_size_tables:
+                    continue
+                seen_size_tables.add(size_table.id)
+                
+                sizes = size_table.sizes.all()
+                for size in sizes:
+                    all_sizes.append({
+                        'size': size,
+                        'table': size_table,
+                        'min_length': size.insole_min_mm,
+                        'max_length': size.insole_max_mm,
+                    })
         
         if not all_sizes:
             warnings.append("No size data available for this product")
@@ -273,6 +274,7 @@ class ProductImage(models.Model):
     product = models.ForeignKey(Product, related_name='images', on_delete=models.CASCADE)
     image = models.ImageField(upload_to='products/',storage=MediaCloudinaryStorage(),blank=False, null=False,help_text="Image size should be less than 1MB")
     color = models.ForeignKey(Color, on_delete=models.SET_NULL, related_name='product_images', null=True, blank=True)
+    sizes = models.ManyToManyField(SizeTable, related_name="product_images", blank=True)
     created_at = models.DateTimeField(auto_now_add=True)    
     
     class Meta:
@@ -298,7 +300,7 @@ class PartnerProduct(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='partner_prices')
     partner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='product_prices')
     sizes = models.ManyToManyField(Size, through='PartnerProductSize', related_name='partner_product_sizes', help_text="Sizes with quantities for this product")
-    color = models.ManyToManyField(Color, related_name='partner_product_colors', help_text="Color variant for this product")
+    color = models.ForeignKey(Color, on_delete=models.CASCADE, related_name='partner_product_colors', help_text="Color variant for this product")
     price = models.DecimalField(default=0.00, max_digits=12, decimal_places=2, help_text="Partner's custom price for this product")
     is_active = models.BooleanField(default=True, help_text="Is this product active for this partner")
     local = models.BooleanField(default=True, help_text="Is this product available locally")
@@ -313,7 +315,7 @@ class PartnerProduct(models.Model):
         super().save(*args, **kwargs)
     
     class Meta:
-        unique_together = ('partner', 'product')
+        unique_together = ('partner', 'product', 'color')
         ordering = ['-created_at']
     
     @property
