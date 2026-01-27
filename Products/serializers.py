@@ -281,36 +281,23 @@ class PartnerProductSerializer(serializers.ModelSerializer):
 
     def get_color(self, obj):
         colors_list = []
-        # Get all variants this partner has for this product
-        partner_variants = PartnerProduct.objects.filter(partner=obj.partner, product=obj.product)
-        
-        for variant in partner_variants:
-            color = variant.color
-            if color:
-                # Find matching image for this variant's color
-                relevant_img = obj.product.images.filter(color=color).first()
-                colors_list.append({
-                    "id": color.id,
-                    "name": color.color,
-                    "hex": color.hex_code,
-                    "image": relevant_img.image.url if relevant_img and relevant_img.image else None,
-                    "variant_id": variant.id # ID of the specific color variant
-                })
+        color = obj.color
+        if color:
+            relevant_img = obj.product.images.filter(color=color).first()
+            colors_list.append({
+                "id": color.id,
+                "name": color.color,
+                "hex": color.hex_code,
+                "image": relevant_img.image.url if relevant_img and relevant_img.image else None,
+                "variant_id": obj.id
+            })
         return colors_list
         
 
     def get_size_data(self, obj):
-        # Groups sizes by type from ALL color variants for this partner
+        # Groups sizes by type for THIS specific variant
         data = {}
-        partner_variant_ids = PartnerProduct.objects.filter(
-            partner=obj.partner, product=obj.product
-        ).values_list('id', flat=True)
-        
-        pps_queryset = PartnerProductSize.objects.filter(
-            partner_product_id__in=partner_variant_ids
-        ).select_related('size')
-        
-        for pps in pps_queryset:
+        for pps in obj.size_quantities.select_related('size').all():
             s_type = pps.size.type
             if s_type in ['USM', 'USW']:
                 s_type = 'US'
@@ -336,13 +323,7 @@ class PartnerProductSerializer(serializers.ModelSerializer):
         return data
 
     def get_stock_status(self, obj):
-        # Calculate total stock across all color variants
-        total_qty = PartnerProductSize.objects.filter(
-            partner_product__partner=obj.partner,
-            partner_product__product=obj.product
-        ).aggregate(total=models.Sum('quantity'))['total'] or 0
-        
-        return "In Stock" if total_qty > 0 else "Out of Stock"
+        return "In Stock" if obj.total_stock_quantity > 0 else "Out of Stock"
 
 class PartnerProductListSerializer(serializers.ModelSerializer):
     """Serializer for customer-facing product listings (multi-vendor system)"""

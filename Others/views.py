@@ -576,31 +576,31 @@ class CreateOrderView(views.APIView):
         validated_items = []
         total_amount = Decimal('0.00')
         
-        try:
-            address = Address.objects.filter(user=request.user).first()
-            if not address:
-                return Response({"error": "Please complete your address first."}, status=status.HTTP_400_BAD_REQUEST)
-            # Validate required fields as per user request
-            required_fields = {
-                'first_name': address.first_name,
-                'last_name': address.last_name,
-                'street_address': address.street_address,
-                'address_line2': address.address_line2,
-                'postal_code': address.postal_code,
-                'city': address.city,
-                'phone_number': address.phone_number,
-                'country': address.country
-            }
+        # try:
+        #     address = Address.objects.filter(user=request.user).first()
+        #     if not address:
+        #         return Response({"error": "Please complete your address first."}, status=status.HTTP_400_BAD_REQUEST)
+        #     # Validate required fields as per user request
+        #     required_fields = {
+        #         'first_name': address.first_name,
+        #         'last_name': address.last_name,
+        #         'street_address': address.street_address,
+        #         'address_line2': address.address_line2,
+        #         'postal_code': address.postal_code,
+        #         'city': address.city,
+        #         'phone_number': address.phone_number,
+        #         'country': address.country
+        #     }
             
-            missing_or_empty = [field for field, value in required_fields.items() if not value or str(value).strip() == '']
+        #     missing_or_empty = [field for field, value in required_fields.items() if not value or str(value).strip() == '']
             
-            if missing_or_empty:
-                return Response({
-                    "error": f"Please complete your address. Missing fields: {', '.join(missing_or_empty)}"
-                }, status=status.HTTP_400_BAD_REQUEST)
+        #     if missing_or_empty:
+        #         return Response({
+        #             "error": f"Please complete your address. Missing fields: {', '.join(missing_or_empty)}"
+        #         }, status=status.HTTP_400_BAD_REQUEST)
 
-        except Address.DoesNotExist:
-             return Response({"error": "Invalid Address ID"}, status=status.HTTP_400_BAD_REQUEST)
+        # except Address.DoesNotExist:
+        #      return Response({"error": "Invalid Address ID"}, status=status.HTTP_400_BAD_REQUEST)
 
         # Phase 1: Validate ALL items from cart
         customer_name = request.user.name if hasattr(request.user, 'name') and request.user.name else request.user.email
@@ -644,43 +644,65 @@ class CreateOrderView(views.APIView):
         payments_ids = []
         try:
             for v_item in validated_items:
+                partner = v_item['partner']
+                gross_amount = v_item['price'] * v_item['quantity']
+                
+                # Calculate Net Amount (Partner Revenue)
+                fees_ratio = partner.fees / Decimal('100.00')
+                other_charges_ratio = partner.other_charges / Decimal('100.00')
+                
+                fees_amount = gross_amount * fees_ratio
+                charges_amount = gross_amount * other_charges_ratio
+                net_amount = gross_amount - fees_amount - charges_amount
+
                 order = Order.objects.create(
                     user=v_item['user'],
-                    partner=v_item['partner'],
+                    partner=partner,
                     product=v_item['product'],
                     price=v_item['price'],
                     quantity=v_item['quantity'],
                     size=v_item['size'],
                     color=v_item['color'],
                     status='pending',
-                    name=v_item['name']
+                    name=v_item['name'],
+                    net_amount=net_amount # Added net_amount
                 )
                 created_ids.append(order.id)
+                
                 # Note: Stock is NOT deducted here. Stock usually deducted after payment confirmation.
                 payment = Payment.objects.create(
                     order=order,
                     payment_from=request.user,
-                    payment_to=order.partner,
-                    product=v_item['partner_product'], # I should make sure this is in v_item
+                    payment_to=partner,
+                    product=v_item['partner_product'],
                     quantity=order.quantity,
-                    amount=order.price * order.quantity,
+                    amount=gross_amount,
+                    net_amount=net_amount, # Added net_amount
                     created_at=timezone.now()
                 )
                 payments_ids.append(payment.id)
                 
+            # Clear cart after order records are successfully created
+            cart_items.delete()
+                
         except Exception as e:
              return Response({"error": f"Failed to create orders: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
-        # checkout_session_url = create_checkout_session(request, created_ids, payments_ids, total_amount)
-        intent = create_payment_intent_data(request, created_ids, payments_ids, total_amount, customer_email=request.user.email)
-        
-        # Clear cart after order is created and payment is initiated
-        # cart_items.delete()
-
+        # Checkout initialization
+        try:
+            intent = create_payment_intent_data(
+                request, 
+                created_ids, 
+                payments_ids, 
+                total_amount, 
+                customer_email=request.user.email
+            )
+        except Exception as e:
+            return Response({"error": f"Payment initialization failed: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         return Response({
-            "message": "Orders created successfully", 
-            # "checkout_session_url": checkout_session_url,
-            "intent": intent
+            "message": "Orders created successfully",
+            "order_ids": created_ids,
+            "payment_intent": intent
         }, status=status.HTTP_201_CREATED)
 
 
