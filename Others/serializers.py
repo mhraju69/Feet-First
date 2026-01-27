@@ -104,12 +104,12 @@ class CartItemSerializer(serializers.ModelSerializer):
     price = serializers.DecimalField(source='partner_product.price', max_digits=12, decimal_places=2, read_only=True)
     size_label = serializers.CharField(source='size.size.value', read_only=True)
     size_type = serializers.CharField(source='size.size.type', read_only=True)
-    partner_product_id = serializers.IntegerField(source='partner_product.id', read_only=True)
+    product_id = serializers.IntegerField(source='partner_product.product.id', read_only=True)
     size_id = serializers.IntegerField(source='size.id', read_only=True)
     
     class Meta:
         model = CartItem
-        fields = ['id', 'partner_product_id', 'product_name', 'product_image', 'size_id', 'size_label', 'size_type', 'color', 'quantity', 'price', 'total_price']
+        fields = ['id', 'product_id', 'product_name', 'product_image', 'size_id', 'size_label', 'size_type', 'color', 'quantity', 'price', 'total_price']
 
     def get_product_image(self, obj):
         # Try to find image matching the color

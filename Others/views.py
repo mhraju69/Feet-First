@@ -461,15 +461,19 @@ class CartAPIView(views.APIView):
 
         # Retrieve size and partner product
         try:
-            partner_product_size = PartnerProductSize.objects.select_related('partner_product').get(id=size_id)
+            # size_id here is the ID of PartnerProductSize record
+            partner_product_size = PartnerProductSize.objects.select_related('partner_product', 'partner_product__color', 'partner_product__product').get(id=size_id)
             partner_product = partner_product_size.partner_product
         except PartnerProductSize.DoesNotExist:
              return Response({"error": "Invalid Size ID."}, status=status.HTTP_404_NOT_FOUND)
 
-        # Optional: check product_id if provided
-        if product_id and str(partner_product.id) != str(product_id):
-             # It's okay to continue or return error. Let's prioritize the size_id's variant.
-             pass
+        # Validate that this variant belongs to the requested Product (if product_id provided)
+        if product_id and str(partner_product.product.id) != str(product_id):
+             return Response({"error": "Size does not belong to the specified product."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Ensure the product is online and active
+        if not partner_product.is_active or not partner_product.online:
+            return Response({"error": "This product variant is currently not available for online purchase."}, status=status.HTTP_400_BAD_REQUEST)
 
         # Check stock
         if partner_product_size.quantity < quantity:
@@ -478,11 +482,15 @@ class CartAPIView(views.APIView):
         cart, _ = Cart.objects.get_or_create(user=request.user)
 
         # Update or Create Item
+        # CartItem.size is a ForeignKey to PartnerProductSize
         cart_item, created = CartItem.objects.get_or_create(
             cart=cart,
             partner_product=partner_product,
             size=partner_product_size,
-            defaults={'quantity': 0, 'color': partner_product.color.color if partner_product.color else "N/A"} 
+            defaults={
+                'quantity': 0, 
+                'color': partner_product.color.color if partner_product.color else "N/A"
+            } 
         )
 
         # If existing, add quantity
@@ -490,7 +498,7 @@ class CartAPIView(views.APIView):
         
         # Check overall stock again
         if partner_product_size.quantity < new_quantity:
-             return Response({"error": f"Insufficient stock. You already have {cart_item.quantity}, cannot add {quantity} more. Available: {partner_product_size.quantity}"}, status=status.HTTP_400_BAD_REQUEST)
+             return Response({"error": f"Insufficient stock. You already have {cart_item.quantity} in cart, cannot add {quantity} more. Available: {partner_product_size.quantity}"}, status=status.HTTP_400_BAD_REQUEST)
 
         cart_item.quantity = new_quantity
         cart_item.save()

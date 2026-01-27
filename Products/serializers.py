@@ -238,10 +238,14 @@ class PartnerProductSizeSerializer(serializers.ModelSerializer):
     size = serializers.SerializerMethodField()
     # Return the PartnerProductSize ID as 'size_id' so the frontend uses the correct ID for ordering
     size_id = serializers.IntegerField(source='id') 
+    color = serializers.SerializerMethodField()
     
     class Meta:
         model = PartnerProductSize
-        fields = ['size_id', 'size', 'quantity']
+        fields = ['size_id', 'size', 'quantity', 'color']
+    
+    def get_color(self, obj):
+        return obj.partner_product.color.color if obj.partner_product.color else "N/A"
     
     def get_size(self, obj):
         return obj.size.value
@@ -277,24 +281,37 @@ class PartnerProductSerializer(serializers.ModelSerializer):
 
     def get_color(self, obj):
         colors_list = []
-        all_images = list(obj.product.images.all())
-        color = obj.color
-        if color:
-            relevant_img = next((img for img in all_images if img.color_id == color.id), None)
-            colors_list.append({
-                "name": color.color,
-                "hex": color.hex_code,
-                "image": relevant_img.image.url if relevant_img and relevant_img.image else None
-            })
+        # Get all variants this partner has for this product
+        partner_variants = PartnerProduct.objects.filter(partner=obj.partner, product=obj.product)
+        
+        for variant in partner_variants:
+            color = variant.color
+            if color:
+                # Find matching image for this variant's color
+                relevant_img = obj.product.images.filter(color=color).first()
+                colors_list.append({
+                    "id": color.id,
+                    "name": color.color,
+                    "hex": color.hex_code,
+                    "image": relevant_img.image.url if relevant_img and relevant_img.image else None,
+                    "variant_id": variant.id # ID of the specific color variant
+                })
         return colors_list
         
 
     def get_size_data(self, obj):
-        # Groups sizes by type: e.g., {"EU": [{"id": 10, "size": "40", "quantity": 15}, ...]}
+        # Groups sizes by type from ALL color variants for this partner
         data = {}
-        for pps in obj.size_quantities.select_related('size').all():
+        partner_variant_ids = PartnerProduct.objects.filter(
+            partner=obj.partner, product=obj.product
+        ).values_list('id', flat=True)
+        
+        pps_queryset = PartnerProductSize.objects.filter(
+            partner_product_id__in=partner_variant_ids
+        ).select_related('size')
+        
+        for pps in pps_queryset:
             s_type = pps.size.type
-            # Merge USM and USW into US
             if s_type in ['USM', 'USW']:
                 s_type = 'US'
             
@@ -303,24 +320,29 @@ class PartnerProductSerializer(serializers.ModelSerializer):
             
             size_val = pps.size.value
             try:
-                # Try to convert to float first (handles '4.5')
                 num_val = float(size_val)
-                # If it's effectively an integer (e.g. 40.0), make it an int
                 if num_val.is_integer():
                     size_val = int(num_val)
                 else:
                     size_val = num_val
             except (ValueError, TypeError):
-                # Fallback to original string (handles '40¾' etc.)
                 pass
 
             data[s_type].append({
-                "id": pps.id,             # PartnerProductSize ID for updates
+                "id": pps.id,
                 "size": size_val,
                 "quantity": pps.quantity
             })
-
         return data
+
+    def get_stock_status(self, obj):
+        # Calculate total stock across all color variants
+        total_qty = PartnerProductSize.objects.filter(
+            partner_product__partner=obj.partner,
+            partner_product__product=obj.product
+        ).aggregate(total=models.Sum('quantity'))['total'] or 0
+        
+        return "In Stock" if total_qty > 0 else "Out of Stock"
 
 class PartnerProductListSerializer(serializers.ModelSerializer):
     """Serializer for customer-facing product listings (multi-vendor system)"""
@@ -343,16 +365,25 @@ class PartnerProductListSerializer(serializers.ModelSerializer):
         ]
 
     def get_color(self, obj):
-        # For customer view, only show online-active variants
-        return PartnerProduct.objects.filter(
+        # Global view: show color NAMES from ALL active partners for this product
+        return list(PartnerProduct.objects.filter(
             product=obj.product, 
-            partner=obj.partner,
             is_active=True,
             online=True
-        ).values_list('color__hex_code', flat=True).distinct()
+        ).values_list('color__color', flat=True).distinct())
     
     def get_id(self, obj):
-        return obj.id
+        # Return main Product ID instead of PartnerProduct ID
+        return obj.product.id
+    
+    def get_price(self, obj):
+        # Global view: show the minimum price available for this product
+        min_price = PartnerProduct.objects.filter(
+            product=obj.product,
+            is_active=True,
+            online=True
+        ).aggregate(models.Min('price'))['price__min']
+        return min_price or obj.price
     
     def get_sub_category(self, obj):
         try:
@@ -399,6 +430,8 @@ class PartnerProductListSerializer(serializers.ModelSerializer):
 
 class PartnerProductDetailSerializer(serializers.ModelSerializer):
     """Serializer for detailed product view in multi-vendor system"""
+    id = serializers.SerializerMethodField()
+    colors = serializers.SerializerMethodField()
     images = serializers.SerializerMethodField()
     sizes = serializers.SerializerMethodField()
     match_data = serializers.SerializerMethodField()
@@ -417,11 +450,23 @@ class PartnerProductDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = PartnerProduct
         fields = [
-            "id", "name", "images", "technical_data", 'description',
+            "id", "name", "colors", "images", "technical_data", 'description',
             "brand", "sub_category", "features",
             "further_information", "price", 
             "match_data", 'favourite', 'gender', 'sizes','quantity','qna'
         ]
+    
+    def get_id(self, obj):
+        # Return main Product ID
+        return obj.product.id
+
+    def get_colors(self, obj):
+        # Return list of color names available globally for this product
+        return list(PartnerProduct.objects.filter(
+            product=obj.product,
+            is_active=True,
+            online=True
+        ).values_list('color__color', flat=True).distinct())
     
     def get_images(self, obj):
         # Get images for all colors this partner has for this product that are ONLINE

@@ -100,14 +100,14 @@ class ProductListView(generics.ListAPIView):
         # Default: order by latest (descending id)
         queryset = queryset.order_by('-id')
 
-        # --- Filter to show only one variant per product+partner to "merge" them ---
+        # --- Filter to show only one variant per unique product to "merge" them globally ---
         from django.db.models import OuterRef, Subquery
         first_variant_sq = PartnerProduct.objects.filter(
             product=OuterRef('product'),
-            partner=OuterRef('partner'),
             is_active=True,
+            online=True,
             product__is_active=True
-        ).order_by('id').values('id')[:1]
+        ).order_by('price', 'id').values('id')[:1]
         
         queryset = queryset.filter(id=Subquery(first_variant_sq))
 
