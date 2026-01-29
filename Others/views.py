@@ -1078,6 +1078,7 @@ class AccessoriesAPIView(views.APIView):
             stock = request.data.get('stock')
             online = request.data.get('online', True)
             local = request.data.get('local', True)
+            buy_price = request.data.get('buy_price', None)
             
             
             if not name:
@@ -1101,7 +1102,8 @@ class AccessoriesAPIView(views.APIView):
                     'eanc': eanc,
                     'article': article,
                     'stock': stock,
-                    'warehouse': Warehouse.objects.filter(id=warehouse).first()
+                    'warehouse': Warehouse.objects.filter(id=warehouse).first(),
+                    'buy_price': buy_price
                 }
             )
             return Response(AccessoriesSerializer(product).data, status=status.HTTP_201_CREATED)
@@ -1161,6 +1163,7 @@ class AccessoriesAPIView(views.APIView):
             accessories.stock = request.data.get('stock', accessories.stock)
             accessories.online = request.data.get('online', accessories.online)
             accessories.local = request.data.get('local', accessories.local)
+            accessories.buy_price = request.data.get('buy_price', accessories.buy_price)
             accessories.warehouse = Warehouse.objects.filter(id=request.data.get('warehouse', accessories.warehouse.id)).first()
             accessories.save()
             return Response(AccessoriesSerializer(accessories).data, status=status.HTTP_200_OK)

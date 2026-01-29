@@ -178,14 +178,25 @@ class ProductDetailView(generics.RetrieveAPIView):
     """
     serializer_class = PartnerProductDetailSerializer
     permission_classes = [permissions.IsAuthenticated]
-    queryset = PartnerProduct.objects.filter(is_active=True, product__is_active=True)
+    # Lookup by PRODUCT ID, not PartnerProduct ID
     lookup_field = 'id'
 
-    def get_queryset(self):
-        return super().get_queryset().select_related(
-            'product', 'product__brand', 'product__sub_category',
-            'partner', 'color'
-        ).prefetch_related('product__images', 'product__images__color', 'product__features', 'size_quantities__size')
+    def get_object(self):
+        # Find ANY active partner product for this product ID to use as entry point
+        # The serializer handles global aggregation
+        product_id = self.kwargs.get('id')
+        obj = PartnerProduct.objects.filter(
+            product__id=product_id,
+            is_active=True, 
+            product__is_active=True
+        ).first()
+        
+        if not obj:
+            # Fallback: check if product exists at all to give better 404
+            from django.http import Http404
+            raise Http404("Product not found or not available.")
+            
+        return obj
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -802,7 +813,7 @@ class ApprovedPartnerProductUpdateView(views.APIView):
         elif action in ['del', 'remove']:
             # 1. Try to find the specific variant by Direct ID
             partner_product = PartnerProduct.objects.filter(id=product_id, partner=request.user).first()
-            
+            print(partner_product,'partner_product')
             if not partner_product:
                 # 2. Resolve color provided in request to find the variant
                 color_input = request.data.get('color') or request.data.get('color_id')

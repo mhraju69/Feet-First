@@ -373,6 +373,7 @@ class Accessories(models.Model):
     brand = models.ForeignKey(Brand, on_delete=models.CASCADE, related_name='accessories')
     description = models.TextField(blank=True, null=True)
     eanc = models.CharField(max_length=13, null=True, blank=True, help_text="EAN code for this accessory")
+    buy_price = models.DecimalField(max_digits=12, decimal_places=2,null=True,blank=True)
     price = models.DecimalField(max_digits=12, decimal_places=2,null=True,blank=True)
     stock = models.IntegerField(default=0)
     article = models.CharField(max_length=100, null=True, blank=True, help_text="Article number for this accessory")
@@ -382,4 +383,11 @@ class Accessories(models.Model):
     local = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        if self.price is not None:
+            self.price = round(self.price, 2)
+        if self.buy_price is not None:
+            self.buy_price = round(self.buy_price, 2)
+        super().save(*args, **kwargs)
 

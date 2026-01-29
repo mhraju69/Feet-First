@@ -5,9 +5,10 @@ from Others.models import *
 
 class ProductImageSerializer(serializers.ModelSerializer):
     color = serializers.CharField(source='color.color', read_only=True)
+    hex_code = serializers.CharField(source='color.hex_code', read_only=True)
     class Meta:
         model = ProductImage
-        fields = ['id','color', 'image']
+        fields = ['id','color','hex_code', 'image']
 
 class SizeRecommendationSerializer(serializers.Serializer):
     """Serializer for individual size recommendations"""
@@ -252,7 +253,6 @@ class PartnerProductSizeSerializer(serializers.ModelSerializer):
 
 class PartnerProductSerializer(serializers.ModelSerializer):
     """Serializer for partner's dashboard/inventory management"""
-    id = serializers.IntegerField(source='product.id')
     brand = serializers.CharField(source='product.brand.name', read_only=True)
     name = serializers.CharField(source='product.name', read_only=True)
     stock_status = serializers.SerializerMethodField()
@@ -263,7 +263,7 @@ class PartnerProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = PartnerProduct
         fields = [
-            'id', 'brand', 'name', 'color','eanc', 'stock_status', 'price',
+            'id', 'brand', 'name', 'color','eanc', 'stock_status', 'price','buy_price',
             'local', 'online', 'size_data','warehouse'
         ]
     
@@ -450,10 +450,9 @@ class PartnerProductDetailSerializer(serializers.ModelSerializer):
         ).values_list('color__color', flat=True).distinct())
     
     def get_images(self, obj):
-        # Get images for all colors this partner has for this product that are ONLINE
+        # Get images for all colors available globally for this product that are ONLINE
         active_color_ids = PartnerProduct.objects.filter(
             product=obj.product, 
-            partner=obj.partner,
             is_active=True,
             online=True
         ).values_list('color_id', flat=True)
@@ -481,23 +480,45 @@ class PartnerProductDetailSerializer(serializers.ModelSerializer):
         except:
             return []
     
-    def get_sizes(self, obj):
-        """Return sizes across all color variants for this partner that are ONLINE"""
-        active_variant_ids = PartnerProduct.objects.filter(
-            product=obj.product, 
-            partner=obj.partner,
+    def get_price(self, obj):
+        # Global view: show the minimum price available for this product
+        min_price = PartnerProduct.objects.filter(
+            product=obj.product,
             is_active=True,
             online=True
-        ).values_list('id', flat=True)
+        ).aggregate(models.Min('price'))['price__min']
+        return min_price or obj.price
+
+    def get_sizes(self, obj):
+        """Return sizes grouped by color variant for this product"""
+        # Get all online variants for this product
+        active_variants = PartnerProduct.objects.filter(
+            product=obj.product, 
+            is_active=True,
+            online=True
+        ).select_related('color').prefetch_related('size_quantities__size')
         
-        size_quantities = PartnerProductSize.objects.filter(
-            partner_product_id__in=active_variant_ids
-        ).select_related('size').all()
-        return PartnerProductSizeSerializer(size_quantities, many=True).data
+        results = []
+        for variant in active_variants:
+            sizes = variant.size_quantities.all()
+            if sizes:
+                results.append({
+                    "color": variant.color.color,
+                    "hex_code": variant.color.hex_code,
+                    "variant_id": variant.id, 
+                    "sizes": PartnerProductSizeSerializer(sizes, many=True).data
+                })
+        return results
     
     def get_quantity(self, obj):
-        """Return total stock quantity"""
-        return obj.total_stock_quantity
+        """Return total stock quantity across all partners"""
+        # Calculate sum of stock from all active variants
+        # Join with PartnerProductSize to sum quantity field
+        return PartnerProductSize.objects.filter(
+            partner_product__product=obj.product,
+            partner_product__is_active=True,
+            partner_product__online=True
+        ).aggregate(total=models.Sum('quantity'))['total'] or 0
     
     def get_match_data(self, obj):
         """Return detailed match analysis"""

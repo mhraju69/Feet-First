@@ -301,6 +301,7 @@ class PartnerProduct(models.Model):
     partner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='product_prices')
     sizes = models.ManyToManyField(Size, through='PartnerProductSize', related_name='partner_product_sizes', help_text="Sizes with quantities for this product")
     color = models.ForeignKey(Color, on_delete=models.CASCADE, related_name='partner_product_colors', help_text="Color variant for this product")
+    buy_price = models.DecimalField(default=0.00, max_digits=12, decimal_places=2, help_text="Partner's custom price for this product")
     price = models.DecimalField(default=0.00, max_digits=12, decimal_places=2, help_text="Partner's custom price for this product")
     is_active = models.BooleanField(default=True, help_text="Is this product active for this partner")
     local = models.BooleanField(default=True, help_text="Is this product available locally")
@@ -310,8 +311,10 @@ class PartnerProduct(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def save(self, *args, **kwargs):
-        if self.price is not None:
+        if self.price is not None :
             self.price = round(self.price, 2)
+        if self.buy_price is not None:
+            self.buy_price = round(self.buy_price, 2)
         super().save(*args, **kwargs)
     
     class Meta:
