@@ -493,6 +493,7 @@ class ApprovedPartnerProductUpdateView(views.APIView):
         warehouse_id = request.data.get('warehouse_id', None)
         action = kwargs.get('action')
         eanc = request.data.get('eanc', None)
+        buy_price = request.data.get('buy_price', 0)
         
         # Valid actions: add, update, del/remove
         if not product_id or action not in ['add', 'update', 'del', 'remove']:
@@ -623,6 +624,7 @@ class ApprovedPartnerProductUpdateView(views.APIView):
             partner_product = PartnerProduct.objects.create(
                 partner=request.user,
                 product=product,
+                buy_price=buy_price,
                 price=price,
                 color_id=color_id,
                 is_active=online,
@@ -1171,6 +1173,7 @@ class AddLocalOnlyPartnerProduct(views.APIView):
             warehouse_id = request.data.get('warehouse')
             sizes_input = request.data.get('sizes', []) # Expecting list/dict like {"EU 40": 20}
             eanc = request.data.get('eanc', None)
+            buy_price = request.data.get('buy_price', 0)
             
             if not name:
                 return Response({"error": "Name is required."}, status=status.HTTP_400_BAD_REQUEST)
@@ -1210,7 +1213,8 @@ class AddLocalOnlyPartnerProduct(views.APIView):
                     'price': price,
                     'local': True,
                     'online': False,
-                    'eanc': eanc
+                    'eanc': eanc,
+                    'buy_price': buy_price,
                 }
             )
 
