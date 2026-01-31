@@ -682,8 +682,6 @@ class CreateOrderView(views.APIView):
                 )
                 payments_ids.append(payment.id)
                 
-            # Clear cart after order records are successfully created
-            cart_items.delete()
                 
         except Exception as e:
              return Response({"error": f"Failed to create orders: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -778,7 +776,7 @@ class stripe_webhook(views.APIView):
                 
                 print(f"Stripe webhook - Payment intent succeeded: {txn_id}")
                 self._handle_payment_success(orders_metadata, txn_id, invoice_url)
-            
+                cart_items.delete()
             return Response({"message": "Webhook processed successfully"}, status=status.HTTP_200_OK)
         
         except Exception as e:
@@ -1146,25 +1144,54 @@ class AccessoriesAPIView(views.APIView):
             pk = request.data.get('id')
             if not pk:
                 return Response({"error": "ID is required."}, status=status.HTTP_400_BAD_REQUEST)
-            accessories = Accessories.objects.filter(id=pk)
-            if not accessories.exists():
+            
+            # Ensure the accessory belongs to the requesting partner
+            accessories = Accessories.objects.filter(id=pk, partner=request.user).first()
+            if not accessories:
                 return Response({"error": "Accessories not found."}, status=status.HTTP_404_NOT_FOUND)
-            accessories = accessories.first()
-            accessories.name = request.data.get('name', accessories.name)
-            brand_name = request.data.get('brand')
-            if brand_name:
-                brand = Brand.objects.filter(name__iexact=brand_name).first()
-                if not brand:
-                    brand = Brand.objects.create(name=brand_name)
-                accessories.brand = brand
-            accessories.price = request.data.get('price', accessories.price)
-            accessories.eanc = request.data.get('eanc', accessories.eanc)
-            accessories.article = request.data.get('article', accessories.article)
-            accessories.stock = request.data.get('stock', accessories.stock)
-            accessories.online = request.data.get('online', accessories.online)
-            accessories.local = request.data.get('local', accessories.local)
-            accessories.buy_price = request.data.get('buy_price', accessories.buy_price)
-            accessories.warehouse = Warehouse.objects.filter(id=request.data.get('warehouse', accessories.warehouse.id)).first()
+            
+            # Update fields if present in request
+            if 'name' in request.data:
+                accessories.name = request.data.get('name')
+            
+            if 'brand' in request.data:
+                brand_name = request.data.get('brand')
+                if brand_name:
+                    brand = Brand.objects.filter(name__iexact=brand_name).first()
+                    if not brand:
+                        brand = Brand.objects.create(name=brand_name)
+                    accessories.brand = brand
+            
+            if 'price' in request.data:
+                accessories.price = request.data.get('price')
+            
+            if 'eanc' in request.data:
+                accessories.eanc = request.data.get('eanc')
+            
+            if 'article' in request.data:
+                accessories.article = request.data.get('article')
+            
+            if 'stock' in request.data:
+                accessories.stock = request.data.get('stock')
+            
+            if 'online' in request.data:
+                accessories.online = request.data.get('online')
+            
+            if 'local' in request.data:
+                accessories.local = request.data.get('local')
+            
+            if 'buy_price' in request.data:
+                accessories.buy_price = request.data.get('buy_price')
+                
+            if 'warehouse' in request.data:
+                warehouse_id = request.data.get('warehouse')
+                if warehouse_id:
+                    warehouse = Warehouse.objects.filter(id=warehouse_id, partner=request.user).first()
+                    if warehouse:
+                        accessories.warehouse = warehouse
+                else:
+                    accessories.warehouse = None
+
             accessories.save()
             return Response(AccessoriesSerializer(accessories).data, status=status.HTTP_200_OK)
         except Exception as e:

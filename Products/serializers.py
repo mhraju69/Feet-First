@@ -82,9 +82,14 @@ class ProductSerializer(serializers.ModelSerializer):
 
     def get_favourite(self, obj):
         request = self.context.get("request")
-        if request and request.user.is_authenticated:
-            return Favorite.objects.filter(user=request.user, products__product=obj).exists()
-        return False
+        if not (request and request.user.is_authenticated):
+            return False
+            
+        favorite_ids = self.context.get("favorite_ids")
+        if favorite_ids is not None:
+            return obj.id in favorite_ids
+            
+        return Favorite.objects.filter(user=request.user, products=obj).exists()
 
 class ProductDetailsSerializer(serializers.ModelSerializer):
     images = ProductImageSerializer(many=True)
@@ -405,9 +410,9 @@ class PartnerProductListSerializer(serializers.ModelSerializer):
 
         favorite_ids = self.context.get("favorite_ids")
         if favorite_ids is not None:
-            return obj.id in favorite_ids
+            return obj.product.id in favorite_ids
             
-        return Favorite.objects.filter(user=request.user, products=obj).exists()
+        return Favorite.objects.filter(user=request.user, products=obj.product).exists()
 
 class PartnerProductDetailSerializer(serializers.ModelSerializer):
     """Serializer for detailed product view in multi-vendor system"""
@@ -547,9 +552,9 @@ class PartnerProductDetailSerializer(serializers.ModelSerializer):
 
         favorite_ids = self.context.get("favorite_ids")
         if favorite_ids is not None:
-            return obj.id in favorite_ids
+            return obj.product.id in favorite_ids
             
-        return Favorite.objects.filter(user=request.user, products=obj).exists()
+        return Favorite.objects.filter(user=request.user, products=obj.product).exists()
     
     def get_qna(self, obj):
         qna_list = []
@@ -561,9 +566,30 @@ class PartnerProductDetailSerializer(serializers.ModelSerializer):
         return qna_list
 
 class FavoriteSerializer(serializers.ModelSerializer):
-    products = PartnerProductListSerializer(many=True, read_only=True)
+    products = serializers.SerializerMethodField()
 
     class Meta:
         model = Favorite
         fields = ['id', 'user', 'products']
         read_only_fields = ['user']
+
+    def get_products(self, obj):
+        from django.db.models import OuterRef, Subquery
+        # result list of PartnerProducts
+        product_ids = obj.products.filter(is_active=True).values_list('id', flat=True)
+
+        # Find the best active variant for each favorited product in one query
+        best_variant_sq = PartnerProduct.objects.filter(
+            product=OuterRef('product'),
+            is_active=True,
+            online=True
+        ).order_by('price', 'id').values('id')[:1]
+
+        partner_products = PartnerProduct.objects.filter(
+            product_id__in=product_ids,
+            id=Subquery(best_variant_sq)
+        ).select_related(
+            'product', 'product__brand', 'product__sub_category'
+        ).prefetch_related('product__images')
+
+        return PartnerProductListSerializer(partner_products, many=True, context=self.context).data

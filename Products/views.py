@@ -242,16 +242,15 @@ class FavoriteUpdateView(views.APIView):
             return Response({"error": "Invalid request."}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            # The favorite model now stores PartnerProduct instances
-            partner_product = PartnerProduct.objects.get(id=product_id, is_active=True)
-        except (PartnerProduct.DoesNotExist, ValueError):
+            product = Product.objects.get(id=product_id, is_active=True)
+        except (Product.DoesNotExist, ValueError):
             return Response({"error": "Product not found in inventory."}, status=status.HTTP_404_NOT_FOUND)
 
         if action == 'add':
-            favorite.products.add(partner_product)
+            favorite.products.add(product)
             message = "Product added to favorites"
         else:
-            favorite.products.remove(partner_product)
+            favorite.products.remove(product)
             message = "Product removed from favorites"
         
         return Response({"message": message}, status=status.HTTP_200_OK)
@@ -441,14 +440,20 @@ class SingleProductForPartnerView(views.APIView):
     permission_classes = [permissions.IsAuthenticated, IsPartner]
     
     def get(self, request, product_id):
-        # Allow filtering by color if multiple variants exist
-        color_id = request.query_params.get('color_id')
-        queryset = PartnerProduct.objects.filter(product_id=product_id, partner=request.user)
+        # 1. Try to find by PartnerProduct ID (specific variant)
+        partner_product = PartnerProduct.objects.filter(id=product_id, partner=request.user).first()
         
-        if color_id:
-            partner_product = queryset.filter(color_id=color_id).first()
-        else:
-            partner_product = queryset.first()
+        if not partner_product:
+            # 2. Fallback: Lookup by Product ID (catalogue product)
+            queryset = PartnerProduct.objects.filter(product_id=product_id, partner=request.user)
+            
+            # Allow filtering by color if multiple variants for the same product exist
+            color_id = request.query_params.get('color_id')
+            if color_id:
+                partner_product = queryset.filter(color_id=color_id).first()
+            else:
+                # Just pick the first one found for this product
+                partner_product = queryset.first()
 
         if partner_product:
             serializer = PartnerProductSerializer(partner_product)

@@ -337,7 +337,7 @@ class Favorite(models.Model):
         related_name="favorite"
     )
     products = models.ManyToManyField(
-        PartnerProduct,
+        Product,
         related_name="favorited_by",
         blank=True
     )
