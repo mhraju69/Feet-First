@@ -107,10 +107,11 @@ class CartItemSerializer(serializers.ModelSerializer):
     size_type = serializers.CharField(source='size.size.type', read_only=True)
     product_id = serializers.IntegerField(source='partner_product.product.id', read_only=True)
     size_id = serializers.IntegerField(source='size.id', read_only=True)
+    available = serializers.IntegerField(source='size.quantity', read_only=True)
     
     class Meta:
         model = CartItem
-        fields = ['id', 'product_id', 'product_name', 'product_image', 'size_id', 'size_label', 'size_type', 'color', 'quantity', 'price', 'total_price']
+        fields = ['id', 'product_id', 'product_name', 'product_image', 'size_id', 'size_label', 'size_type', 'color', 'quantity', 'price', 'total_price', 'available']
 
     def get_product_image(self, obj):
         # Try to find image matching the color
@@ -123,10 +124,13 @@ class CartItemSerializer(serializers.ModelSerializer):
             return images.first().image.url
         return None
 
+
+
 class CartSerializer(serializers.ModelSerializer):
     items = CartItemSerializer(many=True, read_only=True)
     total_price = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
     count = serializers.SerializerMethodField()
+    
 
     class Meta:
         model = Cart
@@ -134,6 +138,7 @@ class CartSerializer(serializers.ModelSerializer):
 
     def get_count(self, obj):
         return obj.items.aggregate(total=Sum('quantity')).get('total')
+
 
 class AccessoriesSerializer(serializers.ModelSerializer):
     brand = serializers.CharField(source='brand.name', read_only=True)

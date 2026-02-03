@@ -477,7 +477,7 @@ class CartAPIView(views.APIView):
 
         # Check stock
         if partner_product_size.quantity < quantity:
-             return Response({"error": f"Insufficient stock. Available: {partner_product_size.quantity}"}, status=status.HTTP_400_BAD_REQUEST)
+             return Response({"error": f"Insufficient stock. Available: {partner_product_size.quantity}","quantity": partner_product_size.quantity}, status=status.HTTP_400_BAD_REQUEST)
 
         cart, _ = Cart.objects.get_or_create(user=request.user)
 
@@ -533,7 +533,7 @@ class CartItemUpdateDeleteView(views.APIView):
 
         # Check stock
         if cart_item.size.quantity < quantity:
-             return Response({"error": f"Insufficient stock. Available: {cart_item.size.quantity}"}, status=status.HTTP_400_BAD_REQUEST)
+             return Response({"error": f"Insufficient stock. Available: {cart_item.size.quantity}","quantity": partner_product_size.quantity}, status=status.HTTP_400_BAD_REQUEST)
 
         cart_item.quantity = quantity
         cart_item.save()

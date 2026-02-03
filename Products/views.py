@@ -590,13 +590,21 @@ class ApprovedPartnerProductUpdateView(views.APIView):
             if has_global_image:
                 # Get all official sizes for this specific product-color image
                 official_size_ids = set(Size.objects.filter(
+                    table__product_images__product=product
+                ).values_list('id', flat=True).distinct())
+                
+                # Also check sizes specifically linked to this color's image
+                color_specific_size_ids = set(Size.objects.filter(
                     table__product_images=product_image
                 ).values_list('id', flat=True))
+                
+                # Merge both sets - a size is official if it's in either the product's tables OR the color-specific tables
+                all_official_size_ids = official_size_ids | color_specific_size_ids
                 
                 for sq_data in resolved_sizes:
                     s_id = sq_data.get('size_id')
                     s_label = sq_data.get('label', f"ID:{s_id}")
-                    if s_id not in official_size_ids:
+                    if s_id not in all_official_size_ids:
                         print(f"DEBUG: Size '{s_label}' (Resolved ID: {s_id}) is not in official size table for Product {product.id} color {color_obj}. Marking as local.")
                         all_sizes_official = False
                         break
@@ -607,6 +615,31 @@ class ApprovedPartnerProductUpdateView(views.APIView):
             
             # Final online status decision
             requested_online = request.data.get('online', False)
+            if requested_online and not can_be_online:
+                # User is trying to set online=True but product doesn't meet requirements
+                error_reasons = []
+                if not has_global_image:
+                    error_reasons.append(f"No global image found for color '{color_obj.color}'")
+                if not all_sizes_official:
+                    # Get the unofficial size details
+                    unofficial_sizes = []
+                    for sq_data in resolved_sizes:
+                        s_id = sq_data.get('size_id')
+                        s_label = sq_data.get('label', f"ID:{s_id}")
+                        if s_id not in all_official_size_ids:
+                            unofficial_sizes.append(s_label)
+                    if unofficial_sizes:
+                        error_reasons.append(f"Unofficial sizes detected: {', '.join(unofficial_sizes)}")
+                    else:
+                        error_reasons.append("One or more sizes are not in the official size table")
+                
+                return Response({
+                    "error": "This product cannot be set to online status.",
+                    "reasons": error_reasons,
+                    "message": "Please ensure the product has a global image and all sizes are from the official size table. The product will be added as local-only."
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Set online status
             if requested_online and not can_be_online:
                 online = False
             else:
@@ -766,14 +799,24 @@ class ApprovedPartnerProductUpdateView(views.APIView):
             
             all_sizes_official = True
             if has_global_image:
+                # Get all official sizes for this product (from ALL images, not just this color)
+                # This is because sizes are typically shared across colors for the same product
                 official_size_ids = set(Size.objects.filter(
+                    table__product_images__product=partner_product.product
+                ).values_list('id', flat=True).distinct())
+                
+                # Also check sizes specifically linked to this color's image
+                color_specific_size_ids = set(Size.objects.filter(
                     table__product_images=product_image
                 ).values_list('id', flat=True))
+                
+                # Merge both sets - a size is official if it's in either the product's tables OR the color-specific tables
+                all_official_size_ids = official_size_ids | color_specific_size_ids
                 
                 # Check ALL current sizes for this partner product
                 current_sizes = PartnerProductSize.objects.filter(partner_product=partner_product)
                 for pps in current_sizes:
-                    if pps.size_id not in official_size_ids:
+                    if pps.size_id not in all_official_size_ids:
                         print(f"DEBUG: Size ID {pps.size_id} for PartnerProduct {partner_product.id} is unofficial. Marking online=False.")
                         all_sizes_official = False
                         break
@@ -786,7 +829,27 @@ class ApprovedPartnerProductUpdateView(views.APIView):
             if 'online' in request.data:
                 requested_online = request.data.get('online')
                 if requested_online and not can_be_online:
-                    partner_product.online = False
+                    # User is trying to set online=True but product doesn't meet requirements
+                    error_reasons = []
+                    if not has_global_image:
+                        error_reasons.append(f"No global image found for color '{partner_product.color.color}'")
+                    if not all_sizes_official:
+                        # Get the unofficial size details
+                        unofficial_sizes = []
+                        current_sizes = PartnerProductSize.objects.filter(partner_product=partner_product).select_related('size')
+                        for pps in current_sizes:
+                            if pps.size_id not in all_official_size_ids:
+                                unofficial_sizes.append(f"{pps.size.type} {pps.size.value}")
+                        if unofficial_sizes:
+                            error_reasons.append(f"Unofficial sizes detected: {', '.join(unofficial_sizes)}")
+                        else:
+                            error_reasons.append("One or more sizes are not in the official size table")
+                    
+                    return Response({
+                        "error": "This product cannot be set to online status.",
+                        "reasons": error_reasons,
+                        "message": "Please ensure the product has a global image and all sizes are from the official size table."
+                    }, status=status.HTTP_400_BAD_REQUEST)
                 else:
                     partner_product.online = requested_online
             else:
