@@ -14,15 +14,15 @@ from celery.schedules import schedule
 # Beat schedule
 app.conf.beat_schedule.update({
     "cleanup-expired-tokens-daily": {
-        "task": "Accounts.utils.cleanup_expired_tokens",
+        "task": "Accounts.tasks.cleanup_expired_tokens",
         "schedule": crontab(hour=0, minute=0),  # Daily at 12:00 AM
     },
     "cleanup-expired-otps": {
-        "task": "Accounts.utils.cleanup_expired_otps",
+        "task": "Accounts.tasks.cleanup_expired_otps",
         "schedule": schedule(3600.0),  # Every 60 minutes
     },
     "cleanup-deletion-requests-daily": {
-        "task": "Accounts.utils.cleanup_old_deletion_requests",
+        "task": "Accounts.tasks.cleanup_old_deletion_requests",
         "schedule": crontab(hour=0, minute=0),  # run daily at midnight
     },
     'create-monthly-finance-at-start-of-month': {

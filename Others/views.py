@@ -448,7 +448,6 @@ class CartAPIView(views.APIView):
         size_id = request.data.get('size_id')
         color = request.data.get('color')
         quantity = request.data.get('quantity', 1)
-
         if not all([product_id, size_id]):
             return Response({"error": "product and size_id are required."}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -456,7 +455,7 @@ class CartAPIView(views.APIView):
             quantity = int(quantity)
             if quantity <= 0:
                 raise ValueError
-        except ValueError:
+        except (ValueError, TypeError):
             return Response({"error": "Quantity must be a positive integer."}, status=status.HTTP_400_BAD_REQUEST)
 
         # Retrieve size and partner product
@@ -467,6 +466,13 @@ class CartAPIView(views.APIView):
         except PartnerProductSize.DoesNotExist:
              return Response({"error": "Invalid Size ID."}, status=status.HTTP_404_NOT_FOUND)
 
+        # Auto-cap quantity to available stock
+        quantity = min(quantity, partner_product_size.quantity)
+        if quantity <= 0:
+             product_name = partner_product.product.name
+             size_value = partner_product_size.size.value
+             return Response({"error": f"{product_name} size {size_value} is currently out of stock."}, status=status.HTTP_400_BAD_REQUEST)
+
         # Validate that this variant belongs to the requested Product (if product_id provided)
         if product_id and str(partner_product.product.id) != str(product_id):
              return Response({"error": "Size does not belong to the specified product."}, status=status.HTTP_400_BAD_REQUEST)
@@ -475,7 +481,7 @@ class CartAPIView(views.APIView):
         if not partner_product.is_active or not partner_product.online:
             return Response({"error": "This product variant is currently not available for online purchase."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Check stock
+        # Validate stock (Already capped above for initial quantity, but good to have)
         if partner_product_size.quantity < quantity:
              return Response({"error": f"Insufficient stock. Available: {partner_product_size.quantity}","quantity": partner_product_size.quantity}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -533,7 +539,7 @@ class CartItemUpdateDeleteView(views.APIView):
 
         # Check stock
         if cart_item.size.quantity < quantity:
-             return Response({"error": f"Insufficient stock. Available: {cart_item.size.quantity}","quantity": partner_product_size.quantity}, status=status.HTTP_400_BAD_REQUEST)
+             return Response({"error": f"Insufficient stock. Available: {cart_item.size.quantity}","quantity": cart_item.size.quantity}, status=status.HTTP_400_BAD_REQUEST)
 
         cart_item.quantity = quantity
         cart_item.save()
@@ -576,31 +582,31 @@ class CreateOrderView(views.APIView):
         validated_items = []
         total_amount = Decimal('0.00')
         
-        # try:
-        #     address = Address.objects.filter(user=request.user).first()
-        #     if not address:
-        #         return Response({"error": "Please complete your address first."}, status=status.HTTP_400_BAD_REQUEST)
-        #     # Validate required fields as per user request
-        #     required_fields = {
-        #         'first_name': address.first_name,
-        #         'last_name': address.last_name,
-        #         'street_address': address.street_address,
-        #         'address_line2': address.address_line2,
-        #         'postal_code': address.postal_code,
-        #         'city': address.city,
-        #         'phone_number': address.phone_number,
-        #         'country': address.country
-        #     }
+        try:
+            address = Address.objects.filter(user=request.user).first()
+            if not address:
+                return Response({"error": "Please complete your address first."}, status=status.HTTP_400_BAD_REQUEST)
+            # Validate required fields as per user request
+            required_fields = {
+                'first_name': address.first_name,
+                'last_name': address.last_name,
+                'street_address': address.street_address,
+                'address_line2': address.address_line2,
+                'postal_code': address.postal_code,
+                'city': address.city,
+                'phone_number': address.phone_number,
+                'country': address.country
+            }
             
-        #     missing_or_empty = [field for field, value in required_fields.items() if not value or str(value).strip() == '']
+            missing_or_empty = [field for field, value in required_fields.items() if not value or str(value).strip() == '']
             
-        #     if missing_or_empty:
-        #         return Response({
-        #             "error": f"Please complete your address. Missing fields: {', '.join(missing_or_empty)}"
-        #         }, status=status.HTTP_400_BAD_REQUEST)
+            if missing_or_empty:
+                return Response({
+                    "error": f"Please complete your address. Missing fields: {', '.join(missing_or_empty)}"
+                }, status=status.HTTP_400_BAD_REQUEST)
 
-        # except Address.DoesNotExist:
-        #      return Response({"error": "Invalid Address ID"}, status=status.HTTP_400_BAD_REQUEST)
+        except Address.DoesNotExist:
+             return Response({"error": "Invalid Address ID"}, status=status.HTTP_400_BAD_REQUEST)
 
         # Phase 1: Validate ALL items from cart
         customer_name = request.user.name if hasattr(request.user, 'name') and request.user.name else request.user.email
@@ -614,10 +620,12 @@ class CreateOrderView(views.APIView):
                 partner = partner_product.partner
                 product = partner_product.product
                 
-                # Check Stock Availability
-                if partner_product_size.quantity < quantity:
+                # Auto-cap quantity to available stock (Order minimum available)
+                quantity = min(quantity, partner_product_size.quantity)
+                
+                if quantity <= 0:
                     return Response({
-                        "error": f"Insufficient stock for '{product.name}' size {partner_product_size.size}. Available: {partner_product_size.quantity}"
+                        "error": f"{product.name} size {partner_product_size.size.value} is out of stock. Please update your cart."
                     }, status=status.HTTP_400_BAD_REQUEST)
 
                 # Prepare Validated Item
@@ -775,8 +783,7 @@ class stripe_webhook(views.APIView):
                         print(f"Stripe webhook - Error fetching receipt for PI: {e}")
                 
                 print(f"Stripe webhook - Payment intent succeeded: {txn_id}")
-                self._handle_payment_success(orders_metadata, txn_id, invoice_url)
-                cart_items.delete()
+                self._handle_payment_success(orders_metadata, txn_id, invoice_url, request.user if hasattr(request, 'user') and request.user.is_authenticated else None)
             return Response({"message": "Webhook processed successfully"}, status=status.HTTP_200_OK)
         
         except Exception as e:
@@ -785,7 +792,7 @@ class stripe_webhook(views.APIView):
             traceback.print_exc()
             return Response({"error": f"Webhook error: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    def _handle_payment_success(self, orders_metadata, txn_id, invoice_url=""):
+    def _handle_payment_success(self, orders_metadata, txn_id, invoice_url="", user=None):
         if not orders_metadata:
             print("Stripe webhook - No orders metadata found in success event")
             return
@@ -854,12 +861,10 @@ class stripe_webhook(views.APIView):
                             'this_month_revenue': Decimal('0.00'),
                         }
                     )
-                    
                     if created:
                         prev_finance = Finance.objects.filter(partner=partner).exclude(
                             year=current_date.year, month=current_date.month
                         ).order_by('-year', '-month').first()
-                        
                         if prev_finance:
                             finance.balance = prev_finance.balance
                             finance.save()
@@ -869,7 +874,13 @@ class stripe_webhook(views.APIView):
                     finance.save()
 
                 # Update all orders to confirmed
-                updated_count = orders_qs.update(status='confirmed')
+                orders_qs.update(status='confirmed')
+                
+                # Clear cart if user is known
+                if user:
+                    CartItem.objects.filter(cart__user=user).delete()
+                elif orders_qs.exists():
+                    CartItem.objects.filter(cart__user=orders_qs.first().user).delete()
                 
                 # Create OrderInvoice record
                 first_order = orders_qs.first()
@@ -882,7 +893,7 @@ class stripe_webhook(views.APIView):
                 )
                 order_invoice.orders.set(orders_qs)
                 
-                print(f"Stripe webhook - Successfully processed payment. Updated {updated_count} orders. Txn ID: {txn_id}")
+                print(f"Stripe webhook - Successfully processed payment. Updated {orders_qs.count()} orders. Txn ID: {txn_id}")
         except Exception as e:
             print(f"Stripe webhook - error in _handle_payment_success: {str(e)}")
             import traceback
