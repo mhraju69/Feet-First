@@ -251,6 +251,8 @@ class PartnerProductSizeSerializer(serializers.ModelSerializer):
         fields = ['size_id', 'size', 'quantity', 'color']
     
     def get_color(self, obj):
+        if obj.color:
+            return obj.color.color
         return obj.partner_product.color.color if obj.partner_product.color else "N/A"
     
     def get_size(self, obj):

@@ -537,8 +537,8 @@ class ApprovedPartnerProductUpdateView(views.APIView):
 
             
             # --- Size Resolution Logic ---
-            resolved_sizes = [] # List of {'size_id': id, 'quantity': q}
-
+            resolved_map = {} # size_id -> quantity
+            
             if isinstance(size_quantities, dict):
                 # Format: {"EU 40": 10}
                 for size_str, qty in size_quantities.items():
@@ -565,13 +565,18 @@ class ApprovedPartnerProductUpdateView(views.APIView):
                         local_table, _ = SizeTable.objects.get_or_create(brand=product.brand, name="Local Sizes")
                         size_obj = Size.objects.create(table=local_table, type=s_type, value=s_value, insole_min_mm=0, insole_max_mm=0)
                     
-                    resolved_sizes.append({'size_id': size_obj.id, 'label': size_str, 'quantity': qty})
+                    resolved_map[size_obj.id] = resolved_map.get(size_obj.id, 0) + int(qty)
             
             elif isinstance(size_quantities, list):
                 # Format: [{"size_id": 1, "quantity": 10}]
-                resolved_sizes = size_quantities
+                for item in size_quantities:
+                    s_id = item.get('size_id')
+                    if s_id:
+                        resolved_map[s_id] = resolved_map.get(s_id, 0) + int(item.get('quantity', 0))
             else:
                 return Response({"error": "Sizes format must be a list or a dictionary."}, status=status.HTTP_400_BAD_REQUEST)
+
+            resolved_sizes = [{'size_id': s_id, 'quantity': q} for s_id, q in resolved_map.items()]
 
             if not resolved_sizes:
                 return Response({"error": "Sizes with quantities are required."}, status=status.HTTP_400_BAD_REQUEST)
@@ -671,7 +676,8 @@ class ApprovedPartnerProductUpdateView(views.APIView):
                 PartnerProductSize.objects.create(
                     partner_product=partner_product,
                     size_id=sq_data.get('size_id'),
-                    quantity=sq_data.get('quantity', 0)
+                    quantity=sq_data.get('quantity', 0),
+                    color=partner_product.color
                 )
 
             if warehouse_id:
@@ -728,7 +734,7 @@ class ApprovedPartnerProductUpdateView(views.APIView):
             # 3. Handle sizes update
             if 'sizes' in request.data:
                 size_input = request.data.get('sizes')
-                resolved_updates = []
+                resolved_map_update = {} # size_id -> quantity
 
                 if isinstance(size_input, dict):
                     # Format: {"EU 40": 10}
@@ -756,39 +762,24 @@ class ApprovedPartnerProductUpdateView(views.APIView):
                             local_table, _ = SizeTable.objects.get_or_create(brand=partner_product.product.brand, name="Local Sizes")
                             size_obj = Size.objects.create(table=local_table, type=s_type, value=s_value, insole_min_mm=0, insole_max_mm=0)
                         
-                        resolved_updates.append({'size_id': size_obj.id, 'quantity': qty})
+                        resolved_map_update[size_obj.id] = resolved_map_update.get(size_obj.id, 0) + int(qty)
+                
                 elif isinstance(size_input, list):
-                    resolved_updates = size_input
+                    # Format: [{"size_id": 1, "quantity": 10}]
+                    for item in size_input:
+                        s_id = item.get('size_id')
+                        if s_id:
+                            resolved_map_update[s_id] = resolved_map_update.get(s_id, 0) + int(item.get('quantity', 0))
 
-                if resolved_updates:
-                    resolved_map = {}
-                    for sq_data in resolved_updates:
-                        input_id = sq_data.get('size_id')
-                        if input_id is None: continue
-                        
-                        # Check if it's already a PartnerProductSize ID
-                        pps = PartnerProductSize.objects.filter(id=input_id, partner_product=partner_product).first()
-                        if pps:
-                            resolved_map[input_id] = pps.size_id
-                            continue
-                            
-                        if Size.objects.filter(id=input_id).exists():
-                            resolved_map[input_id] = input_id
-                            continue
-                        
-                        return Response({"error": f"Size ID {input_id} not found."}, status=status.HTTP_404_NOT_FOUND)
-
-                    for sq_data in resolved_updates:
-                        input_id = sq_data.get('size_id')
-                        quantity = sq_data.get('quantity', 0)
-                        real_size_id = resolved_map.get(input_id)
-                        if real_size_id is not None:
-                            print(f"DEBUG: Updating PartnerProductSize: Variant:{partner_product.id}, SizeID:{real_size_id}, NewQty:{quantity}")
-                            PartnerProductSize.objects.update_or_create(
-                                partner_product=partner_product,
-                                size_id=real_size_id,
-                                defaults={'quantity': quantity}
-                            )
+                if resolved_map_update:
+                    for real_size_id, quantity in resolved_map_update.items():
+                        print(f"DEBUG: Updating PartnerProductSize: Variant:{partner_product.id}, SizeID:{real_size_id}, NewQty:{quantity}")
+                        PartnerProductSize.objects.update_or_create(
+                            partner_product=partner_product,
+                            size_id=real_size_id,
+                            color=partner_product.color,
+                            defaults={'quantity': quantity}
+                        )
 
             # 4. Handle Online and Active status validation (After size updates)
             # Must have global image and ALL sizes must be official

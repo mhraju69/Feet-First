@@ -287,14 +287,16 @@ class PartnerProductSize(models.Model):
     """Intermediate model to store quantity for each size in a partner's product"""
     partner_product = models.ForeignKey('PartnerProduct', on_delete=models.CASCADE, related_name='size_quantities')
     size = models.ForeignKey(Size, on_delete=models.CASCADE, related_name='partner_products')
+    color = models.ForeignKey(Color, on_delete=models.SET_NULL, null=True, blank=True, related_name='partner_product_sizes')
     quantity = models.PositiveIntegerField(default=0, help_text="Stock quantity for this specific size")
     
     class Meta:
-        unique_together = ('partner_product', 'size')
+        unique_together = ('partner_product', 'size', 'color')
         ordering = ['size__insole_min_mm']
     
     def __str__(self):
-        return f"{self.partner_product.product.name} - {self.size} - Qty: {self.quantity}"
+        color_str = f" - {self.color.color}" if self.color else ""
+        return f"{self.partner_product.product.name}{color_str} - {self.size} - Qty: {self.quantity}"
 
 class PartnerProduct(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='partner_prices')
