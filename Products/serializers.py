@@ -59,17 +59,18 @@ class ProductSerializer(serializers.ModelSerializer):
     
     def get_sizes(self, obj):
         sizes_list = []
-        seen_sizes = set()
+        seen_labels = set()
 
         for image in obj.images.all():
             for size_table in image.sizes.all():
                 for size in size_table.sizes.all():
-                    if size.id not in seen_sizes:
+                    label = f"{size.type} {size.value}"
+                    if label not in seen_labels:
                         sizes_list.append({
                             "id": size.id,
-                            "size": f"{size.type} {size.value}"
+                            "size": label
                         })
-                        seen_sizes.add(size.id)
+                        seen_labels.add(label)
         return sizes_list
     
     def get_brand(self, obj):
@@ -160,22 +161,21 @@ class ProductDetailsSerializer(serializers.ModelSerializer):
         return {}
         
     def get_sizes(self, obj):
-        sizes_list = []
-        seen_tables = set()
-
-        # Use sizes from related ProductImage
+        # Returns flattened unique sizes across all tables
+        unique_sizes_by_type = {} # type -> set of values
+        
         for image in obj.images.all():
-            for size_table in image.sizes.select_related('brand').all():
-                if size_table.id not in seen_tables:
-                    # Get all size values from the related SizeTable
-                    size_values = list(size_table.sizes.values_list('value', flat=True))
-                    sizes_list.append({
-                        "size": size_values,
-                        "table_name": size_table.name
-                    })
-                    seen_tables.add(size_table.id)
-
-        return sizes_list
+            for size_table in image.sizes.all():
+                for size in size_table.sizes.all():
+                    if size.type not in unique_sizes_by_type:
+                        unique_sizes_by_type[size.type] = set()
+                    unique_sizes_by_type[size.type].add(size.value)
+        
+        # Format for response: list of { "table_name": "EU", "size": ["40", "41"] }
+        return [
+            {"table_name": t, "size": sorted(list(v))} 
+            for t, v in unique_sizes_by_type.items()
+        ]
 
     def get_favourite(self, obj):
         request = self.context.get("request")
