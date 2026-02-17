@@ -199,7 +199,7 @@ CONTACT_EMAIL = os.getenv("CONTACT_EMAIL")
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_ORIGINS = ['http://localhost:5173','http://localhost:5174','http://localhost:5175','https://feetfast.netlify.app']
 ALLOWED_HOSTS = ['localhost','10.10.13.59','ape-in-eft.ngrok-free.app','127.0.0.1','admin.feetf1rst.com','http://localhost:5174','http://10.10.13.81','hecticly-rural-kittie.ngrok-free.dev','http://localhost:5173','http://localhost:5174','http://localhost:5175','feetfast.netlify.app' ]
-CSRF_TRUSTED_ORIGINS = ['http://127.0.0.1:8888','https://ape-in-eft.ngrok-free.app',"http://127.0.0.1:5500","http://localhost:5500","http://localhost:8000","http://admin.feetf1rst.com","http://localhost:5174","http://10.10.13.81","https://hecticly-rural-kittie.ngrok-free.dev","http://localhost:5173","http://localhost:5174","http://localhost:5175","https://feetfast.netlify.app"]
+CSRF_TRUSTED_ORIGINS = ['http://127.0.0.1:8888','https://ape-in-eft.ngrok-free.app',"http://127.0.0.1:5500","http://localhost:5500","http://localhost:8000","https://admin.feetf1rst.com","http://localhost:5174","http://10.10.13.81","https://hecticly-rural-kittie.ngrok-free.dev","http://localhost:5173","http://localhost:5174","http://localhost:5175","https://feetfast.netlify.app"]
 
 CORS_ALLOW_ALL_ORIGINS = True
 
