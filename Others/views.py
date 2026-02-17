@@ -717,9 +717,12 @@ class stripe_webhook(views.APIView):
     authentication_classes = []
 
     def post(self, request):
+        print("Stripe Webhook received a request")
         try:
             payload = request.body
             sig_header = request.META.get('HTTP_STRIPE_SIGNATURE')
+            print(f"Stripe Webhook - Sig Header: {sig_header}")
+            print(f"Stripe Webhook - Payload Length: {len(payload)}")
             event = None
             
             try:
