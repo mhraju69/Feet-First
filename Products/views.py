@@ -1,4 +1,5 @@
 from .utils import *
+import re
 import csv
 import openpyxl
 from .models import *
@@ -923,6 +924,13 @@ class FileUploadPartnerProductView(views.APIView):
     permission_classes = [permissions.IsAuthenticated, IsPartner]
     parser_classes = (MultiPartParser, FormParser)
 
+    def find_column(self, headers, patterns):
+        for pattern in patterns:
+            for header in headers:
+                if re.search(pattern, str(header), re.IGNORECASE):
+                    return header
+        return None
+
     def post(self, request, *args, **kwargs):
         file = request.FILES.get('file')
         if not file:
@@ -963,7 +971,28 @@ class FileUploadPartnerProductView(views.APIView):
         return self.process_uploaded_data(request, data)
 
     def process_uploaded_data(self, request, data):
+        if not data:
+            return Response({"error": "No data found in file"}, status=status.HTTP_400_BAD_REQUEST)
+
         partner = request.user
+        headers = list(data[0].keys())
+
+        # Column patterns for mapping different manufacturer formats
+        col_patterns = {
+            'item_name': [r'item[_\s]?name', r'product[_\s]?name', r'^name$', r'^item$'],
+            'color_name': [r'color[_\s]?name', r'^color$', r'variant', r'shade'],
+            'price': [r'amount[_\s]?incl[_\s]?vat', r'selling[_\s]?price', r'^price$', r'^amount$'],
+            'buy_price': [r'buy[_\s]?price', r'purchase[_\s]?price', r'cost[_\s]?price', r'^cost$', r'buying[_\s]?price'],
+            'ean': [r'^ean$', r'^eanc$', r'barcode', r'upc', r'article[_\s]?no'],
+            'quantity': [r'^qty$', r'^quantity$', r'stock', r'inventory', r'amount'],
+            'size_eu': [r'size[_\s]?eu', r'^eu[_\s]?size$', r'^eu$', r'sizes[_\s]?eu'],
+            'size_usm': [r'size[_\s]?usm', r'size[_\s]?us[_\s]?m', r'usm'],
+            'size_usw': [r'size[_\s]?usw', r'size[_\s]?us[_\s]?w', r'usw'],
+            'size_us': [r'size[_\s]?us', r'^us[_\s]?size$', r'^us$'],
+        }
+
+        # Resolved column names found in the uploaded file
+        cols = {key: self.find_column(headers, patterns) for key, patterns in col_patterns.items()}
         
         # Summary Tracking
         summary = {
@@ -993,12 +1022,13 @@ class FileUploadPartnerProductView(views.APIView):
                 pass
 
         for row in data:
-            item_name = row.get('Item name') or row.get('item_name')
+            item_name = row.get(cols['item_name']) if cols['item_name'] else None
             if not item_name:
                 summary["skipped_rows"] += 1
-                skipped_details.append({"row": row, "reason": "Missing 'Item name'"})
+                skipped_details.append({"row": row, "reason": "Missing item name column or value"})
                 continue
             
+            item_name = str(item_name).strip()
             is_local_only = False
             
             # --- 1. Resolve Product ---
@@ -1042,7 +1072,7 @@ class FileUploadPartnerProductView(views.APIView):
                 summary["matched_products"] += 1
 
             # --- 2. Resolve Color ---
-            color_name = row.get('Color name') or row.get('color_name')
+            color_name = row.get(cols['color_name']) if cols['color_name'] else None
             color_id_val = row.get('color_id')
             image_id_val = row.get('image_id')
             
@@ -1077,8 +1107,11 @@ class FileUploadPartnerProductView(views.APIView):
                 continue
 
             # --- 3. Resolve/Create PartnerProduct ---
-            price_str = row.get('Amount Incl. VAT') or row.get('amount_incl_vat') or row.get('Price') or '0'
+            price_str = row.get(cols['price']) if cols['price'] else '0'
             price = self.clean_price(price_str)
+            
+            buy_price_str = row.get(cols['buy_price']) if cols['buy_price'] else '0'
+            buy_price = self.clean_price(buy_price_str)
             
             partner_product, created = PartnerProduct.objects.get_or_create(
                 partner=partner,
@@ -1086,6 +1119,7 @@ class FileUploadPartnerProductView(views.APIView):
                 color=color_obj,
                 defaults={
                     'price': price,
+                    'buy_price': buy_price,
                     'online': not is_local_only,
                     'local': True,
                     'is_active': True
@@ -1097,6 +1131,7 @@ class FileUploadPartnerProductView(views.APIView):
             else:
                 summary["updated_partner_products"] += 1
                 partner_product.price = price
+                partner_product.buy_price = buy_price
                 # If it was already online=False, keep it. If now it's newly local, set it.
                 if is_local_only:
                     partner_product.online = False
@@ -1105,19 +1140,17 @@ class FileUploadPartnerProductView(views.APIView):
             if is_local_only:
                 summary["local_only_count"] += 1
 
-            # Associate Color - Now already handled via get_or_create
-            # partner_product.color.add(color_obj)  # Removed as it's now a FK
             summary["color_updates"] += 1
 
             if warehouse:
                 warehouse.product.add(partner_product)
             
-            if row.get('EAN') or row.get('ean'):
-                partner_product.eanc = str(row.get('EAN') or row.get('ean')).strip()
+            ean_val = row.get(cols['ean']) if cols['ean'] else None
+            if ean_val:
+                partner_product.eanc = str(ean_val).strip()
                 partner_product.save()
 
-            # --- 4. Resolve Sizes (EU, US, etc.) ---
-            # Define which size types are relevant for this product's gender
+            # --- 4. Resolve Sizes ---
             relevant_types = ['EU']
             if product.gender == 'male':
                 relevant_types.append('USM')
@@ -1126,18 +1159,19 @@ class FileUploadPartnerProductView(views.APIView):
             else: # unisex or others
                 relevant_types.extend(['USM', 'USW'])
 
-            size_cols = [
-                ('Size EU', 'EU'),
-                ('Size US', 'USM'),
-                ('Size US', 'USW'),
-                ('size_eu', 'EU'),
-                ('size_us', 'USM'),
-                ('size_us', 'USW'), # Added for completeness
+            # Dymanic size columns based on regex mapping
+            size_mapping = [
+                (cols['size_eu'], 'EU'),
+                (cols['size_usm'], 'USM'),
+                (cols['size_usw'], 'USW'),
+                (cols['size_us'], 'USM'),
+                (cols['size_us'], 'USW'),
             ]
+            size_cols = [(c, t) for c, t in size_mapping if c]
             
             quantity = 0
             try:
-                quantity_val = row.get('Quantity') or row.get('quantity')
+                quantity_val = row.get(cols['quantity']) if cols['quantity'] else 0
                 quantity = int(quantity_val) if quantity_val is not None else 0
             except:
                 pass
@@ -1147,7 +1181,6 @@ class FileUploadPartnerProductView(views.APIView):
                 if s_type not in relevant_types:
                     continue
                 
-                # If we've already successfully matched a size for this specific column name in this row, skip other types for it
                 if col in processed_columns_in_row:
                     continue
 
@@ -1161,11 +1194,9 @@ class FileUploadPartnerProductView(views.APIView):
                     ).first()
                     
                     if not matching_size:
-                        # Search globally for this size
                         matching_size = Size.objects.filter(type=s_type, value=val).first()
                         
                         if not matching_size:
-                            # Not found globally? Create it in a Local SizeTable.
                             brand = product.brand
                             size_table, _ = SizeTable.objects.get_or_create(brand=brand, name="Local Sizes")
                             matching_size = Size.objects.create(
@@ -1176,10 +1207,7 @@ class FileUploadPartnerProductView(views.APIView):
                                 insole_max_mm=0
                             )
                         
-                        # Since it was a global/local fall-back, mark the partner product as local-only
-                        if not partner_product.online: # already local?
-                            pass
-                        else:
+                        if partner_product.online:
                             partner_product.online = False
                             partner_product.save()
 
@@ -1198,12 +1226,14 @@ class FileUploadPartnerProductView(views.APIView):
                             summary["size_updates"] += 1
 
         return Response({
-            "message": "File processed with local-only fallback logic",
+            "message": "File processed with automated column mapping",
             "summary": summary,
             "debug": {
-                "skipped_details": skipped_details[:50] # Limit debug info
+                "matched_columns": cols,
+                "skipped_details": skipped_details[:50]
             }
         }, status=status.HTTP_200_OK)
+
 
 
     def clean_price(self, price_str):
